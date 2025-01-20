@@ -12,10 +12,10 @@ test-eyeball: build.d/test_eyeball.txt
 
 # Generate test sample from processed files
 build.d/test_eyeball.txt: 
-	python lib/sample_eyeball_output.py 4 --no-pos $(BUILD_DIR)/$(OUT_S3_BUCKET_LINGPROC)/$(OUT_PROCESS_LABEL_LINGPROC)$(OUT_PROCESS_SUBTYPE_LABEL_LINGPROC)/$(OUT_RUN_ID_LINGPROC)/*/*.jsonl.bz2 > $@
+	python lib/sample_eyeball_output.py 4 --no-pos $(BUILD_DIR)/$(S3_BUCKET_LINGPROC)/$(PROCESS_LABEL_LINGPROC)$(PROCESS_SUBTYPE_LABEL_LINGPROC)/$(RUN_ID_LINGPROC)/*/*.jsonl.bz2 > $@
 
 build.d/test_eyeball.tsv: 
-	python lib/sample_eyeball_output.py --no-pos -o $@ $(BUILD_DIR)/$(OUT_S3_BUCKET_LINGPROC)/$(OUT_PROCESS_LABEL_LINGPROC)$(OUT_PROCESS_SUBTYPE_LABEL_LINGPROC)/$(OUT_RUN_ID_LINGPROC)/*/*.jsonl.bz2 > $@
+	python lib/sample_eyeball_output.py --no-pos -o $@ $(BUILD_DIR)/$(S3_BUCKET_LINGPROC)/$(PROCESS_LABEL_LINGPROC)$(PROCESS_SUBTYPE_LABEL_LINGPROC)/$(RUN_ID_LINGPROC)/*/*.jsonl.bz2 > $@
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/test_eyeball_lingproc.mk)
