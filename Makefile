@@ -45,3 +45,12 @@ include clean.mk
 
 # Include AWS configuration targets
 include aws.mk
+
+
+help::
+	@echo "Available targets:"
+	@echo "  help                            # Display this help message"
+	@echo "  LOGGING_LEVEL=DEBUG make help   # Setup for more verbose output"
+
+.DEFAULT_GOAL := help
+PHONY_TARGETS += help
