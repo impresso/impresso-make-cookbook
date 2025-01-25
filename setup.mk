@@ -5,6 +5,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup.mk)
 # Basic setup functionality and directory management
 ###############################################################################
 
+# Directory where build artifacts will be stored
+BUILD_DIR ?= build.d
+
 # TARGET: %.d
 # Creates directory if it doesn't exist
 %.d:
