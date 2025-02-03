@@ -23,17 +23,22 @@ NEWSPAPER_YEAR_SORTING ?= shuf
 newspaper-list-target: $(NEWSPAPERS_TO_PROCESS_FILE)
 PHONY_TARGETS += newspaper-list-target
 
+
+S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(S3_BUCKET_REBUILT)
+  $(call log.debug, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
+
+
 # Rule to generate the file containing the newspapers to process
 # we shuffle the newspapers to avoid recomputations by different machines working on the dataset
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	python -c \
 	"import boto3, os, random; \
 	s3 =boto3.resource( \
-        "s3",\
+        's3',\
         aws_secret_access_key= os.getenv('SE_SECRET_KEY'),\
         aws_access_key_id=os.getenv('SE_ACCESS_KEY'),\
         endpoint_url=os.getenv('SE_HOST_URL'))\
-	bucket = s3.Bucket('$(S3_BUCKET_REBUILT)'); \
+	bucket = s3.Bucket('$(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)'); \
     result = bucket.meta.client.list_objects_v2(Bucket=bucket.name, Delimiter='/'); \
 	l = [prefix['Prefix'][:-1] for prefix in result.get('CommonPrefixes', [])]; \
 	random.shuffle(l); \
