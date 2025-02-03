@@ -10,15 +10,7 @@ sync-input:: sync-input-langident
 
 sync-output:: sync-output-langident
 
-# TARGET: sync-input-langident
-# Synchronizes processed input data from S3 to local directory
-sync-input-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-PHONY_TARGETS += sync-input-langident
 
-# TARGET: sync-output-langident
-# Synchronizes processed output data from S3 to local directory
-sync-output-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-PHONY_TARGETS += sync-output-langident
 # The local per-newspaper synchronization file stamp for the processed input data: What is on S3 has been synced?
 LOCAL_LANGIDENT_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT).last_synced
   $(call log.debug, LOCAL_LANGIDENT_SYNC_STAMP_FILE)
@@ -34,5 +26,16 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	   --stamp-extension '' \
 	   --logfile $@.log.gz \
 	&& touch $@
+
+# TARGET: sync-input-langident
+# Synchronizes processed input data from S3 to local directory
+sync-input-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+PHONY_TARGETS += sync-input-langident
+
+# TARGET: sync-output-langident
+# Synchronizes processed output data from S3 to local directory
+sync-output-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+PHONY_TARGETS += sync-output-langident
+
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_langident.mk)
