@@ -5,6 +5,11 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_langident.mk)
 # Targets for synchronizing processed language identification data between S3 and local storage
 ###############################################################################
 
+
+sync-input:: sync-input-langident
+
+sync-output:: sync-output-langident
+
 # TARGET: sync-input-langident
 # Synchronizes processed input data from S3 to local directory
 sync-input-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
