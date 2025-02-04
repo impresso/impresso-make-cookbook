@@ -5,27 +5,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_lingproc.mk)
 # Targets for setting up the linguistic processing environment
 ###############################################################################
 
-# Detect the operating system
-OS ?= $(shell uname -s)
-  $(call log.debug, OS)
-
-# Initialize INSTALLER
-INSTALLER ?= unknown
-
-# If Linux, check the distribution
-ifeq ($(OS),Linux)
-    DISTRO := $(shell grep -Ei 'debian|ubuntu' /etc/os-release 2>/dev/null)
-    ifneq ($(DISTRO),)
-        INSTALLER := apt
-    endif
-else ifeq ($(OS),Darwin)
-    INSTALLER := brew
-endif
-  $(call log.debug, INSTALLER)
-
 # TARGET: setup
 # Prepares local directories and validates dependencies
-setup:
+setup::
 	# Create the local directory
 	mkdir -p $(LOCAL_PATH_REBUILT)
 	mkdir -p $(LOCAL_PATH_LINGPROC)
@@ -53,4 +35,5 @@ check-python-installation:
 	# OK: PYTHON ENVIRONMENT IS FINE!
 
 PHONY_TARGETS +=  check-python-installation
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_lingproc.mk)
