@@ -22,7 +22,7 @@ LOCAL_LINGPROC_SYNC_STAMP_FILE := $(LOCAL_PATH_LINGPROC).last_synced
   $(call log.debug, LOCAL_LINGPROC_SYNC_STAMP_FILE)
 
 # the suffix of for the local stamp files (added to the input paths on s3)
-LOCAL_LINGPROC_STAMP_SUFFIX ?= ''
+LOCAL_LINGPROC_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
   $(call log.debug, LOCAL_LINGPROC_STAMP_SUFFIX)
 
 

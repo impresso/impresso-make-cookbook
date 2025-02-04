@@ -23,7 +23,7 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	python lib/s3_to_local_stamps.py \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension '' \
+	   --stamp-extension $(LOCAL_STAMP_SUFFIX) \
 	   --logfile $@.log.gz \
 	&& touch $@
 
