@@ -5,6 +5,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_python.mk)
 # Targets for setting up the Python environment including pip and pipenv
 ###############################################################################
 
+# DOUBLE COLON TARGET specifications
+
+setup:: setup-python
 
 # USER-VARIABLE: PYTHON_MAJOR_VERSION
 PYTHON_MINOR_VERSION ?= 11
@@ -24,8 +27,9 @@ ifeq ($(OS),Linux)
 install-python:
 	# Install Python 3.$(PYTHON_MINOR_VERSION) if not available
 	if ! which python3.$(PYTHON_MINOR_VERSION) > /dev/null; then \
+		sudo add-apt-repository ppa:deadsnakes/ppa && \
 		sudo apt update && \
-		sudo apt install -y python3.$(PYTHON_MINOR_VERSION) python3.$(PYTHON_MINOR_VERSION)-distutils; \
+		sudo apt install -y python3.$(PYTHON_MINOR_VERSION) python3.$(PYTHON_MINOR_VERSION)-distutils ; \
 	fi
 	if ! python3.$(PYTHON_MINOR_VERSION) -mpip help > /dev/null; then \
 		curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3.$(PYTHON_MINOR_VERSION); \
