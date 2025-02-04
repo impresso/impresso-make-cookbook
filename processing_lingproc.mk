@@ -43,6 +43,9 @@ LOCAL_REBUILT_STAMP_FILES := \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
+
+
+# make function to convert a local rebuilt file name to a local lingproc file name 
 define local_rebuilt_to_lingproc_file
 $(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2)
 endef
