@@ -18,9 +18,9 @@ else ifeq ($(OS),Darwin)
 endif
   $(call log.debug, INSTALLER)
 
-
-# Prepare the local directories and check the python environment
-setup: $(BUILD_DIR)
+# TARGET:
+#: Sets up the topic inference environment
+setup-topics: | $(BUILD_DIR)
 	# install the following OS level dependencies
 	cat < lib/install_$(INSTALLER).sh
 	# Install the OS level dependencies
@@ -33,7 +33,10 @@ setup: $(BUILD_DIR)
 	# Sync the newspaper media list to process (testing s3 connectivity as well)
 	$(MAKE) newspaper-list-target
 
- PHONY_TARGETS += setup
+ PHONY_TARGETS += setup-topics
+
+
+setup:: setup-topics
 
 check-python-installation:
 	#
@@ -43,8 +46,12 @@ check-python-installation:
 	# OK: PYTHON ENVIRONMENT IS FINE!
 
 PHONY_TARGETS +=  check-python-installation
-update-requirements:
-	pipenv requirements > requirements.txt
 
-PHONY_TARGETS += update-requirements
+help::
+	@#
+	#
+	# HELP from cookbook/setup_topics.mk
+	# make  check-python-installation # Prepare the local directories and check the python environment
+
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_topics.mk)
