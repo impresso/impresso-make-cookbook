@@ -6,27 +6,30 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_lingproc.mk)
 ###############################################################################
 
 
-# TARGET: sync-output-lingproc
-# Synchronizes linguistic processing output data from/to S3
-sync-output:: sync-output-lingproc
-PHONY_TARGETS += sync-output-lingproc
-
-# TARGET: sync-input-lingproc
-# Synchronizes linguistic processing input data from S3
-sync-input:: sync-input-lingproc
-PHONY_TARGETS += sync-input-lingproc
+# DOUBLE-COLON-TARGET: sync-output
+# Synchronizes linguistic processing output data
+sync-output :: sync-lingproc
 
 
-# The local per-newspaper synchronization file stamp for the output text embeddings: What is on S3 has been synced?
+# DOUBLE-COLON-TARGET: sync-input
+# Synchronizes linguistic processing input data
+sync-input :: sync-lingproc
+
+
+# VARIABLE: LOCAL_LINGPROC_SYNC_STAMP_FILE
+# Stamp file indicating last successful synchronization of processed linguistic data
 LOCAL_LINGPROC_SYNC_STAMP_FILE := $(LOCAL_PATH_LINGPROC).last_synced
   $(call log.debug, LOCAL_LINGPROC_SYNC_STAMP_FILE)
 
-# the suffix of for the local stamp files (added to the input paths on s3)
+
+# USER-VARIABLE: LOCAL_LINGPROC_STAMP_SUFFIX
+# Suffix for local stamp files (used to track S3 synchronization status)
 LOCAL_LINGPROC_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
   $(call log.debug, LOCAL_LINGPROC_STAMP_SUFFIX)
 
 
-# Rule to sync the output data from the S3 bucket to the local directory
+# STAMPED-FILE-RULE: $(LOCAL_PATH_LINGPROC).last_synced
+#: Synchronizes data from S3 to the local directory
 $(LOCAL_PATH_LINGPROC).last_synced:
 	mkdir -p $(@D) && \
 	python lib/s3_to_local_stamps.py \
@@ -37,18 +40,22 @@ $(LOCAL_PATH_LINGPROC).last_synced:
 	touch $@
 
 
+# TARGET: sync-lingproc
+#: Synchronizes linguistic processing data from/to S3
+sync-lingproc: $(LOCAL_LINGPROC_SYNC_STAMP_FILE)
 
-sync-output-lingproc: $(LOCAL_LINGPROC_SYNC_STAMP_FILE)
+PHONY_TARGETS += sync-lingproc
 
-PHONY_TARGETS += sync-output-lingproc
- 
 
+# TARGET: clean-sync
+#: Cleans up synchronized linguistic processing data
 clean-sync:: clean-sync-lingproc
 
-PHONY_TARGETS += clean-sync-lingproc
 
+# TARGET: clean-sync-lingproc
+#: Removes local synchronization stamp files for linguistic processing
 clean-sync-lingproc:
-	rm -vf $(LOCAL_LINGPROC_SYNC_STAMP_FILE)  || true
+	rm -vrf $(LOCAL_LINGPROC_SYNC_STAMP_FILE) $(LOCAL_PATH_LINGPROC) || true
 
 PHONY_TARGETS += clean-sync-lingproc
 
