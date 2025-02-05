@@ -1,56 +1,64 @@
-# Load all the necessary Makefile fragments for the newspaper processing pipeline
-# Just for checking for undefined variables and functions
+###############################################################################
+# Newspaper Processing Pipeline
+# Load necessary Makefile fragments for newspaper processing
+#
+# This Makefile includes various fragments necessary for setting up,
+# processing, and synchronizing newspaper data. It ensures that all required
+# dependencies and functions are properly loaded.
+###############################################################################
 
-# Include logging functions
+# INCLUDE-FILES: log.mk
+# Logging functions
 include log.mk
 
-# Include general setup targets
+# INCLUDE-FILES: setup.mk
+# General setup targets
 include setup.mk
 
-# Include setup targets for linguistic processing environment
+# INCLUDE-FILES: setup_lingproc.mk
+# Setup targets for linguistic processing environment
 include setup_lingproc.mk
 
-# Include newspaper list management
+# INCLUDE-FILES: newspaper_list.mk
+# Newspaper list management utilities
 include newspaper_list.mk
 
-# Include S3 path conversion utilities
+# INCLUDE-FILES: local_to_s3.mk
+# S3 path conversion utilities
 include local_to_s3.mk
 
-# Include main processing targets
+# INCLUDE-FILES: main_targets.mk
+# Main processing targets
 include main_targets.mk
 
-# Include path definitions for rebuilt content
+# INCLUDE-FILES: paths_rebuilt.mk
+# Path definitions for rebuilt content
 include paths_rebuilt.mk
 
-# Include targets for synchronizing rebuilt data from S3 to local storage
+# INCLUDE-FILES: sync_rebuilt.mk
+# Targets for synchronizing rebuilt data from S3 to local storage
 include sync_rebuilt.mk
 
-# Include path definitions for language identification
+# INCLUDE-FILES: paths_langident.mk
+# Path definitions for language identification
 include paths_langident.mk
 
-# Include path definitions for linguistic processing
+# INCLUDE-FILES: paths_lingproc.mk
+# Path definitions for linguistic processing
 include paths_lingproc.mk
 
-# Include targets for synchronizing processed linguistic data between S3 and local storage
+# INCLUDE-FILES: sync_lingproc.mk
+# Targets for synchronizing processed linguistic data between S3 and local storage
 include sync_lingproc.mk
 
-# Include targets for processing newspaper content with linguistic analysis
+# INCLUDE-FILES: processing_lingproc.mk
+# Targets for processing newspaper content with linguistic analysis
 include processing_lingproc.mk
 
-# Include targets for manual inspection of processing results
-include test_eyeball_lingproc.mk
-
-# Include cleanup targets
+# INCLUDE-FILES: clean.mk
+# Cleanup targets
 include clean.mk
 
-# Include AWS configuration targets
-include aws.mk
-
-
-help::
-	@echo "Available targets:"
-	@echo "  help                            # Display this help message"
-	@echo "  LOGGING_LEVEL=DEBUG make help   # Setup for more verbose output"
-
-.DEFAULT_GOAL := help
-PHONY_TARGETS += help
+# INCLUDE-FILES: setup_aws.mk
+# AWS configuration targets
+include setup_aws.mk

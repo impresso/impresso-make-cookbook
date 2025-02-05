@@ -1,6 +1,6 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_aws.mk)
 ###############################################################################
-# AWS SETUP TARGETS
+# AWS CONFIGURATION TARGETS
 # Targets for setting up and testing AWS credentials
 #
 # This Makefile snippet automates the process of setting up AWS CLI
