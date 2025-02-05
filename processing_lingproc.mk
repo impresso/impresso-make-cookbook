@@ -46,13 +46,13 @@ LOCAL_REBUILT_STAMP_FILES := \
 
 
 # make function to convert a local rebuilt file name to a local lingproc file name 
-define local_rebuilt_to_lingproc_file
+define LocalRebuiltToLingprocFile
 $(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2)
 endef
 
 
 LOCAL_LINGPROC_FILES := \
-    $(call local_rebuilt_to_lingproc_file,$(LOCAL_REBUILT_STAMP_FILES))
+    $(call LocalRebuiltToLingprocFile,$(LOCAL_REBUILT_STAMP_FILES))
 
   $(call log.debug, LOCAL_LINGPROC_FILES)
 

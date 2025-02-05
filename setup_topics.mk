@@ -1,24 +1,11 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_topics.mk)
 
-# Detect the operating system
-OS ?= $(shell uname -s)
-  $(call log.debug, OS)
+# DOUBLE COLON TARGET specifications
 
-# Initialize INSTALLER
-INSTALLER ?= unknown
+setup:: setup-topics
 
-# If Linux, check the distribution
-ifeq ($(OS),Linux)
-    DISTRO := $(shell grep -Ei 'debian|ubuntu' /etc/os-release 2>/dev/null)
-    ifneq ($(DISTRO),)
-        INSTALLER := apt
-    endif
-else ifeq ($(OS),Darwin)
-    INSTALLER := brew
-endif
-  $(call log.debug, INSTALLER)
 
-# TARGET:
+# TARGET: setup-topics
 #: Sets up the topic inference environment
 setup-topics: | $(BUILD_DIR)
 	# install the following OS level dependencies
