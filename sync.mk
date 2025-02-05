@@ -58,6 +58,12 @@ resync-input: clean-sync-input
 
 PHONY_TARGETS += resync-input
 
+# TARGET: resync
+#: Forces complete resynchronization with remote server
+resync: resync-input resync-output
+
+PHONY_TARGETS += resync
+
 
 # USER-VARIABLE: LOCAL_STAMP_SUFFIX
 #: Suffix used for local stamp files to track sync status
