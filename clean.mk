@@ -1,36 +1,30 @@
+$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/clean.mk)
+
 ###############################################################################
 # CLEANUP TARGETS
 # Targets for cleaning build artifacts and sync status
 ###############################################################################
 
-$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/clean.mk)
-
-# TARGET: clean-newspaper
-# Removes newspaper-specific sync status and artifacts
-clean-newspaper: clean-sync
-	
-PHONY_TARGETS += clean-newspaper
 
 # TARGET: clean-build
-# Removes entire build directory and all processed data
+#: Removes entire build directory and all processed data
 clean-build:
-	rm -rvf $(BUILD_DIR)
+	rm -rvf $(BUILD_DIR) || true
 
 PHONY_TARGETS += clean-build
 
-# TARGET: resync
-# Forces complete resynchronization with remote server
-# Steps:
-# 1. Clean newspaper artifacts
-# 2. Perform fresh sync
-resync: clean-newspaper
-	$(MAKE) sync
+# TARGET: clean-sync-input
+#: Removes locally synced materials from S3
+clean-sync-input ::
+	# Removing synchronized input data...
 
-PHONY_TARGETS += resync
+PHONY_TARGETS += clean-sync-input
 
-# TARGET: resync-output
-# Forces resynchronization of output data only
-resync-output: clean-sync-lingproc
-	$(MAKE) sync-output
+# TARGET: clean-sync-output
+#: Removes locally synced materials from S3
+clean-sync-output ::
+	# Removing synchronized output data...
+
+PHONY_TARGETS += clean-sync-output
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/clean.mk)
