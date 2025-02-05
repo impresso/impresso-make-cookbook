@@ -38,33 +38,6 @@ LOCAL_TOPICS_FILES := \
 $(call log.debug, LOCAL_TOPICS_FILES)
 
 
-# USER-VARIABLE: TOPICS_S3_OUTPUT_DRY_RUN
-# Prevents any output to S3 even if an S3 output path is set.
-TOPICS_S3_OUTPUT_DRY_RUN ?= --s3-output-dry-run
-# To disable the dry-run mode, comment the line above and uncomment the line below
-# TOPICS_S3_OUTPUT_DRY_RUN ?=
-
-$(call log.debug, TOPICS_S3_OUTPUT_DRY_RUN)
-
-
-# USER-VARIABLE: TOPICS_KEEP_TIMESTAMP_ONLY_OPTION
-# Keeps only the local timestamp output files after uploading to S3.
-TOPICS_KEEP_TIMESTAMP_ONLY_OPTION ?= --keep-timestamp-only
-# To disable this mode, comment the line above and uncomment the line below
-# TOPICS_KEEP_TIMESTAMP_ONLY_OPTION ?=
-
-$(call log.debug, TOPICS_KEEP_TIMESTAMP_ONLY_OPTION)
-
-
-# USER-VARIABLE: TOPICS_QUIT_IF_S3_OUTPUT_EXISTS
-# Prevents processing if the output file already exists in S3.
-TOPICS_QUIT_IF_S3_OUTPUT_EXISTS ?= --quit-if-s3-output-exists
-# To disable this mode, comment the line above and uncomment the line below
-# TOPICS_QUIT_IF_S3_OUTPUT_EXISTS ?=
-
-$(call log.debug, TOPICS_QUIT_IF_S3_OUTPUT_EXISTS)
-
-
 # TARGET: topics-target
 #: Generates topic files from linguistic processing outputs.
 topics-target: $(LOCAL_TOPICS_FILES)
@@ -77,7 +50,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	mkdir -p $(@D) && \
 	{ set +e ; \
 	  python lib/mallet_topic_inferencer.py \
-	    --input $(call local_to_s3,$<,'') \
+	    --input $(call LocalToS3,$<,'') \
 	    --input-format impresso \
 	    --output $@ \
 	    --output-format jsonl \
@@ -86,21 +59,21 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	    --de_config models/tm/tm-de-all-v2.0.config.json \
 	    --fr_config models/tm/tm-fr-all-v2.0.config.json \
 	    --lb_config models/tm/tm-lb-all-v2.1.config.json \
-	    $(TOPICS_QUIT_IF_S3_OUTPUT_EXISTS) \
-	    $(TOPICS_S3_OUTPUT_DRY_RUN) \
-	    $(TOPICS_KEEP_TIMESTAMP_ONLY_OPTION) \
+	    $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS) \
+	    $(PROCESSING_S3_OUTPUT_DRY_RUN) \
+	    $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
 	    --git-version $(GIT_VERSION) \
 	    --lingproc-run_id $(RUN_ID_LINGPROC) \
 	    --impresso-model-id $(MODEL_ID_TOPICS) \
 	    --inferencer-random-seed $(MALLET_RANDOM_SEED) \
-	    --s3-output-path $(call local_to_s3,$@,'') \
+	    --s3-output-path $(call LocalToS3,$@,'') \
 	    --log-file $@.log.gz ; \
 	  EXIT_CODE=$$? ; \
 	  echo "Processing exit code: $$EXIT_CODE" ; \
 	  if [ $$EXIT_CODE -eq 0 ] ; then \
 	    echo "Processing completed successfully. Uploading logfile..." ; \
 	    python3 lib/s3_to_local_stamps.py \
-	      $(call local_to_s3,$@,'').log.gz \
+	      $(call LocalToS3,$@,'').log.gz \
 	      --upload-file $@.log.gz \
 	      --force-overwrite ; \
 	  elif [ $$EXIT_CODE -eq 3 ]; then \

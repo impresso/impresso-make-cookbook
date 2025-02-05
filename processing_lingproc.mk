@@ -13,33 +13,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_lingproc.mk)
 LINGPROC_VALIDATE_OPTION ?= --validate
   $(call log.debug, LINGPROC_VALIDATE_OPTION)
 
-# USER-VARIABLE: LINGPROC_S3_OUTPUT_DRY_RUN
-# Prevents output to S3 even if an S3 output path is set
-#
-# To enable dry-run mode use the following option:
-# LINGPROC_S3_OUTPUT_DRY_RUN?= --s3-output-dry-run
-LINGPROC_S3_OUTPUT_DRY_RUN ?=
-  $(call log.debug, LINGPROC_S3_OUTPUT_DRY_RUN)
-
-
-# USER-VARIABLE: LINGPROC_KEEP_TIMESTAMP_ONLY_OPTION
-# Retains only local timestamped output files after uploading
-#
-# To disable the keep-timestamp-only mode, use:
-# LINGPROC_KEEP_TIMESTAMP_ONLY_OPTION ?= 
-LINGPROC_KEEP_TIMESTAMP_ONLY_OPTION ?= --keep-timestamp-only
-
-  $(call log.debug, LINGPROC_KEEP_TIMESTAMP_ONLY_OPTION)
-
-
-# USER-VARIABLE: LINGPROC_QUIT_IF_S3_OUTPUT_EXISTS_OPTION
-# Stops processing if output file already exists on S3
-#
-# To disable, use:
-# LINGPROC_QUIT_IF_S3_OUTPUT_EXISTS_OPTION ?= 
-LINGPROC_QUIT_IF_S3_OUTPUT_EXISTS_OPTION ?= --quit-if-s3-output-exists
-  $(call log.debug, LINGPROC_QUIT_IF_S3_OUTPUT_EXISTS_OPTION)
-
 
 # USER-VARIABLE: LINGPROC_QUIET_OPTION
 # Reserved for quiet processing mode (@TODO: Implement in script)
@@ -86,13 +59,13 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REB
 	mkdir -p $(@D) && \
 	{  set +e ; \
      python3 lib/spacy_linguistic_processing.py \
-          $(call local_to_s3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
-          --lid $(call local_to_s3,$(word 2,$^),'') \
+          $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+          --lid $(call LocalToS3,$(word 2,$^),'') \
           $(LINGPROC_VALIDATE_OPTION) \
-          --s3-output-path $(call local_to_s3,$@,.'') \
-          $(LINGPROC_KEEP_TIMESTAMP_ONLY_OPTION) \
-          $(LINGPROC_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
-          $(LINGPROC_S3_OUTPUT_DRY_RUN) \
+          --s3-output-path $(call LocalToS3,$@,.'') \
+          $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
+          $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
+          $(PROCESSING_S3_OUTPUT_DRY_RUN) \
           $(LINGPROC_QUIET_OPTION) \
           --git-version $(git_version) \
           -o $@ \
@@ -102,7 +75,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REB
       if [ $$EXIT_CODE -eq 0 ] ; then \
           echo "Processing completed successfully. Uploading logfile..." ; \
           python3 lib/s3_to_local_stamps.py \
-              $(call local_to_s3,$@,.stamp).log.gz \
+              $(call LocalToS3,$@,.stamp).log.gz \
               --upload-file $@.log.gz \
         --force-overwrite ; \
       elif [ $$EXIT_CODE -eq 3 ] ; then \
