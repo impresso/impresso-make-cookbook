@@ -49,15 +49,23 @@ RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGINDENT)_$(RUN_VERSION_LANGINDENT)
   $(call log.debug, RUN_ID_LANGIDENT)
 
 
+# VARIABLE: PATH_LANGIDENT
+# Path for language identification processing data
+#
+# Defines the suffix path for linguistic processing data.
+PATH_LANGIDENT := $(S3_BUCKET_LANGINDENT)/$(PROCESS_LABEL_LANGINDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
+  $(call log.debug, PATH_LANGIDENT)
+
+
 # VARIABLE: S3_PATH_LANGIDENT
 # S3 storage path for the processed language identification results
-S3_PATH_LANGIDENT := s3://$(S3_BUCKET_LANGINDENT)/$(PROCESS_LABEL_LANGINDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
+S3_PATH_LANGIDENT := s3://$(PATH_LANGIDENT)
   $(call log.debug, S3_PATH_LANGIDENT)
 
 
 # VARIABLE: LOCAL_PATH_LANGIDENT
 # Local file system path for the processed language identification results
-LOCAL_PATH_LANGIDENT := $(BUILD_DIR)/$(S3_BUCKET_LANGINDENT)/$(PROCESS_LABEL_LANGINDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
+LOCAL_PATH_LANGIDENT := $(BUILD_DIR)/$(PATH_LANGIDENT)
   $(call log.debug, LOCAL_PATH_LANGIDENT)
 
 
