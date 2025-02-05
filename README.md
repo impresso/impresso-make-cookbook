@@ -84,7 +84,33 @@ By leveraging S3 and stamp files, machines with limited storage (e.g., 100GB) ca
 - AWS CLI
 - Git
 - Make, `remake`
-- Additional tools: `git-lfs`, `moreutils`, `coreutils`, `parallel`
+- Additional tools: `git-lfs`, `coreutils`, `parallel`
+
+### 📌 Terminology and Cookbook Documentation
+
+| Case                                          | Recipe? | Our Comment Terminology      | **GNU Make Terminology**                                 |
+| --------------------------------------------- | ------- | ---------------------------- | -------------------------------------------------------- |
+| User-configurable variable (`?=`)             | ❌      | **USER-VARIABLE**            | **"Recursive Variable (User-Overridable)"**              |
+| Internal computed variable (`:=`)             | ❌      | **VARIABLE**                 | **"Simply Expanded Variable"**                           |
+| Transformation function (`define … endef`)    | ❌      | **FUNCTION**                 | **"Multiline Variable (Make Function)"**                 |
+| Target without a recipe (`.PHONY`)            | ❌      | **TARGET**                   | **"Phony Target (Dependency-Only Target)"**              |
+| Target with a recipe that creates a file      | ✅      | **FILE-RULE**                | **"File Target (Explicit Rule)"**                        |
+| Target that creates a timestamp file          | ✅      | **STAMPED-FILE-RULE**        | **"File Target (Explicit Rule with Timestamp Purpose)"** |
+| **Double-colon target with no recipe** (`::`) | ❌      | **DOUBLE-COLON-TARGET**      | **"Double-Colon Target (Dependency-Only Target)"**       |
+| **Double-colon target with a recipe** (`::`)  | ✅      | **DOUBLE-COLON-TARGET-RULE** | **"Double-Colon Target (Explicit Rule)"**                |
+
+---
+
+### 🚀 Explanation of GNU Make Terms
+
+- **Recursive Variable (User-Overridable)** → Defined using `?=`, allowing users to override it.
+- **Simply Expanded Variable** → Defined using `:=`, evaluated only once.
+- **Multiline Variable (Make Function)** → A `define … endef` construct that acts as a function or script snippet.
+- **Phony Target (Dependency-Only Target)** → A `.PHONY` target that does not create an actual file.
+- **File Target (Explicit Rule)** → A normal rule that produces a file.
+- **File Target (Explicit Rule with Timestamp Purpose)** → A special case of an explicit rule where the file primarily serves as a timestamp.
+- **Double-Colon Target (Dependency-Only Target)** → A dependency-only target using `::`, allowing multiple independent rules.
+- **Double-Colon Target (Explicit Rule)** → A `::` target that executes independently from others of the same name.
 
 ## About Impresso
 
