@@ -12,17 +12,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup.mk)
 BUILD_DIR ?= build.d
 
 
-# PATTERN-RULE: %.d
-# Creates directory if it doesn't exist
-%.d:
-	mkdir -p $@
-
-
-# DOUBLE-COLON-TARGET: setup 
-#: Sets up the build directory and runs the active setup-<TARGET> targets
-setup:: | $(BUILD_DIR)
-
-
 # USER-VARIABLE: OS
 # Detect the operating system if not set from outside
 OS ?= $(shell uname -s)
@@ -34,19 +23,31 @@ OS ?= $(shell uname -s)
 
 # If Linux, check the distribution
 ifeq ($(OS),Linux)
-    DISTRO := $(shell grep -Ei 'debian|ubuntu' /etc/os-release 2>/dev/null)
-    ifneq ($(DISTRO),)
-        INSTALLER := apt
-    endif
+  DISTRO := $(shell grep -Ei 'debian|ubuntu' /etc/os-release 2>/dev/null)
+  ifneq ($(DISTRO),)
+    INSTALLER := apt
+  endif
 
-# for MacOS we use brew
+# If macOS, use Homebrew
 else ifeq ($(OS),Darwin)
-    INSTALLER := brew
+  INSTALLER := brew
 endif
 
-# if not set, let make complain about an undefined variable here
+# If not set, let make complain about an undefined variable here
   $(call log.debug, INSTALLER)
 
+
+# PATTERN-RULE: %.d
+#: Creates a directory if it doesn't exist
+%.d:
+	mkdir -p $@
+
+
+# DOUBLE-COLON-TARGET: setup
+#: Sets up the build directory and runs the active setup-<TARGET> targets
+setup:: | $(BUILD_DIR)
+
+PHONY_TARGETS += setup
 
 # TARGET: update-pip-requirements-file
 #: Updates pip package requirements.txt by pipenv
