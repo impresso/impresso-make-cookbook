@@ -44,7 +44,7 @@ PHONY_TARGETS += sync-output
 #
 # This target ensures that both input and output files are freshly synchronized
 resync-output: clean-sync-output
-  $(MAKE) sync-output
+	$(MAKE) sync-output
 
 PHONY_TARGETS += resync-output
 
@@ -54,7 +54,7 @@ PHONY_TARGETS += resync-output
 #
 # This target ensures that both input and output files are freshly synchronized
 resync-input: clean-sync-input
-  $(MAKE) sync-input
+	$(MAKE) sync-input
 
 PHONY_TARGETS += resync-input
 
