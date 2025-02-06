@@ -59,7 +59,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	    --de_config models/tm/tm-de-all-v2.0.config.json \
 	    --fr_config models/tm/tm-fr-all-v2.0.config.json \
 	    --lb_config models/tm/tm-lb-all-v2.1.config.json \
-	    $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS) \
+	    $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
 	    $(PROCESSING_S3_OUTPUT_DRY_RUN) \
 	    $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
 	    --git-version $(GIT_VERSION) \

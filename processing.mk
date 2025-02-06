@@ -33,16 +33,16 @@ PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION ?= --keep-timestamp-only
   $(call log.debug, PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION)
 
 
-# USER-VARIABLE: PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS
+# USER-VARIABLE: PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION
 # Prevents processing if the output file already exists in S3.
 #
 # If enabled, this option ensures that processing halts if the expected output
 # file is already present in S3, preventing unnecessary re-processing.
-PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS ?= --quit-if-s3-output-exists
+PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION ?= --quit-if-s3-output-exists
 # To disable this mode, comment the line above and uncomment the line below.
-# PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS ?=
+# PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION ?=
 
-  $(call log.debug, PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS)
+  $(call log.debug, PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION)
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing.mk)
