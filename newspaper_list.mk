@@ -53,7 +53,7 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
         's3',\
         aws_secret_access_key=os.getenv('SE_SECRET_KEY'),\
         aws_access_key_id=os.getenv('SE_ACCESS_KEY'),\
-        endpoint_url=os.getenv('SE_HOST_URL'))\
+        endpoint_url=os.getenv('SE_HOST_URL')) ; \
 	bucket = s3.Bucket('$(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)'); \
     result = bucket.meta.client.list_objects_v2(Bucket=bucket.name, Delimiter='/'); \
 	l = [prefix['Prefix'][:-1] for prefix in result.get('CommonPrefixes', [])]; \
