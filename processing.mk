@@ -16,15 +16,31 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing.mk)
 processing-target:: | $(BUILD_DIR)
 
 
+# USER-VARIABLE: MACHINE_MAX_LOAD
+# Maximum load average for the machine to allow processing
+#
+# This variable sets the maximum load average for the machine in parallelization. No new
+# jobs are started if the load average exceeds this value.
+MACHINE_MAX_LOAD ?= $(shell expr $$(nproc) + 1)
+  $(call log.debug, MACHINE_MAX_LOAD)
+
+
+# USER-VARIABLE: MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR
+# Maximum number of parallel newspaper processes
+#
+# This variable sets the maximum number of parallel newspaper processes to run in a
+# single 
+MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) / 2)
+  $(call log.debug, MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR)
 
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN
 # Prevents any output to S3 even if an S3 output path is set.
 #
 # This option ensures that no files are uploaded to S3. It is useful for testing
 # and debugging purposes to verify local output without actual S3 writes.
-PROCESSING_S3_OUTPUT_DRY_RUN ?= --s3-output-dry-run
+# PROCESSING_S3_OUTPUT_DRY_RUN ?= --s3-output-dry-run
 # To disable the dry-run mode, comment the line above and uncomment the line below.
-# PROCESSING_S3_OUTPUT_DRY_RUN ?=
+PROCESSING_S3_OUTPUT_DRY_RUN ?=
 
   $(call log.debug, PROCESSING_S3_OUTPUT_DRY_RUN)
 

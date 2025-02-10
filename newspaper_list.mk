@@ -9,6 +9,10 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/newspaper_list.mk)
 # chronological order, based on user settings.
 ###############################################################################
 
+
+help::
+	@echo "  newspaper-list-target  # Generates a list of newspapers to process from the S3 bucket"
+
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
 NEWSPAPER ?= actionfem
@@ -48,7 +52,7 @@ PHONY_TARGETS += newspaper-list-target
 # shuffles them to distribute processing evenly, and writes them to a file.
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	python -c \
-	"import boto3, os, random; \
+	"import boto3, os, random; from dotenv import load_dotenv; load_dotenv() ; \
 	s3 = boto3.resource( \
         's3',\
         aws_secret_access_key=os.getenv('SE_SECRET_KEY'),\
