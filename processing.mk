@@ -30,7 +30,7 @@ MACHINE_MAX_LOAD ?= $(shell expr $$(nproc) + 1)
 #
 # This variable sets the maximum number of parallel newspaper processes to run in a
 # single 
-MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) / 2)
+MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) )
   $(call log.debug, MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR)
 
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN
