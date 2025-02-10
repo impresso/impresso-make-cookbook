@@ -13,6 +13,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/newspaper_list.mk)
 help::
 	@echo "  newspaper-list-target  # Generates a list of newspapers to process from the S3 bucket"
 
+
+setup:: newspaper-list-target
+
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
 NEWSPAPER ?= actionfem
