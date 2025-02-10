@@ -22,6 +22,20 @@ OCRQA_VALIDATE_OPTION ?=
 OCRQA_QUIET_OPTION ?= 
   $(call log.debug, OCRQA_QUIET_OPTION)
 
+# USER-VARIABLE: OCRQA_LANGUAGES_OPTION
+# Specify the languages to be used for OCR quality assessment. Must be synchronized with
+# the bloomfilters used for the processing script!
+OCRQA_LANGUAGES_OPTION ?= de fr
+  $(call log.debug, OCRQA_LANGUAGES_OPTION)
+
+
+# USER-VARIABLE: OCRQA_BLOOMFILTERS_OPTION Specify the bloom filter files to be used for
+# OCR quality assessment. This can be huggingface filepaths (starting with hf:// impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-de.bloom or
+# local files). Must be synchronized with the bloomfilters used for the processing
+# script!
+OCRQA_BLOOMFILTERS_OPTION ?= hf:// impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-de.bloom hf:// impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-fr.bloom
+  $(call log.debug, OCRQA_BLOOMFILTERS_OPTION)
+
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
@@ -62,14 +76,15 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUIL
 	mkdir -p $(@D) && \
 	{  set +e ; \
      python3 lib/ocrqa_bloom.py \
-          $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+          --languages $(OCRQA_LANGUAGES_OPTION) \
+          --bloomfilters $(OCRQA_BLOOMFILTERS_OPTION) \
+          -i $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
           --lid $(call LocalToS3,$(word 2,$^),'') \
           $(OCRQA_VALIDATE_OPTION) \
           --s3-output-path $(call LocalToS3,$@,.'') \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \
-          $(OCRQA_QUIET_OPTION) \
           --git-version $(git_version) \
           -o $@ \
           --log-file $@.log.gz ; \
