@@ -4,6 +4,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_lingproc.mk)
 # Targets for processing newspaper content with linguistic analysis
 ###############################################################################
 
+# DOUBLE-COLON-TARGET: lingproc-target
+processing-target :: lingproc-target
+
 
 # USER-VARIABLE: LINGPROC_VALIDATE_OPTION
 # Option to enable schema validation of the output

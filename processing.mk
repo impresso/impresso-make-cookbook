@@ -9,6 +9,14 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing.mk)
 ###############################################################################
 
 
+# DOUBLE-COLON-TARGET: processing-target
+#: Defines the current processing target
+#
+# This target is used to define the current processing target for the recursive build.
+processing-target:: | $(BUILD_DIR)
+
+
+
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN
 # Prevents any output to S3 even if an S3 output path is set.
 #

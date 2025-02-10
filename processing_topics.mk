@@ -10,6 +10,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_topics.mk)
 # and conditional execution based on S3 file existence.
 ###############################################################################
 
+# DOUBLE-COLON-TARGET: topics-target
+processing-target :: topics-target
 
 # FUNCTION: LocalLingprocToTopicsFile
 # Maps local processed linguistic data to corresponding topic files

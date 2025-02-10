@@ -4,6 +4,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_ocrqa.mk)
 # Targets for processing newspaper content with OCR quality assessment
 ###############################################################################
 
+# DOUBLE-COLON-TARGET: ocrqa-target
+processing-target :: ocrqa-target
 
 # USER-VARIABLE: OCRQA_VALIDATE_OPTION
 # Option to enable schema validation of the output

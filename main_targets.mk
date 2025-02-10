@@ -1,18 +1,19 @@
+$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 ###############################################################################
 # MAIN PROCESSING TARGETS
 # Core targets for newspaper processing pipeline
 ###############################################################################
 
-$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
+
 
 # TARGET: newspaper
 # Process a single newspaper through the linguistic processing pipeline
 # Dependencies: 
 # - sync: Ensures data is synchronized
-# - lingproc-target: Performs the actual processing
-newspaper:
+# - processing-target: Performs the actual processing
+newspaper: | $(BUILD_DIR)
 	$(MAKE) sync
-	$(MAKE) lingproc-target
+	$(MAKE) processing-target
 
 PHONY_TARGETS += newspaper
 
@@ -21,9 +22,9 @@ PHONY_TARGETS += newspaper
 # Steps:
 # 1. Resync data (serial)
 # 2. Process data (parallel)
-all: 
-	$(MAKE) resync 
-	$(MAKE) -j $(MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR) lingproc-target
+all:
+	$(MAKE) sync-input resync-output 
+	$(MAKE) -j $(MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR) processing-target
 
 PHONY_TARGETS += all
 
