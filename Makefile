@@ -47,6 +47,10 @@ include paths_langident.mk
 # Path definitions for linguistic processing
 include paths_lingproc.mk
 
+# INCLUDE-FILES: paths_ocrqa.mk
+# Path definitions for OCR Quality Assessment
+include paths_ocrqa.mk
+
 # INCLUDE-FILES: sync_lingproc.mk
 # Targets for synchronizing processed linguistic data between S3 and local storage
 include sync_lingproc.mk
