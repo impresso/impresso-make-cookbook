@@ -1,4 +1,4 @@
-$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/LocalToS3.mk)
+$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/local_to_s3.mk)
 
 ###############################################################################
 # S3 PATH CONVERSION UTILITIES
@@ -34,4 +34,4 @@ test-LocalToS3:
 	@echo "Actual Output  : $(call LocalToS3,build.d/22-rebuilt-final/marieclaire/file.custom,.custom)"
 	@echo
 
-$(call log.debug, COOKBOOK END INCLUDE: cookbook/LocalToS3.mk)
+$(call log.debug, COOKBOOK END INCLUDE: cookbook/local_to_s3.mk)
