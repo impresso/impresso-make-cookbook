@@ -77,8 +77,8 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUIL
 	{  set +e ; \
      python3 lib/ocrqa_bloom.py \
           --languages $(OCRQA_LANGUAGES_OPTION) \
-          --bloomfilters $(OCRQA_BLOOMFILTERS_OPTION) \
-          -i $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+          --bloomdicts $(OCRQA_BLOOMFILTERS_OPTION) \
+          --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
           --lid $(call LocalToS3,$(word 2,$^),'') \
           $(OCRQA_VALIDATE_OPTION) \
           --s3-output-path $(call LocalToS3,$@,.'') \
@@ -86,7 +86,7 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUIL
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \
           --git-version $(git_version) \
-          -o $@ \
+          --output $@ \
           --log-file $@.log.gz ; \
     EXIT_CODE=$$? ; \
     echo "Processing exit code: $$EXIT_CODE" ; \
