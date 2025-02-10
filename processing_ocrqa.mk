@@ -33,9 +33,15 @@ OCRQA_LANGUAGES_OPTION ?= de fr
 # OCR quality assessment. This can be huggingface filepaths (starting with hf:// impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-de.bloom or
 # local files). Must be synchronized with the bloomfilters used for the processing
 # script!
-OCRQA_BLOOMFILTERS_OPTION ?= hf:// impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-de.bloom hf:// impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-fr.bloom
+OCRQA_BLOOMFILTERS_OPTION ?= hf://impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-de.bloom hf://impresso-project/OCR-quality-assessment-unigram/ocrqa-wp_v1.0.5-fr.bloom
   $(call log.debug, OCRQA_BLOOMFILTERS_OPTION)
 
+# USER-VARIABLE: OCRQA_MIN_SUBTOKENS_OPTION
+# Specify the minimum number of subtokens for a token to be considered for OCR quality
+# assessment. This is a performance optimization to reduce the number of tokens that are
+# checked against the bloom filter. The default value is 10.
+OCRQA_MIN_SUBTOKENS_OPTION ?= --min-subtokens 10
+  $(call log.debug, OCRQA_MIN_SUBTOKENS_OPTION)
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
@@ -69,7 +75,7 @@ PHONY_TARGETS += ocrqa-target
 
 # FILE-RULE: $(LOCAL_PATH_OCRQA)/%.jsonl.bz2
 #: Rule to process a single newspaper
-#
+#  \
 # Note: Unsets errexit flag to communicate exit codes
 $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
@@ -80,12 +86,13 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUIL
           --bloomdicts $(OCRQA_BLOOMFILTERS_OPTION) \
           --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
           --lid $(call LocalToS3,$(word 2,$^),'') \
+          --git-version $(git_version) \
+          $(OCRQA_MIN_SUBTOKENS_OPTION) \
+          --s3-output-path $(call LocalToS3,$@,'') \
           $(OCRQA_VALIDATE_OPTION) \
-          --s3-output-path $(call LocalToS3,$@,.'') \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \
-          --git-version $(git_version) \
           --output $@ \
           --log-file $@.log.gz ; \
     EXIT_CODE=$$? ; \
