@@ -33,7 +33,7 @@ PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 3)
 #
 # This variable sets the maximum number of parallel newspaper processes to run in a
 # single 
-MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) )
+MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) / 3)
   $(call log.debug, MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR)
 
 
