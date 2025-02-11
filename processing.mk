@@ -24,6 +24,9 @@ processing-target:: | $(BUILD_DIR)
 MACHINE_MAX_LOAD ?= $(shell expr $$(nproc) + 1)
   $(call log.debug, MACHINE_MAX_LOAD)
 
+# USER-VARIABLE: PARALLEL_NEWSPAPERS
+# Maximum number of parallel newspaper processes
+PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 2)
 
 # USER-VARIABLE: MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR
 # Maximum number of parallel newspaper processes
@@ -32,6 +35,7 @@ MACHINE_MAX_LOAD ?= $(shell expr $$(nproc) + 1)
 # single 
 MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) )
   $(call log.debug, MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR)
+
 
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN
 # Prevents any output to S3 even if an S3 output path is set.

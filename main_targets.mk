@@ -28,9 +28,6 @@ all:
 
 PHONY_TARGETS += all
 
-# Maximum number of parallel newspaper processes
-# Can be overridden via command line: make PARALLEL_NEWSPAPERS=4 collection
-PARALLEL_NEWSPAPERS ?= 2
 
 # TARGET: collection
 # Process multiple newspapers with controlled parallelism
