@@ -26,7 +26,7 @@ MACHINE_MAX_LOAD ?= $(shell expr $$(nproc) + 1)
 
 # USER-VARIABLE: PARALLEL_NEWSPAPERS
 # Maximum number of parallel newspaper processes
-PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 2)
+PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 3)
 
 # USER-VARIABLE: MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR
 # Maximum number of parallel newspaper processes
