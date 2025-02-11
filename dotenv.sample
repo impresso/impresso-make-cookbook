@@ -4,5 +4,8 @@ SE_ACCESS_KEY=<YOUR VALUE>
 SE_SECRET_KEY=<YOUR VALUE>
 SE_HOST=<YOUR VALUE>
 
+# to set the cookbook's logging to DEBUG for troubleshooting
+#LOGGING_LEVEL=DEBUG
+
 # For repositories that need a java runtime, e.g. mallet LDA
 #JAVA_HOME=<YOUR VALUE>
