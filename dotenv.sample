@@ -1,0 +1,8 @@
+# Save this file as .env or make sure that your environment knows them!
+# Credentials for accessing impresso s3
+SE_ACCESS_KEY=<YOUR VALUE>
+SE_SECRET_KEY=<YOUR VALUE>
+SE_HOST=<YOUR VALUE>
+
+# For repositories that need a java runtime, e.g. mallet LDA
+#JAVA_HOME=<YOUR VALUE>
