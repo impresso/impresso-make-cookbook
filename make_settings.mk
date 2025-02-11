@@ -19,7 +19,7 @@
 #
 # This setting ensures that all commands run within the specified shell.
 SHELL := /bin/dash
-
+  $(call log.info, SHELL)
 
 # VARIABLE: SHELLOPTS
 # Enables strict error handling for the shell.
@@ -59,8 +59,13 @@ export SHELLOPTS := errexit:pipefail
 #
 # This is useful for various Makefile constructs where an empty value is needed.
 EMPTY :=
+  $(call log.debug, EMPTY)
 
 
-# NOTE:
-# The `log.debug` function is not defined at this stage, so it cannot be used here.
-# $(call log.debug, EMPTY)
+# Keep make output concise for longish recipes
+ifeq "$(filter DEBUG,$(LOGGING_LEVEL))" "DEBUG"
+  MAKE_SILENCE_RECIPE ?= $(EMPTY)
+else
+  MAKE_SILENCE_RECIPE ?= @
+endif
+  $(call log.info, MAKE_SILENCE_RECIPE)
