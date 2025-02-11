@@ -43,6 +43,13 @@ OCRQA_BLOOMFILTERS_OPTION ?= hf://impresso-project/OCR-quality-assessment-unigra
 OCRQA_MIN_SUBTOKENS_OPTION ?= --min-subtokens 10
   $(call log.debug, OCRQA_MIN_SUBTOKENS_OPTION)
 
+# USER-VARIABLE: OCRQA_VERBOSE_OUTPUT_OPTION
+# Emit the counters of unknown subtokens
+#
+#OCRQA_VERBOSE_OUTPUT_OPTION ?= --verbose-output
+OCRQA_VERBOSE_OUTPUT_OPTION ?= 
+  $(call log.debug, OCRQA_VERBOSE_OUTPUT_OPTION)
+
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
 LOCAL_REBUILT_STAMP_FILES := \
@@ -88,6 +95,7 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUIL
           --lid $(call LocalToS3,$(word 2,$^),'') \
           --git-version $(git_version) \
           $(OCRQA_MIN_SUBTOKENS_OPTION) \
+          $(OCRQA_VERBOSE_OUTPUT_OPTION) \
           --s3-output-path $(call LocalToS3,$@,'') \
           $(OCRQA_VALIDATE_OPTION) \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
