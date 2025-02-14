@@ -13,4 +13,4 @@ if ! python3.11 -mpip help > /dev/null; then
 fi
 
 # Install development tools needed for building
-brew install git git-lfs make moreutils coreutils parallel
+brew install git git-lfs make coreutils parallel

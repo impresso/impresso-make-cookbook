@@ -21,19 +21,19 @@ processing-target:: | $(BUILD_DIR)
 #
 # This variable sets the maximum load average for the machine in parallelization. No new
 # jobs are started if the load average exceeds this value.
-MACHINE_MAX_LOAD ?= $(shell expr $$(nproc) + 1)
+MACHINE_MAX_LOAD ?= $(shell nproc)
   $(call log.debug, MACHINE_MAX_LOAD)
 
 # USER-VARIABLE: PARALLEL_NEWSPAPERS
 # Maximum number of parallel newspaper processes
-PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 3)
+PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 2)
 
 # USER-VARIABLE: MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR
 # Maximum number of parallel newspaper processes
 #
 # This variable sets the maximum number of parallel newspaper processes to run in a
 # single 
-MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(shell expr $(MACHINE_MAX_LOAD) / 3)
+MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(MACHINE_MAX_LOAD)
   $(call log.debug, MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR)
 
 

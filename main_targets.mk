@@ -23,7 +23,7 @@ PHONY_TARGETS += newspaper
 # 1. Resync data (serial)
 # 2. Process data (parallel)
 all:
-	$(MAKE) sync-input resync-output 
+	$(MAKE) -j 1 sync-input resync-output 
 	$(MAKE) -j $(MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR) --max-load $(MACHINE_MAX_LOAD) processing-target
 
 PHONY_TARGETS += all
@@ -32,10 +32,15 @@ PHONY_TARGETS += all
 # TARGET: collection
 # Process multiple newspapers with controlled parallelism
 # Uses xargs for parallel execution with PARALLEL_NEWSPAPERS limit
-collection: newspaper-list-target
+collection-xargs: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(PARALLEL_NEWSPAPERS) -I {} \
 		$(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all 
+
+collection: newspaper-list-target
+	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	parallel --jobs $(PARALLEL_NEWSPAPERS) --load $(MACHINE_MAX_LOAD)  \
+		"$(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all"
 
 # Alternative implementation using GNU parallel
 # collection: newspaper-list-target
