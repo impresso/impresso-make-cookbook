@@ -24,8 +24,8 @@ PHONY_TARGETS += newspaper
 # 2. Process data (parallel)
 all:
 	$(MAKE) -j 1 sync-input resync-output
-	sleep 2
 	$(MAKE) -j $(MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR) --max-load $(MACHINE_MAX_LOAD) processing-target
+	sleep 3
 
 PHONY_TARGETS += all
 
@@ -41,7 +41,7 @@ collection-xargs: newspaper-list-target
 collection: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel --jobs $(PARALLEL_NEWSPAPERS) --load $(MACHINE_MAX_LOAD)  \
-		"sleep 1 ; $(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all"
+		"$(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all; sleep 3"
 
 # Alternative implementation using GNU parallel
 # collection: newspaper-list-target
