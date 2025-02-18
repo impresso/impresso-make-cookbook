@@ -22,6 +22,18 @@ setup-topics: | $(BUILD_DIR)
 
  PHONY_TARGETS += setup-topics
 
+# TARGET: install-java
+#: Installs java
+ifeq ($(OS),Linux)
+install-java:
+	which java ||sudo apt-get install -y openjdk-17-jre-headless 
+
+else ifeq ($(OS),Darwin)
+install-java:
+	which java || brew install openjdk@17 
+	echo "JAVA_HOME=$$(brew --prefix openjdk)" > .env_java
+	echo 'PATH=$$JAVA_HOME/bin:$$PATH' >> .env_java
+endif
 
 setup:: setup-topics
 
