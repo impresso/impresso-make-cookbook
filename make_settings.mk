@@ -29,8 +29,10 @@ SHELL := /bin/dash
 export SHELLOPTS := errexit:pipefail
 
 
-# MAKEFILE BEHAVIOR
-# Control how intermediate files and errors are handled
+# SPECIAL VARIABLE: MAKEFLAGS
+# SETTINGS FOR THE MAKE PROGRAM
+# Enable warning for undefined variables
+export MAKEFLAGS += --warn-undefined-variables
 
 
 # SPECIAL TARGET: .SECONDARY
