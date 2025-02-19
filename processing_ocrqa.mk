@@ -93,7 +93,7 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUIL
           --bloomdicts $(OCRQA_BLOOMFILTERS_OPTION) \
           --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
           --lid $(call LocalToS3,$(word 2,$^),'') \
-          --git-version $(git_version) \
+          --git-version $(GIT_VERSION) \
           $(OCRQA_MIN_SUBTOKENS_OPTION) \
           $(OCRQA_VERBOSE_OUTPUT_OPTION) \
           --s3-output-path $(call LocalToS3,$@,'') \

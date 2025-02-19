@@ -70,7 +70,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REB
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \
           $(LINGPROC_QUIET_OPTION) \
-          --git-version $(git_version) \
+          --git-version $(GIT_VERSION) \
           -o $@ \
           --log-file $@.log.gz ; \
     EXIT_CODE=$$? ; \
