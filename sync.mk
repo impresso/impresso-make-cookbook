@@ -18,6 +18,9 @@ sync:: sync-input
 
 PHONY_TARGETS += sync
 
+help::
+	@echo "  sync            #  Synchronize local files with S3 (input and output) without deleting local files"
+
 
 # DOUBLE-COLON-TARGET: sync-input
 #: Synchronize input files with S3 without deleting local files
@@ -27,6 +30,9 @@ PHONY_TARGETS += sync
 sync-input:: | $(BUILD_DIR)
 
 PHONY_TARGETS += sync-input
+
+help::
+	@echo "  sync-input      # Synchronize input files with S3 without deleting local files"
 
 
 # DOUBLE-COLON-TARGET: sync-output
@@ -38,6 +44,9 @@ sync-output:: | $(BUILD_DIR)
 
 PHONY_TARGETS += sync-output
 
+help::
+	@echo "  sync-output     # Synchronize output files with S3 without deleting local files"
+
 
 # DOUBLE-COLON-TARGET: resync-output
 #: Synchronize local files with S3 output by deleting all local files first
@@ -48,6 +57,8 @@ resync-output: clean-sync-output
 
 PHONY_TARGETS += resync-output
 
+help::
+	@echo "  resync-output   # Synchronize local files with S3 output by deleting all local files first"
 
 # DOUBLE-COLON-TARGET: resync-input
 #: Synchronize local input with S3 by deleting all local files first
@@ -63,6 +74,9 @@ PHONY_TARGETS += resync-input
 resync: resync-input resync-output
 
 PHONY_TARGETS += resync
+
+help::
+	@echo "  resync          # Forces complete resynchronization with remote server"
 
 
 # USER-VARIABLE: LOCAL_STAMP_SUFFIX

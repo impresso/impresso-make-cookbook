@@ -33,7 +33,7 @@ export SHELLOPTS := errexit:pipefail
 # SETTINGS FOR THE MAKE PROGRAM
 # Enable warning for undefined variables
 export MAKEFLAGS += --warn-undefined-variables
-
+  $(call log.debug, MAKEFLAGS)
 
 # SPECIAL TARGET: .SECONDARY
 # Preserve intermediate files generated during the build process.

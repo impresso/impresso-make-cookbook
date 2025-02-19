@@ -12,9 +12,6 @@ setup-topics: | $(BUILD_DIR)
 	cat < lib/install_$(INSTALLER).sh
 	# Install the OS level dependencies
 	# lib/install_$(INSTALLER).sh
-	# Create the local directories
-	mkdir -p $(OUT_LOCAL_PATH_PROCESSED_DATA_TOPICS)
-	mkdir -p $(IN_LOCAL_PATH_PROCESSED_DATA_LINGPROC)
 	# check the python environment
 	$(MAKE) check-python-installation
 	# Sync the newspaper media list to process (testing s3 connectivity as well)
@@ -47,10 +44,7 @@ check-python-installation:
 PHONY_TARGETS +=  check-python-installation
 
 help::
-	@#
-	#
-	# HELP from cookbook/setup_topics.mk
-	# make  check-python-installation # Prepare the local directories and check the python environment
+	@echo "  check-python-installation    # Check whether the environment is setup correctly"
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_topics.mk)

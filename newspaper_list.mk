@@ -11,7 +11,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/newspaper_list.mk)
 
 
 help::
-	@echo "  newspaper-list-target  # Generates a list of newspapers to process from the S3 bucket"
+	@echo "  newspaper-list-target  # Generate newspaper list to process from the S3 bucket content: '$(NEWSPAPERS_TO_PROCESS_FILE)'"
 
 
 setup:: newspaper-list-target

@@ -7,7 +7,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 
 
 # TARGET: newspaper
-# Process a single newspaper through the linguistic processing pipeline
+#: Process a single newspaper run by the processing pipeline
 # Dependencies: 
 # - sync: Ensures data is synchronized
 # - processing-target: Performs the actual processing
@@ -16,6 +16,10 @@ newspaper: | $(BUILD_DIR)
 	$(MAKE) processing-target
 
 PHONY_TARGETS += newspaper
+
+help::
+	@echo "  newspaper         #  Process a single newspaper run by the processing pipeline"
+
 
 # TARGET: all
 # Complete processing with fresh data sync
@@ -31,7 +35,7 @@ PHONY_TARGETS += all
 
 
 # TARGET: collection
-# Process multiple newspapers with controlled parallelism
+#: Process multiple newspapers with specified parallel processing
 # Uses xargs for parallel execution with PARALLEL_NEWSPAPERS limit
 collection-xargs: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
@@ -42,6 +46,9 @@ collection: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel --jobs $(PARALLEL_NEWSPAPERS) --load $(MACHINE_MAX_LOAD)  \
 		"$(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all; sleep 3"
+
+help::
+	@echo "  collection        #  Process multiple newspapers with specified parallel processing"
 
 # Alternative implementation using GNU parallel
 # collection: newspaper-list-target
