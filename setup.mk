@@ -49,6 +49,19 @@ setup:: | $(BUILD_DIR)
 
 PHONY_TARGETS += setup
 
+# USER-VARIABLE: GIT_VERSION
+# The current git version of the repository
+#
+# This variable is used to store the current git version of the repository in output files.
+# It is used to track the version of the code that was used to generate the output.
+# If not set, it will be determined by the git describe command.
+ifndef GIT_VERSION
+GIT_VERSION := $(shell git describe --tags --always)
+endif
+  $(call log.info, GIT_VERSION)
+export GIT_VERSION
+
+
 # TARGET: update-pip-requirements-file
 #: Updates pip package requirements.txt by pipenv
 update-pip-requirements-file:
