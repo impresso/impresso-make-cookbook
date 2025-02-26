@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "impresso_cookbook"
+version = "1.0.0"
+dependencies = [
+    "python-dotenv",
+    "smart-open[s3]",
+    "boto3",
+]
+
+[tool.setuptools]
+packages = ["impresso_cookbook"]
+package-dir = {"impresso_cookbook"= "."}
