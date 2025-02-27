@@ -7,7 +7,12 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_python.mk)
 
 # DOUBLE COLON TARGET specifications
 
-setup:: setup-python
+setup:: setup-python-env
+
+setup-python-env: setup-python setup-pip setup-pipenv
+
+help::
+	@echo "  setup-python-env: Sets up the Python environment including pip and pipenv"
 
 # USER-VARIABLE: PYTHON_MAJOR_VERSION
 PYTHON_MINOR_VERSION ?= 11
@@ -15,59 +20,65 @@ PYTHON_MINOR_VERSION ?= 11
 
 
 # TARGET: setup-python
-#: Sets up the Python environment including pip and pipenv
-setup-python: install-python install-pip install-pipenv
-
-PHONY_TARGETS += setup-python
-
-
-# TARGET: install-python
 #: Installs Python 3.$(PYTHON_MINOR_VERSION) based on the operating system
+setup-python:
 ifeq ($(OS),Linux)
-install-python:
 	# Install Python 3.$(PYTHON_MINOR_VERSION) if not available
 	if ! which python3.$(PYTHON_MINOR_VERSION) > /dev/null; then \
 		sudo add-apt-repository ppa:deadsnakes/ppa && \
 		sudo apt update && \
 		sudo apt install -y python3.$(PYTHON_MINOR_VERSION) python3.$(PYTHON_MINOR_VERSION)-distutils ; \
 	fi
-	if ! python3.$(PYTHON_MINOR_VERSION) -mpip help > /dev/null; then \
-		curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3.$(PYTHON_MINOR_VERSION); \
-	fi
 else ifeq ($(OS),Darwin)
-install-python:
 	# Install Python 3.$(PYTHON_MINOR_VERSION) if not available
 	if ! which python3.$(PYTHON_MINOR_VERSION) > /dev/null; then \
 		brew install python@3.$(PYTHON_MINOR_VERSION); \
 	fi
-	if ! python3.$(PYTHON_MINOR_VERSION) -mpip help > /dev/null; then \
-		curl -sS https://bootstrap.pypa.io/get-pip.py | python3.$(PYTHON_MINOR_VERSION); \
-	fi
 endif
 
-PHONY_TARGETS += install-python
+PHONY_TARGETS += setup-python
 
 
-# TARGET: install-pip
+# TARGET: setup-pip
 #: Installs pip for the specified Python version if not available
-install-pip:
+setup-pip:
 	# Install pip if not available
 	if ! python3.$(PYTHON_MINOR_VERSION) -mpip help > /dev/null; then \
 		curl -sS https://bootstrap.pypa.io/get-pip.py | python3.$(PYTHON_MINOR_VERSION); \
 	fi
 
-PHONY_TARGETS += install-pip
+PHONY_TARGETS += setup-pip
+
+help::
+	@echo "  setup-pip: Installs pip for the specified Python version if not available"
 
 
-# TARGET: install-pipenv
+# TARGET: setup-pipenv
 #: Installs pipenv for the specified Python version if not available
-install-pipenv:
+setup-pipenv:
 	# Install pipenv if not available
 	if ! python3.$(PYTHON_MINOR_VERSION) -mpipenv --version > /dev/null; then \
 		python3.$(PYTHON_MINOR_VERSION) -mpip install pipenv ; \
 	fi
 
-PHONY_TARGETS += install-pipenv
+PHONY_TARGETS += setup-pipenv
 
+help::
+	@echo "  setup-pipenv: Installs pipenv for the specified Python version if not available"
+
+
+# TARGET: setup-pip-requirements
+#: Updates pip package requirements.txt by pipenv
+#
+# We want requirements.txt to be more flexible for development.
+# Pipfile.lock will contain the exact versions that the production system used.
+setup-pip-requirements:
+	pipenv lock
+	pipenv requirements > requirements.txt
+
+PHONY_TARGETS += setup-pip-requirements
+
+help::
+	@echo "  setup-pip-requirements # Updates pip package requirements.txt from pipenv"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_python.mk)

@@ -32,7 +32,7 @@ export SHELLOPTS := errexit:pipefail
 # SPECIAL VARIABLE: MAKEFLAGS
 # SETTINGS FOR THE MAKE PROGRAM
 # Enable warning for undefined variables
-export MAKEFLAGS += --warn-undefined-variables
+export MAKEFLAGS += --warn-undefined-variables --no-builtin-rules --no-builtin-variables 
   $(call log.debug, MAKEFLAGS)
 
 # SPECIAL TARGET: .SECONDARY
