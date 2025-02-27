@@ -24,6 +24,20 @@ Welcome to the Impresso Make-Based Offline (NLP) Processing Cookbook! This repos
 - [Contributing](#contributing)
 - [License](#license)
 
+## Cookbook Python Package
+
+A miminal package with the minimal Python code that is common to most functionality
+shared by processing pipelines in the cookbook can be installed with:
+
+```bash
+# install via pip
+python3 -m pip install git+https://github.com/impresso/impresso-make-cookbook.git@main#subdirectory=lib
+
+# or add the following to your Pipfile
+impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.git", ref = "main", subdirectory = "lib"}
+
+```
+
 ## Build System Structure
 
 The build system is organized into several make include files:
