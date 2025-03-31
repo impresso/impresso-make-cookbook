@@ -31,6 +31,7 @@ import hashlib
 import traceback
 import smart_open
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 log = logging.getLogger(__name__)
@@ -626,7 +627,11 @@ class LocalStampCreator(object):
             sys.exit(0)
         elif self.args.s3_path:
             log.info("Starting stamp file creation...")
-            self.create_stamp_files(self.bucket_name, self.prefix)
+            if self.args.stamp_api == "v1":
+                self.create_stamp_files(self.bucket_name, self.prefix)
+            elif self.args.stamp_api == "v2":
+                log.info("Using S3 client API v2 for stamp file creation.")
+                self.create_stamp_files_v2(self.bucket_name, self.prefix)
             log.info(
                 "Stamp file creation completed. Files created: %d",
                 self.stats["files_created"],
@@ -646,10 +651,9 @@ class LocalStampCreator(object):
             prefix (str): The file prefix to match in the S3 bucket.
         """
         bucket = self.s3_resource.Bucket(bucket_name)
-        for s3_object in bucket.objects.filter(Prefix=prefix):
 
+        for s3_object in bucket.objects.filter(Prefix=prefix):
             s3_key = s3_object.key
-            last_modified = s3_object.last_modified
 
             # Skip directories and zero-size objects
             if s3_key.endswith("/"):
@@ -664,26 +668,108 @@ class LocalStampCreator(object):
             )
 
             # Create a local stamp file
-            self.create_local_stamp_file(s3_key, last_modified, content)
+            self.create_local_stamp_file(s3_key, s3_object.last_modified, content)
 
-    def get_s3_object_content(self, s3_key: str) -> str:
-        """Get the content of an S3 object.
+    def create_stamp_files_v2(self, bucket_name: str, prefix: str) -> None:
+        """Creates local stamp files using the S3 client API, supporting directory prefixes.
 
         Args:
-            s3_key (str): The key of the S3 object.
-
-        Returns:
-            str: The content of the S3 object.
+            bucket_name (str): The name of the S3 bucket.
+            prefix (str): The prefix within the bucket.
         """
+        # Initialize the S3 client
+        s3_client = get_s3_client()
 
-        obj = self.s3_resource.Object(self.bucket_name, s3_key)
-        raw_content = obj.get()["Body"].read()
-        content = raw_content
-        # Decompress the content
-        if s3_key.endswith(".bz2"):
-            content = bz2.decompress(raw_content)
+        # Helper function to list object keys in S3
+        def list_keys(bucket: str, prefix: str) -> list[str]:
+            paginator = s3_client.get_paginator("list_objects_v2")
+            page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
-        return content.decode("utf-8")
+            keys = []  # List to store object keys
+            for page in page_iterator:
+                keys.extend([obj["Key"] for obj in page.get("Contents", [])])
+            return keys
+
+        # Retrieve object keys from the S3 bucket
+        object_keys = list_keys(bucket_name, prefix)
+        if not object_keys:
+            log.warning("No objects found for prefix '%s'.", prefix)
+            return
+
+        # Dictionary to map directories to their latest LastModified timestamp
+        dir_to_latest_ts = {}
+
+        # Iterate over all object keys to find the latest LastModified timestamp for each directory
+        for key in object_keys:
+            if not key.endswith("jsonl.bz2"):  # Only consider files with this extension
+                continue
+
+            # Retrieve the last modified timestamp of the object
+            response = s3_client.head_object(Bucket=bucket_name, Key=key)
+            last_modified = response["LastModified"]
+
+            # Determine the directory based on the user-specified level
+            parts = key.split("/")
+            if len(parts) <= self.args.directory_level:
+                log.warning(
+                    "Skipping file '%s' as it does not have enough directory levels.",
+                    key,
+                )
+                continue
+            directory = "/".join(parts[: -self.args.directory_level])
+
+            # Update the latest timestamp for the directory
+            existing = dir_to_latest_ts.get(directory)
+            if existing is None or last_modified > existing:
+                dir_to_latest_ts[directory] = last_modified
+
+        # Create stamp files for directories
+        for directory, latest_ts in dir_to_latest_ts.items():
+            # Construct the local stamp file path
+            logging.info(
+                "Creating stamp file for directory: '%s' bucket %s ",
+                directory,
+                bucket_name,
+            )
+
+            if not self.args.no_bucket:
+                local_stamp_path = os.path.join(bucket_name, directory)
+            local_stamp_path = os.path.join(self.args.local_dir, local_stamp_path)
+            local_stamp_path += self.args.stamp_extension
+
+            # Ensure the parent directory exists
+            os.makedirs(os.path.dirname(local_stamp_path), exist_ok=True)
+
+            # Create the stamp file
+            with open(local_stamp_path, "w", encoding="utf-8") as f:
+                f.write("")  # Empty content for the stamp file
+
+            # Set the timestamp of the stamp file
+            os.utime(local_stamp_path, (latest_ts.timestamp(), latest_ts.timestamp()))
+            log.info(
+                "Created stamp file '%s' with timestamp %s.",
+                local_stamp_path,
+                latest_ts.isoformat(),
+            )
+
+        def get_s3_object_content(self, s3_key: str) -> str:
+            """Get the content of an S3 object.
+
+            Args:
+                s3_key (str): The key of the S3 object.
+
+            Returns:
+                str: The content of the S3 object.
+            """
+
+            obj = self.s3_resource.Object(self.bucket_name, s3_key)
+            raw_content = obj.get()["Body"].read()
+            content = raw_content
+            # Decompress the content
+            if s3_key.endswith(".bz2"):
+                content = bz2.decompress(raw_content)
+
+            return content.decode("utf-8")
 
     def create_local_stamp_file(
         self,
@@ -795,6 +881,24 @@ if __name__ == "__main__":
         help=(
             "Specify a file glob filter on the keys. Only used"
             " with option --list-files."
+        ),
+    )
+    parser.add_argument(
+        "--stamp-api",
+        default="v1",
+        choices=["v1", "v2"],
+        help=(
+            "Specify the API version for stamp file creation. v1 uses the S3 resource"
+            " API and v2 uses the S3 client API. Default: %(default)s"
+        ),
+    )
+    parser.add_argument(
+        "--directory-level",
+        type=int,
+        default=1,
+        help=(
+            "Specify the number of directory levels to consider when creating stamp"
+            " files. Default: %(default)s"
         ),
     )
     arguments = parser.parse_args()
