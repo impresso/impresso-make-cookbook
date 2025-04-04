@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "impresso_cookbook"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
     "python-dotenv",
     "smart-open[s3]",
     "boto3",
+    "jq"
 ]
 
 [tool.setuptools]
