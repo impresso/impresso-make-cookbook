@@ -17,6 +17,6 @@ check-python-installation-hf:
 	{ echo "Double check whether the required python packages are installed! or you running in the correct python environment!" ; exit 1; }
 	# OK: PYTHON ENVIRONMENT IS FINE!
 
-PHONY_TARGETS += check-python-installation-hf
+.PHONY: check-python-installation-hf
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_ocrqa.mk)

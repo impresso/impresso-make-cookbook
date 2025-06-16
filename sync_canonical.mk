@@ -8,7 +8,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_canonical.mk)
 # TARGET: sync-input-canonical
 # Synchronizes canonical pages input data from S3 to local directory
 sync-input:: sync-input-canonical
-PHONY_TARGETS += sync-input
+.PHONY: sync-input
 
 # Local synchronization stamp file for canonical pages input data
 LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_synced
@@ -16,7 +16,7 @@ LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_sync
 
 sync-input-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
-PHONY_TARGETS += sync-input-canonical
+.PHONY: sync-input-canonical
 
 
 # The suffix for the local stamp files (added to the input paths on S3)

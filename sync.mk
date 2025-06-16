@@ -16,7 +16,7 @@ sync:: sync-output
 
 sync:: sync-input
 
-PHONY_TARGETS += sync
+.PHONY: sync
 
 help::
 	@echo "  sync            #  Synchronize local files with S3 (input and output) without deleting local files"
@@ -29,7 +29,7 @@ help::
 # without removing any existing local files.
 sync-input:: | $(BUILD_DIR)
 
-PHONY_TARGETS += sync-input
+.PHONY: sync-input
 
 help::
 	@echo "  sync-input      # Synchronize input files with S3 without deleting local files"
@@ -42,7 +42,7 @@ help::
 # local machine to S3 while keeping existing local files intact.
 sync-output:: | $(BUILD_DIR)
 
-PHONY_TARGETS += sync-output
+.PHONY: sync-output
 
 help::
 	@echo "  sync-output     # Synchronize output files with S3 without deleting local files"
@@ -55,7 +55,7 @@ help::
 resync-output: clean-sync-output
 	$(MAKE) sync-output
 
-PHONY_TARGETS += resync-output
+.PHONY: resync-output
 
 help::
 	@echo "  resync-output   # Synchronize local files with S3 output by deleting all local files first"
@@ -67,13 +67,13 @@ help::
 resync-input: clean-sync-input
 	$(MAKE) sync-input
 
-PHONY_TARGETS += resync-input
+.PHONY: resync-input
 
 # TARGET: resync
 #: Forces complete resynchronization with remote server
 resync: resync-input resync-output
 
-PHONY_TARGETS += resync
+.PHONY: resync
 
 help::
 	@echo "  resync          # Forces complete resynchronization with remote server"

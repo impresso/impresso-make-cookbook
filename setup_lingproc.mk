@@ -20,10 +20,10 @@ check-spacy-pipelines:
 	$(MAKE_SILENCE_RECIPE)python3 -m spacy validate || \
 	{ echo "Spacy pipelines are not properly installed! Please install the required pipelines." ; exit 1; }
 
-PHONY_TARGETS += check-spacy-pipelines
+.PHONY: check-spacy-pipelines
 
 
-PHONY_TARGETS += setup
+.PHONY: setup
 
 
 
@@ -34,6 +34,6 @@ check-python-installation:
 	{ echo "Double check whether the required python packages are installed! or you running in the correct python environment!" ; exit 1; }
 	# OK: PYTHON ENVIRONMENT IS FINE!
 
-PHONY_TARGETS +=  check-python-installation
+.PHONY:  check-python-installation
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_lingproc.mk)

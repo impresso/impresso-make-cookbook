@@ -78,7 +78,7 @@ LOCAL_OCRQA_FILES := \
 # Just uses the local data that is there, does not enforce synchronization
 ocrqa-target: $(LOCAL_OCRQA_FILES)
 
-PHONY_TARGETS += ocrqa-target
+.PHONY: ocrqa-target
 
 # FILE-RULE: $(LOCAL_PATH_OCRQA)/%.jsonl.bz2
 #: Rule to process a single newspaper

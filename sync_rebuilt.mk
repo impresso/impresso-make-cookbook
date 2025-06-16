@@ -8,7 +8,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_rebuilt.mk)
 # TARGET: sync-input-rebuilt
 # Synchronizes rebuilt input data from S3 to local directory
 sync-input:: sync-input-rebuilt 
-PHONY_TARGETS += sync-input
+.PHONY: sync-input
 
 # Local synchronization stamp file for rebuilt input data
 LOCAL_REBUILT_SYNC_STAMP_FILE := $(LOCAL_PATH_REBUILT).last_synced
@@ -16,7 +16,7 @@ LOCAL_REBUILT_SYNC_STAMP_FILE := $(LOCAL_PATH_REBUILT).last_synced
 
 sync-input-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 
-PHONY_TARGETS += sync-input-rebuilt
+.PHONY: sync-input-rebuilt
 
 
 # the suffix of for the local stamp files (added to the input paths on s3)

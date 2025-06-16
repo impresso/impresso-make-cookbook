@@ -17,7 +17,7 @@ setup-topics: | $(BUILD_DIR)
 	# Sync the newspaper media list to process (testing s3 connectivity as well)
 	$(MAKE) newspaper-list-target
 
- PHONY_TARGETS += setup-topics
+ .PHONY: setup-topics
 
 # TARGET: install-java
 #: Installs java
@@ -41,7 +41,7 @@ check-python-installation:
 	{ echo "Double check whether the required python packages are installed! or you running in the correct python environment!" ; exit 1; }
 	# OK: PYTHON ENVIRONMENT IS FINE!
 
-PHONY_TARGETS +=  check-python-installation
+.PHONY:  check-python-installation
 
 help::
 	@echo "  check-python-installation    # Check whether the environment is setup correctly"

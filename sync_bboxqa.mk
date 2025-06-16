@@ -38,7 +38,7 @@ $(LOCAL_PATH_BBOXQA).last_synced:
 #: Synchronizes BBOX quality assessment data from/to S3
 sync-bboxqa: $(LOCAL_BBOXQA_SYNC_STAMP_FILE)
 
-PHONY_TARGETS += sync-bboxqa
+.PHONY: sync-bboxqa
 
 # TARGET: clean-sync
 #: Cleans up synchronized BBOX quality assessment data
@@ -49,6 +49,6 @@ clean-sync:: clean-sync-bboxqa
 clean-sync-bboxqa:
 	rm -vrf $(LOCAL_BBOXQA_SYNC_STAMP_FILE) $(LOCAL_PATH_BBOXQA) || true
 
-PHONY_TARGETS += clean-sync-bboxqa
+.PHONY: clean-sync-bboxqa
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_bboxqa.mk)

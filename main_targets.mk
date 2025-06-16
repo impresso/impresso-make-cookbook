@@ -15,7 +15,7 @@ newspaper: | $(BUILD_DIR)
 	$(MAKE) sync
 	$(MAKE) processing-target
 
-PHONY_TARGETS += newspaper
+.PHONY: newspaper
 
 help::
 	@echo "  newspaper         #  Process a single newspaper run by the processing pipeline"
@@ -31,7 +31,7 @@ all:
 	$(MAKE) -j $(MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR) --max-load $(MACHINE_MAX_LOAD) processing-target
 	sleep 3
 
-PHONY_TARGETS += all
+.PHONY: all
 
 
 # TARGET: collection
@@ -56,6 +56,6 @@ help::
 #	parallel -j $(PARALLEL_NEWSPAPERS) \
 #		"$(MAKE) NEWSPAPER={} all"
 
-PHONY_TARGETS += collection
+.PHONY: collection
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/main_targets.mk)

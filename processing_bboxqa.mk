@@ -38,7 +38,7 @@ LOCAL_BBOXQA_FILES := \
 # Just uses the local data that is there, does not enforce synchronization
 bboxqa-target: $(LOCAL_BBOXQA_FILES)
 
-PHONY_TARGETS += bboxqa-target
+.PHONY: bboxqa-target
 
 # FILE-RULE: $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2
 #: Rule to process a single newspaper

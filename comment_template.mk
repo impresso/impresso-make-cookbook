@@ -15,11 +15,11 @@
 ####     1. User-Configurable Variables (`?=`)
 ####     2. Internal Computed Variables (`:=`)
 ####     3. Functions (`define … endef`)
-####     4. Collect Phony Targets (`PHONY_TARGETS += foo bar`)
-####     5. Dependency-Only Targets (No Recipe)  (add them to PHONY_TARGETS)
+####     4. Collect Phony Targets (add `.PHONY: foo bar`)
+####     5. Dependency-Only Targets (No Recipe)  (add `.PHONY: foo bar`)
 ####     6. File Rules (`FILE-RULE`, `STAMPED-FILE-RULE`)
 ####     7. Custom Build Targets
-####     8. Double-Colon Phony Targets (`::`) (don't add them to PHONY_TARGETS)
+####     8. Double-Colon Phony Targets (`::`) (add `.PHONY: foo bar`)
 ####     9. Double-Colon Targets (`::`) 
 ####
 #### END OF INSTRUCTIONS FOR ChatGPT

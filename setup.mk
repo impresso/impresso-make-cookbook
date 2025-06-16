@@ -47,7 +47,7 @@ endif
 #: Sets up the build directory and runs the active setup-<TARGET> targets
 setup:: | $(BUILD_DIR)
 
-PHONY_TARGETS += setup
+.PHONY: setup
 
 help::
 	@echo "  setup           # Create the local directories and store the HF model locally"
@@ -70,7 +70,7 @@ export GIT_VERSION
 update-pip-requirements-file:
 	pipenv requirements > requirements.txt
 
-PHONY_TARGETS += update-pip-requirements-file
+.PHONY: update-pip-requirements-file
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup.mk)

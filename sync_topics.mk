@@ -25,7 +25,7 @@ LOCAL_TOPICS_SYNC_STAMP_FILE := $(LOCAL_PATH_TOPICS).last_synced
 #: Synchronizes topics processing data
 sync-topics : $(LOCAL_TOPICS_SYNC_STAMP_FILE)
 
-PHONY_TARGETS += sync-topics
+.PHONY: sync-topics
 
 
 # USER-VARIABLE: LOCAL_TOPICS_STAMP_SUFFIX
@@ -51,6 +51,6 @@ $(LOCAL_TOPICS_SYNC_STAMP_FILE):
 clean-sync-topics:
 	rm -rfv $(LOCAL_PATH_TOPICS) $(LOCAL_TOPICS_SYNC_STAMP_FILE) || true
 
-PHONY_TARGETS += clean-sync-topics
+.PHONY: clean-sync-topics
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_topics.mk)

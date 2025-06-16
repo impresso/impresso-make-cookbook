@@ -36,7 +36,7 @@ else ifeq ($(OS),Darwin)
 	fi
 endif
 
-PHONY_TARGETS += setup-python
+.PHONY: setup-python
 
 
 # TARGET: setup-pip
@@ -47,7 +47,7 @@ setup-pip:
 		curl -sS https://bootstrap.pypa.io/get-pip.py | python3.$(PYTHON_MINOR_VERSION); \
 	fi
 
-PHONY_TARGETS += setup-pip
+.PHONY: setup-pip
 
 help::
 	@echo "  setup-pip: Installs pip for the specified Python version if not available"
@@ -61,7 +61,7 @@ setup-pipenv:
 		python3.$(PYTHON_MINOR_VERSION) -mpip install pipenv ; \
 	fi
 
-PHONY_TARGETS += setup-pipenv
+.PHONY: setup-pipenv
 
 help::
 	@echo "  setup-pipenv: Installs pipenv for the specified Python version if not available"
@@ -76,7 +76,7 @@ setup-pip-requirements:
 	pipenv lock
 	pipenv requirements > requirements.txt
 
-PHONY_TARGETS += setup-pip-requirements
+.PHONY: setup-pip-requirements
 
 help::
 	@echo "  setup-pip-requirements # Updates pip package requirements.txt from pipenv"

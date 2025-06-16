@@ -51,7 +51,7 @@ LOCAL_LINGPROC_FILES := \
 # Just uses the local data that is there, does not enforce synchronization
 lingproc-target: $(LOCAL_LINGPROC_FILES)
 
-PHONY_TARGETS += lingproc-target
+.PHONY: lingproc-target
 
 # FILE-RULE: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 #: Rule to process a single newspaper

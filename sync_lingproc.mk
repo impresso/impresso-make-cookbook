@@ -44,7 +44,7 @@ $(LOCAL_PATH_LINGPROC).last_synced:
 #: Synchronizes linguistic processing data from/to S3
 sync-lingproc: $(LOCAL_LINGPROC_SYNC_STAMP_FILE)
 
-PHONY_TARGETS += sync-lingproc
+.PHONY: sync-lingproc
 
 
 # TARGET: clean-sync
@@ -57,7 +57,7 @@ clean-sync:: clean-sync-lingproc
 clean-sync-lingproc:
 	rm -vrf $(LOCAL_LINGPROC_SYNC_STAMP_FILE) $(LOCAL_PATH_LINGPROC) || true
 
-PHONY_TARGETS += clean-sync-lingproc
+.PHONY: clean-sync-lingproc
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_lingproc.mk)

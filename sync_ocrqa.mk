@@ -38,7 +38,7 @@ $(LOCAL_PATH_OCRQA).last_synced:
 #: Synchronizes OCR quality assessment data from/to S3
 sync-ocrqa: $(LOCAL_OCRQA_SYNC_STAMP_FILE)
 
-PHONY_TARGETS += sync-ocrqa
+.PHONY: sync-ocrqa
 
 # TARGET: clean-sync
 #: Cleans up synchronized OCR quality assessment data
@@ -49,6 +49,6 @@ clean-sync:: clean-sync-ocrqa
 clean-sync-ocrqa:
 	rm -vrf $(LOCAL_OCRQA_SYNC_STAMP_FILE) $(LOCAL_PATH_OCRQA) || true
 
-PHONY_TARGETS += clean-sync-ocrqa
+.PHONY: clean-sync-ocrqa
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_ocrqa.mk)
