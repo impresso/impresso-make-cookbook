@@ -6,46 +6,46 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_langident.mk)
 ###############################################################################
 
 
-# VARIABLE: S3_BUCKET_LANGINDENT
+# VARIABLE: S3_BUCKET_LANGIDENT
 # S3 bucket name for storing processed language identification data
-S3_BUCKET_LANGINDENT := 42-processed-data-final
-  $(call log.debug, S3_BUCKET_LANGINDENT)
+S3_BUCKET_LANGIDENT := 42-processed-data-final
+  $(call log.debug, S3_BUCKET_LANGIDENT)
 
 
-# USER-VARIABLE: PROCESS_LABEL_LANGINDENT
+# USER-VARIABLE: PROCESS_LABEL_LANGIDENT
 # Label for the language identification process
-PROCESS_LABEL_LANGINDENT ?= langident
-  $(call log.debug, PROCESS_LABEL_LANGINDENT)
+PROCESS_LABEL_LANGIDENT ?= langident
+  $(call log.debug, PROCESS_LABEL_LANGIDENT)
 
 
-# USER-VARIABLE: PROCESS_SUBTYPE_LABEL_LANGINDENT
+# USER-VARIABLE: PROCESS_SUBTYPE_LABEL_LANGIDENT
 # Optional subtype label for further process categorization
-PROCESS_SUBTYPE_LABEL_LANGINDENT ?=
-  $(call log.debug, PROCESS_SUBTYPE_LABEL_LANGINDENT)
+PROCESS_SUBTYPE_LABEL_LANGIDENT ?=
+  $(call log.debug, PROCESS_SUBTYPE_LABEL_LANGIDENT)
 
 
-# USER-VARIABLE: TASK_LANGINDENT
+# USER-VARIABLE: TASK_LANGIDENT
 # Task specification for language identification
 # @FIX NOT USED: Example of unused configuration:
 # s3://42-processed-data-final/langident/langident_v1-4-4/ACI/ACI-1832.jsonl.bz2
-TASK_LANGINDENT ?=
+TASK_LANGIDENT ?=
 
 
-# USER-VARIABLE: MODEL_ID_LANGINDENT
+# USER-VARIABLE: MODEL_ID_LANGIDENT
 # Model identifier for the language identification process
 # @FIX Example path: s3://42-processed-data-final/langident/langident_v1-4-4/ACI/ACI-1832.jsonl.bz2
-MODEL_ID_LANGINDENT ?=
+MODEL_ID_LANGIDENT ?=
 
 
-# USER-VARIABLE: RUN_VERSION_LANGINDENT
+# USER-VARIABLE: RUN_VERSION_LANGIDENT
 # Version identifier for the current language identification run
-RUN_VERSION_LANGINDENT ?= v1-4-4
-  $(call log.debug, RUN_VERSION_LANGINDENT)
+RUN_VERSION_LANGIDENT ?= v1-4-4
+  $(call log.debug, RUN_VERSION_LANGIDENT)
 
 
 # VARIABLE: RUN_ID_LANGIDENT
 # Constructed run identifier combining process label and version
-RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGINDENT)_$(RUN_VERSION_LANGINDENT)
+RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGIDENT)_$(RUN_VERSION_LANGIDENT)
   $(call log.debug, RUN_ID_LANGIDENT)
 
 
@@ -53,7 +53,7 @@ RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGINDENT)_$(RUN_VERSION_LANGINDENT)
 # Path for language identification processing data
 #
 # Defines the suffix path for linguistic processing data.
-PATH_LANGIDENT := $(S3_BUCKET_LANGINDENT)/$(PROCESS_LABEL_LANGINDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
+PATH_LANGIDENT := $(S3_BUCKET_LANGIDENT)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
   $(call log.debug, PATH_LANGIDENT)
 
 
