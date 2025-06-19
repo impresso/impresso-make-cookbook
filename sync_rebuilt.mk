@@ -26,7 +26,7 @@ LOCAL_REBUILT_STAMP_SUFFIX ?= .stamp
 # Rule to sync the input data from the S3 bucket to the local directory
 $(LOCAL_PATH_REBUILT).last_synced:
 	mkdir -p $(@D) && \
-	python lib/s3_to_local_stamps.py \
+	python -m impresso_cookbook.s3_to_local_stamps\
 	   $(S3_PATH_REBUILT) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_REBUILT_STAMP_SUFFIX) \

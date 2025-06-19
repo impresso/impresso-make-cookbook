@@ -43,7 +43,7 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	#
 	# to $(LOCAL_PATH_LANGIDENT)
 	mkdir -p $(@D) && \
-	python lib/s3_to_local_stamps.py \
+	python -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_STAMP_SUFFIX) \
