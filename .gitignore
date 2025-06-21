@@ -1,1 +1,4 @@
 *.d
+lib/build
+.venv
+*.egg-info/
