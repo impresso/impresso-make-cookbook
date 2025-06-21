@@ -11,6 +11,11 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_langident.mk)
 S3_BUCKET_LANGIDENT := 42-processed-data-final
   $(call log.debug, S3_BUCKET_LANGIDENT)
 
+# VARIABLE: S3_BUCKET_LANGIDENT_STAGE1
+# S3 bucket name for storing processed language identification data
+S3_BUCKET_LANGIDENT_STAGE1 := 131-component-staging
+  $(call log.debug, S3_BUCKET_LANGIDENT_STAGE1)
+
 
 # USER-VARIABLE: PROCESS_LABEL_LANGIDENT
 # Label for the language identification process
@@ -56,17 +61,32 @@ RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGIDENT)_$(RUN_VERSION_LANGIDENT)
 PATH_LANGIDENT := $(S3_BUCKET_LANGIDENT)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
   $(call log.debug, PATH_LANGIDENT)
 
+# VARIABLE: PATH_LANGIDENT_STAGE1
+# Path for language identification component data
+#
+# Defines component path.
+PATH_LANGIDENT_STAGE1 := $(S3_BUCKET_LANGIDENT_STAGE1)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
+  $(call log.debug, PATH_LANGIDENT_STAGE1)
 
 # VARIABLE: S3_PATH_LANGIDENT
 # S3 storage path for the processed language identification results
 S3_PATH_LANGIDENT := s3://$(PATH_LANGIDENT)
   $(call log.debug, S3_PATH_LANGIDENT)
 
+# VARIABLE: S3_PATH_LANGIDENT_STAGE1
+# S3 storage path for the processed language identification results
+S3_PATH_LANGIDENT_STAGE1 := s3://$(PATH_LANGIDENT_STAGE1)
+  $(call log.debug, S3_PATH_LANGIDENT_STAGE1)
 
 # VARIABLE: LOCAL_PATH_LANGIDENT
 # Local file system path for the processed language identification results
 LOCAL_PATH_LANGIDENT := $(BUILD_DIR)/$(PATH_LANGIDENT)
   $(call log.debug, LOCAL_PATH_LANGIDENT)
+
+# VARIABLE: LOCAL_PATH_LANGIDENT_STAGE1
+# Local file system path for the processed language identification results
+LOCAL_PATH_LANGIDENT_STAGE1 := $(BUILD_DIR)/$(PATH_LANGIDENT_STAGE1)
+  $(call log.debug, LOCAL_PATH_LANGIDENT_STAGE1)
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/paths_langident.mk)

@@ -19,10 +19,6 @@ sync-input-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 .PHONY: sync-input-rebuilt
 
 
-# the suffix of for the local stamp files (added to the input paths on s3)
-LOCAL_REBUILT_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_REBUILT_STAMP_SUFFIX)
-
 # Rule to sync the input data from the S3 bucket to the local directory
 $(LOCAL_PATH_REBUILT).last_synced:
 	mkdir -p $(@D) && \
