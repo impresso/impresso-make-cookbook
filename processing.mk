@@ -16,25 +16,25 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing.mk)
 processing-target:: | $(BUILD_DIR)
 
 
-# USER-VARIABLE: MACHINE_MAX_LOAD
+# USER-VARIABLE: MAX_LOAD
 # Maximum load average for the machine to allow processing
 #
 # This variable sets the maximum load average for the machine in parallelization. No new
 # jobs are started if the load average exceeds this value.
-MACHINE_MAX_LOAD ?= $(shell nproc)
-  $(call log.debug, MACHINE_MAX_LOAD)
+MAX_LOAD ?= $(shell nproc)
+  $(call log.debug, MAX_LOAD)
 
-# USER-VARIABLE: PARALLEL_NEWSPAPERS
+# USER-VARIABLE: COLLECTION_JOBS
 # Maximum number of parallel newspaper processes
-PARALLEL_NEWSPAPERS ?= $(shell expr $$(nproc) / 2)
+COLLECTION_JOBS ?= $(shell expr $$(nproc) / 2)
 
-# USER-VARIABLE: MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR
+# USER-VARIABLE: NEWSPAPER_JOBS
 # Maximum number of parallel newspaper processes
 #
 # This variable sets the maximum number of parallel newspaper processes to run in a
 # single 
-MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR ?= $(MACHINE_MAX_LOAD)
-  $(call log.debug, MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR)
+NEWSPAPER_JOBS ?= $(MAX_LOAD)
+  $(call log.debug, NEWSPAPER_JOBS)
 
 
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN
