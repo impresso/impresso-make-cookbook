@@ -27,7 +27,7 @@ ifeq ($(OS),Darwin)
 NPROC := $(shell sysctl -n hw.ncpu)
 else ifeq ($(OS),Linux)
 # Linux - use nproc
-NPROC := $(shell nproc)
+NPROC := $(shell nproc --all)
 else
 # Fallback for other systems
 NPROC := 1
