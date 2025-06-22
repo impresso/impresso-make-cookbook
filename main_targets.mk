@@ -20,6 +20,33 @@ newspaper: | $(BUILD_DIR)
 help::
 	@echo "  newspaper         #  Process a single newspaper run by the processing pipeline"
 
+# Cross-platform CPU detection
+ifndef NPROC
+ifeq ($(OS),Darwin)
+# macOS - use sysctl
+NPROC := $(shell sysctl -n hw.ncpu)
+else ifeq ($(OS),Linux)
+# Linux - use nproc
+NPROC := $(shell nproc)
+else
+# Fallback for other systems
+NPROC := 1
+  $(call log.warn, "NPROC not set, defaulting to 1. Please set NPROC for better performance.")
+endif
+endif
+  $(call log.info, NPROC)
+
+PARALLEL_JOBS ?= $(NPROC)
+  $(call log.info, PARALLEL_JOBS)
+
+COLLECTION_JOBS ?= 2
+  $(call log.info, COLLECTION_JOBS)
+
+NEWSPAPER_JOBS ?= $(shell expr $(PARALLEL_JOBS) / $(COLLECTION_JOBS))
+  $(call log.info, NEWSPAPER_JOBS	)
+
+MAX_LOAD ?= $(PARALLEL_JOBS)
+  $(call log.info, MAX_LOAD)
 
 # TARGET: all
 # Complete processing with fresh data sync
@@ -28,24 +55,36 @@ help::
 # 2. Process data (parallel)
 all:
 	$(MAKE) -j 1 sync-input resync-output
-	$(MAKE) -j $(MAKE_PARALLEL_PROCESSING_NEWSPAPER_YEAR) --max-load $(MACHINE_MAX_LOAD) processing-target
-	sleep 3
+	$(MAKE) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
 
 .PHONY: all
 
 
 # TARGET: collection
 #: Process multiple newspapers with specified parallel processing
-# Uses xargs for parallel execution with PARALLEL_NEWSPAPERS limit
+# Uses xargs for parallel execution with COLLECTION_JOBS limit
 collection-xargs: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
-	xargs -n 1 -P $(PARALLEL_NEWSPAPERS) -I {} \
-		$(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all 
+	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
+		NEWSPAPER={} $(MAKE) -k --max-load $(MAX_LOAD) all 
 
-collection: newspaper-list-target
+
+check-parallel:
+	@parallel --version | grep -q 'GNU parallel' || \
+	( echo "ERROR: GNU parallel not installed or wrong version"; exit 1 )
+.PHONY: check-parallel
+
+# TARGET: collection
+#: Process multiple newspapers with specified parallel processing
+# Uses GNU parallel for better control over job execution
+# Note: Requires GNU parallel installed
+# Dependencies: newspaper-list-target
+collection: check-parallel newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
-	parallel --jobs $(PARALLEL_NEWSPAPERS) --load $(MACHINE_MAX_LOAD)  \
-		"$(MAKE) NEWSPAPER={} -k --max-load $(MACHINE_MAX_LOAD) all; sleep 3"
+	parallel  --tag -v --progress  \
+	   --jobs $(COLLECTION_JOBS) \
+	   --delay 3 --memfree 1G --load $(MAX_LOAD) \
+		"NEWSPAPER={} $(MAKE) -k --max-load $(MAX_LOAD) all"
 
 help::
 	@echo "  collection        #  Process multiple newspapers with specified parallel processing"
@@ -53,7 +92,7 @@ help::
 # Alternative implementation using GNU parallel
 # collection: newspaper-list-target
 #	cat $(NEWSPAPERS_TO_PROCESS_FILE) | \
-#	parallel -j $(PARALLEL_NEWSPAPERS) \
+#	parallel -j $(COLLECTION_JOBS) \
 #		"$(MAKE) NEWSPAPER={} all"
 
 .PHONY: collection
