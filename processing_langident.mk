@@ -12,7 +12,7 @@ langident-target :: impresso-lid-stage1a-target # impresso-lid-stage1b-target im
 # VARIBALE: 
 
 # all LID systems to use 
-LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lin
+LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
 
 # fast text models
 LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION ?= models/fasttext/impresso-lid.bin
