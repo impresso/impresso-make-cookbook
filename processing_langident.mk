@@ -12,7 +12,7 @@ langident-target :: impresso-lid-stage1a-target # impresso-lid-stage1b-target im
 # VARIBALE: 
 
 # all LID systems to use 
-LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline
+LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lin
 
 # fast text models
 LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION ?= models/fasttext/impresso-lid.bin
@@ -23,7 +23,7 @@ LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION ?= 100
 LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION ?= 200
 LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION ?= 50
 
-LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION ?= 0.4
+LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION ?= 0.5
 
 # hyperparameters for scoring the languages
 LANGIDENT_BOOST_FACTOR_OPTION ?= 1.5
