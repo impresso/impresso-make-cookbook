@@ -8,12 +8,12 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_langident.mk)
 
 # VARIABLE: S3_BUCKET_LANGIDENT
 # S3 bucket name for storing processed language identification data
-S3_BUCKET_LANGIDENT := 42-processed-data-final
+S3_BUCKET_LANGIDENT := 140-processed-data-sandbox
   $(call log.debug, S3_BUCKET_LANGIDENT)
 
 # VARIABLE: S3_BUCKET_LANGIDENT_STAGE1
 # S3 bucket name for storing processed language identification data
-S3_BUCKET_LANGIDENT_STAGE1 := 131-component-staging
+S3_BUCKET_LANGIDENT_STAGE1 := 130-component-sandbox
   $(call log.debug, S3_BUCKET_LANGIDENT_STAGE1)
 
 
@@ -33,26 +33,37 @@ PROCESS_SUBTYPE_LABEL_LANGIDENT ?=
 # Task specification for language identification
 # @FIX NOT USED: Example of unused configuration:
 # s3://42-processed-data-final/langident/langident_v1-4-4/ACI/ACI-1832.jsonl.bz2
-TASK_LANGIDENT ?=
+TASK_LANGIDENT ?= lid
+  $(call log.debug, TASK_LANGIDENT)
+
+# Optional subtype label for further process categorization
+TASK_LANGIDENT_STAGE1 ?= lid_stage1
+  $(call log.debug, SUBTASK_LANGIDENT_STAGE1)
+
 
 
 # USER-VARIABLE: MODEL_ID_LANGIDENT
 # Model identifier for the language identification process
 # @FIX Example path: s3://42-processed-data-final/langident/langident_v1-4-4/ACI/ACI-1832.jsonl.bz2
-MODEL_ID_LANGIDENT ?=
+MODEL_ID_LANGIDENT ?= ensemble_multilingual
 
 
 # USER-VARIABLE: RUN_VERSION_LANGIDENT
 # Version identifier for the current language identification run
-RUN_VERSION_LANGIDENT ?= v1-4-4
+RUN_VERSION_LANGIDENT ?= v1-4-5
   $(call log.debug, RUN_VERSION_LANGIDENT)
 
 
 # VARIABLE: RUN_ID_LANGIDENT
 # Constructed run identifier combining process label and version
-RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGIDENT)_$(RUN_VERSION_LANGIDENT)
+RUN_ID_LANGIDENT ?= $(PROCESS_LABEL_LANGIDENT)-$(TASK_LANGIDENT)-$(MODEL_ID_LANGIDENT)_$(RUN_VERSION_LANGIDENT)
   $(call log.debug, RUN_ID_LANGIDENT)
 
+# VARIABLE: RUN_ID_LANGIDENT_STAGE1
+# Constructed run identifier combining process label and version
+RUN_ID_LANGIDENT_STAGE1 ?= $(PROCESS_LABEL_LANGIDENT)-$(TASK_LANGIDENT_STAGE1)-$(MODEL_ID_LANGIDENT)_$(RUN_VERSION_LANGIDENT)
+
+  $(call log.debug, RUN_ID_LANGIDENT_STAGE1)
 
 # VARIABLE: PATH_LANGIDENT
 # Path for language identification processing data
@@ -65,7 +76,7 @@ PATH_LANGIDENT := $(S3_BUCKET_LANGIDENT)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LAN
 # Path for language identification component data
 #
 # Defines component path.
-PATH_LANGIDENT_STAGE1 := $(S3_BUCKET_LANGIDENT_STAGE1)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LANGIDENT)/$(NEWSPAPER)
+PATH_LANGIDENT_STAGE1 := $(S3_BUCKET_LANGIDENT_STAGE1)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LANGIDENT_STAGE1)/$(NEWSPAPER)
   $(call log.debug, PATH_LANGIDENT_STAGE1)
 
 # VARIABLE: S3_PATH_LANGIDENT
