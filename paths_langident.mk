@@ -50,7 +50,7 @@ MODEL_ID_LANGIDENT ?= ensemble_multilingual
 
 # USER-VARIABLE: RUN_VERSION_LANGIDENT
 # Version identifier for the current language identification run
-RUN_VERSION_LANGIDENT ?= v1-4-5
+RUN_VERSION_LANGIDENT ?= v2-0-0
   $(call log.debug, RUN_VERSION_LANGIDENT)
 
 
