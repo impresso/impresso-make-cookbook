@@ -8,12 +8,12 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_langident.mk)
 
 # VARIABLE: S3_BUCKET_LANGIDENT
 # S3 bucket name for storing processed language identification data
-S3_BUCKET_LANGIDENT := 140-processed-data-sandbox
+S3_BUCKET_LANGIDENT ?= 140-processed-data-sandbox
   $(call log.debug, S3_BUCKET_LANGIDENT)
 
 # VARIABLE: S3_BUCKET_LANGIDENT_STAGE1
 # S3 bucket name for storing processed language identification data
-S3_BUCKET_LANGIDENT_STAGE1 := 130-component-sandbox
+S3_BUCKET_LANGIDENT_STAGE1 ?= 130-component-sandbox
   $(call log.debug, S3_BUCKET_LANGIDENT_STAGE1)
 
 
