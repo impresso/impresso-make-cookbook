@@ -8,7 +8,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 
 processing-target :: langident-target
 
-langident-target :: impresso-lid-stage1a-target # impresso-lid-stage1b-target impresso-lid-stage2-target impresso-lid-statistics impresso-lid-eval
+langident-target :: impresso-lid-stage1a-target impresso-lid-stage1b-target # impresso-lid-stage2-target impresso-lid-statistics impresso-lid-eval
 # VARIBALE: 
 
 # all LID systems to use 
@@ -48,6 +48,19 @@ LOCAL_LANGIDENT_STAGE1_FILES := \
   $(call log.debug, LOCAL_LANGIDENT_STAGE1_FILES)
 
 
+# FUNCTION: LocalLangIdentStage1ToStage1bFile
+# Converts a local langident stage1 file name to a local langident stage1b stats file name
+define LocalLangIdentStage1ToStage1bFile
+$(1:$(LOCAL_PATH_LANGIDENT_STAGE1)/$(NEWSPAPER)-%.jsonl.bz2=$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json)
+endef
+
+# VARIABLE: LOCAL_LANGIDENT_STAGE1B_FILES
+# Stores the list of langident stage1b statistics files based on stage1 files
+LOCAL_LANGIDENT_STAGE1B_FILES := \
+    $(sort $(call LocalLangIdentStage1ToStage1bFile,$(LOCAL_LANGIDENT_STAGE1_FILES)))
+
+$(call log.debug, LOCAL_LANGIDENT_STAGE1B_FILES)
+
 # TARGET: impresso-lid-stage1a-target
 # Apply language identification classification tools
 #
@@ -64,7 +77,6 @@ impresso-lid-stage1a-target : $(LOCAL_LANGIDENT_STAGE1_FILES)
 $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	{  set +e ; \
      python3 lib/language_identification.py \
         --infile $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
         --outfile $@ \
@@ -72,40 +84,41 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
         --impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
         --wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
         --minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
-		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
-		--round-ndigits 3 \
-		--git-describe $(GIT_VERSION) \
-          --logfile $@.log.gz ; \
-    EXIT_CODE=$$? ; \
-    echo "Processing exit code: $$EXIT_CODE" ; \
-      if [ $$EXIT_CODE -eq 0 ] ; then \
-          echo "Processing completed successfully. Uploading logfile..." ; \
-          python3 -m impresso_cookbook.s3_to_local_stamps \
-              $(call LocalToS3,$@,'').log.gz \
-              --upload-file $@.log.gz \
-        --force-overwrite ; \
-	        python3 -m impresso_cookbook.s3_to_local_stamps\
-              $(call LocalToS3,$@,'') \
-              --upload-file $@ \
-        --force-overwrite ; \
-      elif [ $$EXIT_CODE -eq 3 ] ; then \
-          echo "Processing skipped (output exists on S3). Not uploading logfile." ; \
-          rm -f $@ ; \
-          exit 0 ; \
-      else \
-          echo "An error occurred during processing. Exit code: $$EXIT_CODE" ; \
-          rm -f $@ ; \
-          exit $$EXIT_CODE ; \
-      fi ; }
+		    --alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+		    --round-ndigits 3 \
+		    --git-describe $(GIT_VERSION) \
+        --logfile $@.log.gz  \
+    && python3 -m impresso_cookbook.local_to_s3 \
+      $@ $(call LocalToS3,$@,'') \
+      $@.log.gz $(call LocalToS3,$@,'').log.gz \
+    || { rm -vf $@ ; exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-stage1b-target
 # Collect language identification statistics
 #
 # Summarizes statistics from Stage 1a results.
-#impresso-lid-stage1b-target ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-stage1b-files
+impresso-lid-stage1b-target : $(LOCAL_LANGIDENT_STAGE1B_FILES)
 
-
+# FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1B)/%.stats.json
+# Rule to generate statistics for a single newspaper from stage1 results
+$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+	python3 lib/newspaper_statistics.py \
+        --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+        --boosted-lids orig_lg impresso_ft \
+        --minimal-text-length $(LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION) \
+        --boost-factor $(LANGIDENT_BOOST_FACTOR_OPTION) \
+        --minimal-vote-score $(LANGIDENT_MINIMAL_VOTE_SCORE_OPTION) \
+        --minimal-lid-probability $(LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION) \
+        --git-describe $(GIT_VERSION) \
+        --logfile $@.log.gz \
+        --outfile $@ \
+        $(call LocalToS3,$<,'') \
+    && python3 -m impresso_cookbook.local_to_s3 \
+      $@ $(call LocalToS3,$@,'') \
+      $@.log.gz $(call LocalToS3,$@,'').log.gz \
+    || { rm -vf $@ ; exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-stage2-target
 # Finalize language decisions and diagnostics

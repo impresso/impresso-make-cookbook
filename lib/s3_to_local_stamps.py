@@ -11,7 +11,7 @@ variables include the access key, secret key, and host URL for the S3 service.
 
 The module can be run as a standalone script. It accepts command-line arguments for the
 S3 bucket name, file prefix to match in the bucket, verbosity level for logging, and an
-optional log- file.
+optional log-file.
 """
 
 __author__ = "simon.clematide@uzh.ch"
@@ -31,7 +31,6 @@ import hashlib
 import traceback
 import smart_open
 from dotenv import load_dotenv
-import re
 
 load_dotenv()
 log = logging.getLogger(__name__)

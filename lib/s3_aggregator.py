@@ -31,7 +31,7 @@ from typing import Dict, Any, Optional, Sequence
 from smart_open import open as smart_open
 import sys
 import re
-from s3_to_local_stamps import get_s3_client
+from impresso_cookbook import get_s3_client
 import tempfile
 import jq
 
