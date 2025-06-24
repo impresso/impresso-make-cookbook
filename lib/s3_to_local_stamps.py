@@ -29,6 +29,7 @@ import bz2
 import boto3
 import hashlib
 import traceback
+import json
 import smart_open
 from dotenv import load_dotenv
 
@@ -38,6 +39,27 @@ log = logging.getLogger(__name__)
 SCHEMA_BASE_URI = "https://impresso.github.io/impresso-schemas/json/"
 
 IMPRESSO_SCHEMA = "topics.schema.json"
+
+
+def read_json(path: str, s3_client=None) -> dict:
+    """Read a JSON file from local filesystem or S3.
+
+    :param str path: Path to JSON file.
+    :param s3_client: S3 client for reading from S3, if needed.
+    :return: Content of the JSON file.
+    :rtype: dict
+
+    """
+    # Handle S3 transport parameters
+    if path.startswith("s3://"):
+        transport_params = {"client": s3_client} if s3_client else {}
+    else:
+        transport_params = {}
+
+    with smart_open.open(
+        path, "r", encoding="utf-8", transport_params=transport_params
+    ) as f:
+        return json.load(f)
 
 
 def calculate_md5(file_path: str, s3_client: boto3.client = None) -> str:
