@@ -6,9 +6,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 # This file defines the processing rules for language identification tasks.
 ###############################################################################
 
-processing-target :: langident-target
+processing-target :: sync langident-target
 
-langident-target :: impresso-lid-stage1a-target impresso-lid-stage1b-target # impresso-lid-stage2-target impresso-lid-statistics impresso-lid-eval
+langident-target :: impresso-lid-stage1a-target impresso-lid-stage1b-target  impresso-lid-stage2-target # impresso-lid-statistics impresso-lid-eval
 # VARIBALE: 
 
 # all LID systems to use 
@@ -31,7 +31,7 @@ LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION ?= 6
 LANGIDENT_MINIMAL_VOTING_SCORE_OPTION ?= 0.5
 LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION ?= 0.20
 LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
-LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 1.5
+LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 1
 
 
 # FUNCTION: LocalRebuiltToLangIdentStage1File
@@ -118,6 +118,49 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/
     && python3 -m impresso_cookbook.local_to_s3 \
       $@ $(call LocalToS3,$@,'') \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
+    || { rm -vf $@ ; exit 1 ; }
+
+
+# FUNCTION: LocalRebuiltToLangIdentFile
+# Converts a local rebuilt file name to a local langident file name
+define LocalRebuiltToLangIdentFile
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
+endef
+
+# VARIABLE: LOCAL_LANGIDENT_FILES
+# Stores the list of BBOX quality assessment files based on canonical stamp files
+LOCAL_LANGIDENT_FILES := \
+    $(call LocalRebuiltToLangIdentFile,$(LOCAL_REBUILT_STAMP_FILES))
+
+  $(call log.debug, LOCAL_LANGIDENT_FILES)
+
+impresso-lid-stage2-target :: $(LOCAL_LANGIDENT_FILES)
+
+
+# rule for building all stage 2 files
+
+
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+     python3 lib/impresso_ensemble_lid.py \
+        --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+        --weight-lb-impresso-ft $(LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION) \
+        --minimal-lid-probability $(LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION) \
+        --minimal-voting-score $(LANGIDENT_MINIMAL_VOTING_SCORE_OPTION) \
+        --minimal-text-length $(LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION) \
+        --newspaper-stats-filename $(call LocalToS3,$(word 2,$^),'') \
+        --git-describe $(GIT_VERSION) \
+        --alphabetical-ratio-threshold  $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+        --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
+        --infile $< \
+        --outfile $@ \
+        --log-level $(LOGGING_LEVEL) \
+        --log-file $@.log.gz \
+    && python3 -m impresso_cookbook.local_to_s3 \
+      $@    $(call LocalToS3,$@,'') \
+      $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
+      $@.log.gz    $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-stage2-target

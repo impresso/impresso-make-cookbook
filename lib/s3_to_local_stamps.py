@@ -24,7 +24,7 @@ import fnmatch
 import os
 import time
 import sys
-from typing import Any, Tuple, Optional
+from typing import Any, Tuple, Optional, List
 import bz2
 import boto3
 import hashlib
@@ -37,8 +37,6 @@ load_dotenv()
 log = logging.getLogger(__name__)
 
 SCHEMA_BASE_URI = "https://impresso.github.io/impresso-schemas/json/"
-
-IMPRESSO_SCHEMA = "topics.schema.json"
 
 
 def read_json(path: str, s3_client=None) -> dict:
