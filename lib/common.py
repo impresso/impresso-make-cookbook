@@ -4,11 +4,12 @@ This module provides shared utilities for handling logging configuration and fil
 operations that work seamlessly with both local files and S3 objects using smart_open.
 """
 
-import smart_open
 import logging
 import os
 from typing import Optional, List, Generator
+
 import boto3
+import smart_open
 
 
 def extract_newspaper_id(content_item_id: str) -> str:

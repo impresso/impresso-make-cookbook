@@ -26,14 +26,14 @@ Examples:
 import argparse
 import json
 import logging
+import re
+import sys
+import tempfile
 from typing import Dict, Any, Optional, Sequence
 
-from smart_open import open as smart_open
-import sys
-import re
-from impresso_cookbook import get_s3_client, yield_s3_objects
-import tempfile
 import jq
+from impresso_cookbook import get_s3_client, yield_s3_objects
+from smart_open import open as smart_open
 
 
 class SmartFileHandler(logging.FileHandler):

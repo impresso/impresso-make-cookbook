@@ -18,18 +18,19 @@ __author__ = "simon.clematide@uzh.ch"
 __license__ = "GNU GPL 3.0 or later"
 
 import argparse
-import datetime
-import logging
-import fnmatch
-import os
-import time
-import sys
-from typing import Any, Tuple, Optional, List
 import bz2
-import boto3
+import datetime
+import fnmatch
 import hashlib
-import traceback
 import json
+import logging
+import os
+import sys
+import time
+import traceback
+from typing import Any, Tuple, Optional
+
+import boto3
 import smart_open
 from dotenv import load_dotenv
 from impresso_cookbook import get_s3_client

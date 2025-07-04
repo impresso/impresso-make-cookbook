@@ -15,6 +15,7 @@ import argparse
 import logging
 import sys
 import traceback
+
 from impresso_cookbook import get_s3_client, upload_file_to_s3
 
 log = logging.getLogger(__name__)
