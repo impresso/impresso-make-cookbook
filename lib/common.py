@@ -7,7 +7,7 @@ operations that work seamlessly with both local files and S3 objects using smart
 import smart_open
 import logging
 import os
-from typing import Optional, List
+from typing import Optional, List, Generator
 import boto3
 
 
@@ -43,6 +43,44 @@ def get_s3_client() -> "boto3.client":
     return boto3.client(
         "s3", endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/")
     )
+
+
+def yield_s3_objects(bucket: str, prefix: str) -> Generator[str, None, None]:
+    """Yield all objects in an S3 bucket with a given prefix.
+
+    Args:
+        bucket (str): S3 bucket name.
+        prefix (str): Prefix to filter objects.
+
+    Yields:
+        str: The key of each object.
+    """
+    s3 = get_s3_client()
+    continuation_token = None
+    count = 0
+    while True:
+        # List objects in the specified S3 bucket with the given prefix
+        response = (
+            s3.list_objects_v2(
+                Bucket=bucket, Prefix=prefix, ContinuationToken=continuation_token
+            )
+            if continuation_token
+            else s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+        )
+
+        # Yield the 'Key' of each object from the response
+        for content in response.get("Contents", []):
+            count += 1
+            yield content["Key"]
+
+        # Check if there are more objects to retrieve
+        if response.get(
+            "IsTruncated"
+        ):  # If the response is truncated, there are more objects to retrieve
+            continuation_token = response.get("NextContinuationToken")
+        else:
+            break
+    logging.info(f"Found {count} objects with prefix {prefix}")
 
 
 def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) -> None:

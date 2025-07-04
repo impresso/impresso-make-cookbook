@@ -31,7 +31,7 @@ from typing import Dict, Any, Optional, Sequence
 from smart_open import open as smart_open
 import sys
 import re
-from impresso_cookbook import get_s3_client
+from impresso_cookbook import get_s3_client, yield_s3_objects
 import tempfile
 import jq
 
@@ -40,47 +40,6 @@ class SmartFileHandler(logging.FileHandler):
     def _open(self) -> any:
         """Open the log file using smart_open and return a file-like object."""
         return smart_open(self.baseFilename, self.mode, encoding="utf-8")
-
-
-from typing import Generator
-
-
-def yield_s3_objects(bucket: str, prefix: str) -> Generator[str, None, None]:
-    """Yield all objects in an S3 bucket with a given prefix.
-
-    Args:
-        bucket (str): S3 bucket name.
-        prefix (str): Prefix to filter objects.
-
-    Yields:
-        str: The key of each object.
-    """
-    s3 = get_s3_client()
-    continuation_token = None
-    count = 0
-    while True:
-        # List objects in the specified S3 bucket with the given prefix
-        response = (
-            s3.list_objects_v2(
-                Bucket=bucket, Prefix=prefix, ContinuationToken=continuation_token
-            )
-            if continuation_token
-            else s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        )
-
-        # Yield the 'Key' of each object from the response
-        for content in response.get("Contents", []):
-            count += 1
-            yield content["Key"]
-
-        # Check if there are more objects to retrieve
-        if response.get(
-            "IsTruncated"
-        ):  # If the response is truncated, there are more objects to retrieve
-            continuation_token = response.get("NextContinuationToken")
-        else:
-            break
-    logging.info(f"Found {count} objects with prefix {prefix}")
 
 
 def list_s3_files_with_prefix(bucket: str, prefix: str) -> Sequence[str]:
