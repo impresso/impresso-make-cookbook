@@ -9,6 +9,16 @@ import logging
 from typing import Optional, List
 
 
+def extract_newspaper_id(content_item_id: str) -> str:
+    """Extract newspaper ID from content item ID."""
+    return content_item_id[0 : len(content_item_id) - 19]
+
+
+def extract_year(content_item_id: str) -> str:
+    """Extract year from content item ID."""
+    return content_item_id[-18:-14]
+
+
 def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) -> None:
     """Configure logging with support for both console and file output.
 
