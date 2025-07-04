@@ -6,7 +6,9 @@ operations that work seamlessly with both local files and S3 objects using smart
 
 import smart_open
 import logging
+import os
 from typing import Optional, List
+import boto3
 
 
 def extract_newspaper_id(content_item_id: str) -> str:
@@ -17,6 +19,30 @@ def extract_newspaper_id(content_item_id: str) -> str:
 def extract_year(content_item_id: str) -> str:
     """Extract year from content item ID."""
     return content_item_id[-18:-14]
+
+
+def get_transport_params(filepath: str) -> dict:
+    """Get transport parameters for S3 or local file access."""
+    if filepath.startswith("s3://"):
+        return {"client": get_s3_client()}
+    return {}
+
+
+def get_s3_client() -> "boto3.client":
+    """Returns a boto3.client object for interacting with S3.
+
+    Returns:
+        boto3.client: A boto3.client object for interacting with S3.
+    """
+
+    boto3.setup_default_session(
+        aws_access_key_id=os.getenv("SE_ACCESS_KEY"),
+        aws_secret_access_key=os.getenv("SE_SECRET_KEY"),
+    )
+
+    return boto3.client(
+        "s3", endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/")
+    )
 
 
 def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) -> None:

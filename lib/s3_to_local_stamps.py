@@ -32,6 +32,7 @@ import traceback
 import json
 import smart_open
 from dotenv import load_dotenv
+from impresso_cookbook import get_s3_client
 
 load_dotenv()
 log = logging.getLogger(__name__)
@@ -307,24 +308,6 @@ def keep_timestamp_only(
     except Exception as e:
         log.error("Failed to truncate %s: %s", input_path, e)
         raise
-
-
-def get_s3_client() -> "boto3.client":
-    """Returns a boto3.client object for interacting with S3.
-
-    Returns:
-        boto3.client: A boto3.client object for interacting with S3.
-    """
-    import boto3  # noqa: E402
-
-    boto3.setup_default_session(
-        aws_access_key_id=os.getenv("SE_ACCESS_KEY"),
-        aws_secret_access_key=os.getenv("SE_SECRET_KEY"),
-    )
-
-    return boto3.client(
-        "s3", endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/")
-    )
 
 
 def upload_file_to_s3(
