@@ -4,6 +4,7 @@ from .common import (
     extract_year,
     get_s3_client,
     yield_s3_objects,
+    get_transport_params,
 )
 
 from .s3_to_local_stamps import (
@@ -21,4 +22,5 @@ __all__ = [
     "setup_logging",
     "extract_newspaper_id",
     "extract_year",
+    "get_transport_params",
 ]
