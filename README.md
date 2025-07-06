@@ -43,6 +43,59 @@ impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.g
 The build system is organized into several make include files:
 
 - `config.local.mk`: Local configuration overrides (not in the repository)
+- `config.mk`: Main configuration file with default settings
+- `cookbook/make_settings.mk`: Core make settings and shell configuration
+- `cookbook/log.mk`: Logging utilities with configurable log levels
+- `cookbook/setup.mk`: General setup targets and directory management
+- `cookbook/sync.mk`: Data synchronization between S3 and local storage
+- `cookbook/clean.mk`: Cleanup targets for build artifacts
+- `cookbook/processing.mk`: Processing configuration and behavior settings
+- `cookbook/main_targets.mk`: Core processing targets and parallelization
+- `cookbook/newspaper_list.mk`: Newspaper list management and S3 discovery
+- `cookbook/local_to_s3.mk`: Path conversion utilities between local and S3
+- `cookbook/aws.mk`: AWS CLI configuration and testing
+
+### Processing Pipeline Makefiles
+
+- `cookbook/paths_*.mk`: Path definitions for different processing stages
+
+  - `paths_canonical.mk`: Canonical newspaper content paths
+  - `paths_rebuilt.mk`: Rebuilt newspaper content paths
+  - `paths_lingproc.mk`: Linguistic processing paths
+  - `paths_ocrqa.mk`: OCR quality assessment paths
+  - `paths_langident.mk`: Language identification paths
+  - `paths_topics.mk`: Topic modeling paths
+  - `paths_bboxqa.mk`: Bounding box quality assessment paths
+
+- `cookbook/processing_*.mk`: Processing targets for different NLP tasks
+
+  - `processing_lingproc.mk`: Linguistic processing (POS tagging, NER)
+  - `processing_ocrqa.mk`: OCR quality assessment
+  - `processing_langident.mk`: Language identification
+  - `processing_topics.mk`: Topic modeling with Mallet
+  - `processing_bboxqa.mk`: Bounding box quality assessment
+
+- `cookbook/sync_*.mk`: Data synchronization for different processing stages
+
+  - `sync_canonical.mk`: Canonical content synchronization
+  - `sync_rebuilt.mk`: Rebuilt content synchronization
+  - `sync_lingproc.mk`: Linguistic processing data sync
+  - `sync_ocrqa.mk`: OCR QA data synchronization
+  - `sync_langident.mk`: Language identification data sync
+  - `sync_topics.mk`: Topic modeling data synchronization
+  - `sync_bboxqa.mk`: Bounding box QA data synchronization
+
+- `cookbook/setup_*.mk`: Setup targets for different processing environments
+
+  - `setup_python.mk`: Python environment setup
+  - `setup_lingproc.mk`: Linguistic processing environment
+  - `setup_ocrqa.mk`: OCR quality assessment setup
+  - `setup_topics.mk`: Topic modeling environment setup
+  - `setup_aws.mk`: AWS CLI setup and configuration
+
+- `cookbook/aggregators_*.mk`: Data aggregation targets
+  - `aggregators_langident.mk`: Language identification statistics
+  - `aggregators_bboxqa.mk`: Bounding box QA statistics
 
 ## Uploading to impresso S3 bucket
 
@@ -125,6 +178,352 @@ By leveraging S3 and stamp files, machines with limited storage (e.g., 100GB) ca
 - **File Target (Explicit Rule with Timestamp Purpose)** → A special case of an explicit rule where the file primarily serves as a timestamp.
 - **Double-Colon Target (Dependency-Only Target)** → A dependency-only target using `::`, allowing multiple independent rules.
 - **Double-Colon Target (Explicit Rule)** → A `::` target that executes independently from others of the same name.
+
+### Installation
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/impresso/impresso-make-cookbook.git
+   cd impresso-make-cookbook
+   ```
+
+2. **Set up environment variables:**
+   Create a `.env` file in the project root:
+
+   ```bash
+   SE_ACCESS_KEY=your_access_key
+   SE_SECRET_KEY=your_secret_key
+   SE_HOST_URL=https://os.zhdk.cloud.switch.ch/
+   ```
+
+3. **Install system dependencies:**
+
+   ```bash
+   # On Ubuntu/Debian
+   sudo apt-get install -y make git-lfs parallel coreutils openjdk-17-jre-headless
+
+   # On macOS
+   brew install make git-lfs parallel coreutils openjdk@17
+   ```
+
+4. **Set up Python environment:**
+
+   ```bash
+   make setup-python-env
+   # This installs Python 3.11, pip, and pipenv
+   ```
+
+5. **Install Python dependencies:**
+
+   ```bash
+   pipenv install
+   # or
+   python3 -m pip install -r requirements.txt
+   ```
+
+6. **Configure AWS CLI:**
+
+   ```bash
+   make create-aws-config
+   make test-aws
+   ```
+
+7. **Run initial setup:**
+   ```bash
+   make setup
+   ```
+
+## Makefile Targets
+
+The cookbook provides several categories of makefile targets:
+
+### Core Processing Targets
+
+- `make help`: Display all available targets with descriptions
+- `make setup`: Initialize environment and create necessary directories
+- `make newspaper`: Process a single newspaper (uses NEWSPAPER variable)
+- `make collection`: Process multiple newspapers in parallel
+- `make all`: Complete processing pipeline with fresh data sync
+
+### Parallel Processing Control
+
+The build system automatically detects CPU cores and configures parallel processing:
+
+- `NPROC`: Automatically detected number of CPU cores
+- `PARALLEL_JOBS`: Maximum parallel jobs (defaults to NPROC)
+- `COLLECTION_JOBS`: Number of parallel newspaper collections (defaults to NPROC/2)
+- `NEWSPAPER_JOBS`: Jobs per newspaper (defaults to PARALLEL_JOBS/COLLECTION_JOBS)
+- `MAX_LOAD`: Maximum system load average for job scheduling
+
+### Processing Pipeline Targets
+
+#### Language Identification
+
+- `make langident-target`: Run language identification pipeline
+- `make impresso-lid-stage1a-target`: Initial language classification
+- `make impresso-lid-stage1b-target`: Collect language statistics
+- `make impresso-lid-stage2-target`: Final language decisions with ensemble
+
+#### Linguistic Processing
+
+- `make lingproc-target`: Run linguistic processing (POS tagging, NER)
+- `make check-spacy-pipelines`: Validate spaCy model installations
+
+#### OCR Quality Assessment
+
+- `make ocrqa-target`: Run OCR quality assessment
+- `make check-python-installation-hf`: Test HuggingFace Hub setup
+
+#### Topic Modeling
+
+- `make topics-target`: Run topic modeling with Mallet
+- `make check-python-installation`: Test Java/JPype setup for Mallet
+
+#### Bounding Box Quality Assessment
+
+- `make bboxqa-target`: Run bounding box quality assessment
+
+### Data Synchronization Targets
+
+- `make sync`: Synchronize both input and output data with S3
+- `make sync-input`: Download input data from S3
+- `make sync-output`: Upload output data to S3
+- `make resync`: Force complete resynchronization
+- `make resync-input`: Force input data resynchronization
+- `make resync-output`: Force output data resynchronization
+
+### Cleanup Targets
+
+- `make clean-build`: Remove entire build directory
+- `make clean-sync-input`: Remove synchronized input data
+- `make clean-sync-output`: Remove synchronized output data
+- `make clean-sync`: Remove all synchronized data
+
+### Setup and Configuration Targets
+
+- `make setup-python-env`: Install Python, pip, and pipenv
+- `make create-aws-config`: Generate AWS configuration from .env
+- `make test-aws`: Test AWS S3 connectivity
+- `make newspaper-list-target`: Generate list of newspapers to process
+- `make update-pip-requirements-file`: Update requirements.txt from Pipfile
+
+### Aggregation Targets
+
+- `make aggregate`: Generate aggregated statistics
+- `make aggregate-pagestats`: Aggregate page-level statistics
+- `make aggregate-iiif-errors`: Aggregate IIIF error statistics
+
+### Testing and Validation Targets
+
+- `make test-LocalToS3`: Test path conversion utilities
+- `make check-parallel`: Verify GNU parallel installation
+- `make test_debug_level`: Test logging configuration at different levels
+
+## Usage Examples
+
+### Basic Processing
+
+```bash
+# Process a single newspaper
+make newspaper NEWSPAPER=gazette-de-lausanne
+
+# Process with custom parallel settings
+make newspaper NEWSPAPER=journal-de-geneve PARALLEL_JOBS=4
+
+# Process a specific processing stage
+make lingproc-target NEWSPAPER=actionfem
+```
+
+### Parallel and Distributed Processing
+
+```bash
+# Process multiple newspapers using collection target
+make collection
+
+# Process with custom job limits
+make collection COLLECTION_JOBS=4 MAX_LOAD=8
+
+# Process with specific newspaper sorting
+make collection NEWSPAPER_YEAR_SORTING=cat  # chronological order
+make collection NEWSPAPER_YEAR_SORTING=shuf # random order
+
+# Process using GNU parallel with custom settings
+make collection COLLECTION_JOBS=6 NEWSPAPER_JOBS=2
+```
+
+### Data Management
+
+```bash
+# Sync specific dataset types
+make sync-input-rebuilt NEWSPAPER=gazette-de-lausanne
+make sync-output-lingproc NEWSPAPER=actionfem
+
+# Force resync with fresh data
+make resync NEWSPAPER=journal-de-geneve
+
+# Clean up specific processing outputs
+make clean-sync-lingproc
+make clean-sync-output
+```
+
+### Configuration and Environment
+
+```bash
+# Set up complete environment
+make setup-python-env
+make create-aws-config
+make setup
+
+# Test environment components
+make test-aws
+make check-spacy-pipelines
+make check-python-installation
+
+# Configure custom paths
+make newspaper S3_BUCKET_CANONICAL=12-canonical-test BUILD_DIR=test.d
+```
+
+### Advanced Processing Options
+
+```bash
+# Language identification with custom models
+make langident-target \
+  LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION=models/custom-lid.bin \
+  LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION=150
+
+# OCR quality assessment with specific languages
+make ocrqa-target \
+  OCRQA_LANGUAGES_OPTION="de fr en" \
+  OCRQA_MIN_SUBTOKENS_OPTION="--min-subtokens 5"
+
+# Topic modeling with custom Mallet seed
+make topics-target \
+  MALLET_RANDOM_SEED=123 \
+  MODEL_VERSION_TOPICS=v3.0.0
+
+# Linguistic processing with validation
+make lingproc-target \
+  LINGPROC_VALIDATE_OPTION=--validate \
+  LOGGING_LEVEL=DEBUG
+```
+
+### Debugging and Monitoring
+
+```bash
+# Enable debug logging
+make newspaper LOGGING_LEVEL=DEBUG
+
+# Process with dry-run mode (no S3 uploads)
+make lingproc-target PROCESSING_S3_OUTPUT_DRY_RUN=--s3-output-dry-run
+
+# Monitor processing status
+make status    # if implemented
+make logs TARGET=lingproc-target   # if implemented
+
+# Test specific components
+make test-LocalToS3
+make test_debug_level
+```
+
+### Production Deployment
+
+```bash
+# Full production run with optimal settings
+make all \
+  COLLECTION_JOBS=8 \
+  MAX_LOAD=12 \
+  NEWSPAPER_YEAR_SORTING=shuf \
+  LOGGING_LEVEL=INFO
+
+# Process specific newspaper subset
+echo "gazette-de-lausanne journal-de-geneve" > newspapers.txt
+make collection NEWSPAPERS_TO_PROCESS_FILE=newspapers.txt
+```
+
+## Configuration and Customization
+
+### Environment Variables
+
+The cookbook uses several environment variables for configuration:
+
+- `SE_ACCESS_KEY`: S3 access key for authentication
+- `SE_SECRET_KEY`: S3 secret key for authentication
+- `SE_HOST_URL`: S3 endpoint URL (defaults to `https://os.zhdk.cloud.switch.ch/`)
+
+### Logging Configuration
+
+The cookbook includes a sophisticated logging system with multiple levels:
+
+- `LOGGING_LEVEL`: Set to `DEBUG`, `INFO`, `WARNING`, or `ERROR`
+- Debug logging provides detailed information about variable values and processing steps
+- All makefiles use consistent logging functions: `log.debug`, `log.info`, `log.warning`, `log.error`
+
+```bash
+# Enable debug logging for detailed output
+make newspaper LOGGING_LEVEL=DEBUG
+
+# Set to WARNING to reduce output
+make collection LOGGING_LEVEL=WARNING
+```
+
+### Processing Configuration Variables
+
+Key user-configurable variables (can be overridden):
+
+#### Parallel Processing
+
+- `PARALLEL_JOBS`: Maximum parallel jobs (auto-detected from CPU cores)
+- `COLLECTION_JOBS`: Number of parallel newspaper collections
+- `NEWSPAPER_JOBS`: Jobs per newspaper processing
+- `MAX_LOAD`: Maximum system load average for job scheduling
+
+#### Data Processing Behavior
+
+- `PROCESSING_S3_OUTPUT_DRY_RUN`: Set to `--s3-output-dry-run` to prevent S3 uploads
+- `PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION`: Keep only timestamp files after S3 upload
+- `PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION`: Skip processing if output exists on S3
+
+#### Newspaper Processing
+
+- `NEWSPAPER`: Target newspaper to process
+- `NEWSPAPER_YEAR_SORTING`: Sort order (`shuf` for random, `cat` for chronological)
+- `BUILD_DIR`: Local build directory (defaults to `build.d`)
+
+#### Language Identification
+
+- `LANGIDENT_LID_SYSTEMS_OPTION`: LID systems to use (e.g., `langid impresso_ft wp_ft`)
+- `LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION`: Minimum text length for stage 1a
+- `LANGIDENT_BOOST_FACTOR_OPTION`: Boost factor for language scoring
+
+#### OCR Quality Assessment
+
+- `OCRQA_LANGUAGES_OPTION`: Languages for OCR QA (e.g., `de fr`)
+- `OCRQA_BLOOMFILTERS_OPTION`: Bloom filter files for OCR assessment
+- `OCRQA_MIN_SUBTOKENS_OPTION`: Minimum subtokens for processing
+
+#### Topic Modeling
+
+- `MALLET_RANDOM_SEED`: Random seed for Mallet topic modeling
+- `MODEL_VERSION_TOPICS`: Version identifier for topic models
+- `LANG_TOPICS`: Language specification for topic models
+
+### Path Configuration
+
+The cookbook uses a sophisticated path management system:
+
+- Input paths: `paths_canonical.mk`, `paths_rebuilt.mk`
+- Output paths: `paths_lingproc.mk`, `paths_ocrqa.mk`, `paths_topics.mk`, etc.
+- Automatic conversion between local and S3 paths via `LocalToS3` function
+
+### S3 Bucket Configuration
+
+Different processing stages use different S3 buckets:
+
+- `S3_BUCKET_CANONICAL`: Canonical newspaper content (e.g., `12-canonical-final`)
+- `S3_BUCKET_REBUILT`: Rebuilt newspaper data (e.g., `22-rebuilt-final`)
+- `S3_BUCKET_LINGPROC`: Linguistic processing outputs (e.g., `40-processed-data-sandbox`)
+- `S3_BUCKET_TOPICS`: Topic modeling results (e.g., `41-processed-data-staging`)
 
 ## About Impresso
 
