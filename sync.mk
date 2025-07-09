@@ -6,12 +6,29 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync.mk)
 # Must be included before any specific sync targets
 ###############################################################################
 
+# TARGET: check-s3-credentials
+#: Checks if the S3 credentials are set in the environment variables
+check-s3-credentials:
+	. $(abspath .env) ; \
+	if [ -n "$${SE_SECRET_KEY}" ] && [ -n "$${SE_ACCESS_KEY}" ] && [ -n "$${SE_HOST_URL}" ] ; then \
+		echo "S3 credentials are properly configured"; \
+	else \
+		echo "SE_SECRET_KEY or SE_ACCESS_KEY is not set. Please set them in your environment variables or local .env file"; \
+		exit 1; \
+	fi
+
+help::
+	@echo "  check-s3-credentials # Check if the S3 credentials are set in the environment variables"
+
+.PHONY: check-s3-credentials
 
 # DOUBLE-COLON-TARGET: sync
 #: Synchronize local files with S3 (input and output) without deleting local files
 #
 # This target ensures that both input and output files are synchronized
 # with S3 while preserving local files.
+sync:: check-s3-credentials | $(BUILD_DIR) 
+
 sync:: sync-output
 
 sync:: sync-input
@@ -77,6 +94,7 @@ resync: resync-input resync-output
 
 help::
 	@echo "  resync          # Forces complete resynchronization with remote server"
+
 
 
 # USER-VARIABLE: LOCAL_STAMP_SUFFIX
