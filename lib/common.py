@@ -84,7 +84,12 @@ def yield_s3_objects(bucket: str, prefix: str) -> Generator[str, None, None]:
     logging.info(f"Found {count} objects with prefix {prefix}")
 
 
-def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) -> None:
+def setup_logging(
+    log_level: str,
+    log_file: Optional[str],
+    force: bool = False,
+    logger: Optional[logging.Logger] = None,
+) -> None:
     """Configure logging with support for both console and file output.
 
     Sets up logging handlers for console output and optionally file output using
@@ -98,6 +103,8 @@ def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) 
             If None, only console logging is configured.
         force (bool, optional): If True, force reconfiguration of existing loggers.
             Defaults to False.
+        logger (Optional[logging.Logger], optional): Specific logger to configure.
+            If None, configures the root logger. Defaults to None.
 
     Returns:
         None
@@ -105,6 +112,9 @@ def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) 
     Example:
         >>> setup_logging('INFO', 'logs/app.log')
         >>> setup_logging('DEBUG', 's3://bucket/logs/debug.log', force=True)
+        >>> # Configure specific logger
+        >>> my_logger = logging.getLogger(__name__)
+        >>> setup_logging('INFO', 'app.log', logger=my_logger)
     """
 
     class SmartFileHandler(logging.FileHandler):
@@ -127,9 +137,27 @@ def setup_logging(log_level: str, log_file: Optional[str], force: bool = False) 
     if log_file:
         handlers.append(SmartFileHandler(log_file, mode="w"))
 
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)-15s %(filename)s:%(lineno)d %(levelname)s: %(message)s",
-        handlers=handlers,
-        force=force,
-    )
+    if logger:
+        # Configure specific logger
+        logger.setLevel(log_level)
+        # Remove existing handlers to avoid duplication
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        # Add new handlers
+        for handler in handlers:
+            handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)-15s %(filename)s:%(lineno)d %(levelname)s: %(message)s"
+                )
+            )
+            logger.addHandler(handler)
+        # Prevent propagation to root logger to avoid duplicate messages
+        logger.propagate = False
+    else:
+        # Configure root logger (backward compatibility)
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)-15s %(filename)s:%(lineno)d %(levelname)s: %(message)s",
+            handlers=handlers,
+            force=force,
+        )
