@@ -26,7 +26,7 @@ LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
 # Rule to sync the input data from the S3 bucket to the local directory
 $(LOCAL_PATH_CANONICAL_PAGES).last_synced:
 	mkdir -p $(@D) && \
-	python cookbook/lib/s3_to_local_stamps.py \
+	python cookbook/ -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_CANONICAL_PAGES)/$(NEWSPAPER) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_CANONICAL_STAMP_SUFFIX) \

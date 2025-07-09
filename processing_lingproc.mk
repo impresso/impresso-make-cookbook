@@ -77,7 +77,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REB
     echo "Processing exit code: $$EXIT_CODE" ; \
       if [ $$EXIT_CODE -eq 0 ] ; then \
           echo "Processing completed successfully. Uploading logfile..." ; \
-          python3 lib/s3_to_local_stamps.py \
+          python3  -m impresso_cookbook.s3_to_local_stamps  \
               $(call LocalToS3,$@,.stamp).log.gz \
               --upload-file $@.log.gz \
         --force-overwrite ; \

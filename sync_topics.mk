@@ -38,7 +38,7 @@ LOCAL_TOPICS_STAMP_SUFFIX ?= ''
 #: Rule to sync the output data from the S3 bucket to the local directory
 $(LOCAL_TOPICS_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
-	python lib/s3_to_local_stamps.py \
+	python  -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_TOPICS) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_TOPICS_STAMP_SUFFIX) \

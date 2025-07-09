@@ -27,7 +27,7 @@ LOCAL_BBOXQA_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
 #: Synchronizes data from S3 to the local directory
 $(LOCAL_PATH_BBOXQA).last_synced:
 	mkdir -p $(@D) && \
-	python lib/s3_to_local_stamps.py \
+	python  -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_BBOXQA) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_BBOXQA_STAMP_SUFFIX) \
