@@ -75,7 +75,7 @@ check-parallel:
 .PHONY: check-parallel
 
 # TARGET: collection
-#: Process multiple newspapers with specified parallel processing
+#: Process full impresso collection with specified parallel processing
 # Uses GNU parallel for better control over job execution
 # Note: Requires GNU parallel installed
 # Dependencies: newspaper-list-target
@@ -87,7 +87,7 @@ collection: check-parallel newspaper-list-target
 		"NEWSPAPER={} $(MAKE) -k --max-load $(MAX_LOAD) all"
 
 help::
-	@echo "  collection        #  Process multiple newspapers with specified parallel processing"
+	@echo "  collection        #  Process fulll impresso collection with parallel processing"
 
 # Alternative implementation using GNU parallel
 # collection: newspaper-list-target

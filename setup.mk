@@ -50,7 +50,7 @@ setup:: | $(BUILD_DIR)
 .PHONY: setup
 
 help::
-	@echo "  setup           # Create the local directories and store the HF model locally"
+	@echo "  setup           # Create the local directories and run the setup targets"
 
 # USER-VARIABLE: GIT_VERSION
 # The current git version of the repository
