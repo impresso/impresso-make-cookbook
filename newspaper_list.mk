@@ -14,7 +14,7 @@ help::
 	@echo "  newspaper-list-target  # Generate newspaper list to process from the S3 bucket content: '$(NEWSPAPERS_TO_PROCESS_FILE)'"
 
 
-setup:: newspaper-list-target
+sync:: newspaper-list-target
 
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
@@ -53,14 +53,19 @@ newspaper-list-target: $(NEWSPAPERS_TO_PROCESS_FILE)
 #
 # This rule retrieves the list of available newspapers from an S3 bucket,
 # shuffles them to distribute processing evenly, and writes them to a file.
-$(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
+$(NEWSPAPERS_TO_PROCESS_FILE): check-s3-credentials | $(BUILD_DIR)
 	python -c \
 	"import boto3, os, random; from dotenv import load_dotenv; load_dotenv() ; \
+  secret = os.getenv('SE_SECRET_KEY') ; \
+  access = os.getenv('SE_ACCESS_KEY') ; \
+  assert secret is not None, 'SE_SECRET_KEY environment variable is not set. Please FIX!' ; \
+  assert access is not None, 'SE_ACCESS_KEY environment variable is not set. Please FIX!' ; \
+  endpoint_url ='https://os.zhdk.cloud.switch.ch/' ; \
 	s3 = boto3.resource( \
         's3',\
-        aws_secret_access_key=os.getenv('SE_SECRET_KEY'),\
-        aws_access_key_id=os.getenv('SE_ACCESS_KEY'),\
-        endpoint_url=os.getenv('SE_HOST_URL')) ; \
+        aws_secret_access_key=secret,\
+        aws_access_key_id=access,\
+        endpoint_url=endpoint_url); \
 	bucket = s3.Bucket('$(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)'); \
     result = bucket.meta.client.list_objects_v2(Bucket=bucket.name, Delimiter='/'); \
 	l = [prefix['Prefix'][:-1] for prefix in result.get('CommonPrefixes', [])]; \
