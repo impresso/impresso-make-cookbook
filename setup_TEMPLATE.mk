@@ -6,11 +6,11 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_TEMPLATE.mk)
 ###############################################################################
 
 
-setup:: check-python-installation-hf
+setup:: check-TEMPLATE-dummy
 
 
 # TARGET: check-template-dummy
-check-template-dummy:
+check-TEMPLATE-dummy:
 	@echo "TEMPLATE setup done"
 .PHONY: check-template-dummy
 
