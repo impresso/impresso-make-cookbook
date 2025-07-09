@@ -398,7 +398,7 @@ def s3_file_exists(s3_client, bucket_or_path: str, key: str = None) -> bool:
 def get_s3_resource(
     access_key: str | None = None,
     secret_key: str | None = None,
-    host_url: str | None = None,
+    host_url: str | None = "https://os.zhdk.cloud.switch.ch/",
 ) -> Any:
     """Configures and returns an S3 resource object.
 
