@@ -8,7 +8,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_TEMPLATE.mk)
 processing-target :: TEMPLATE-target
 
 
-
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
 LOCAL_REBUILT_STAMP_FILES := \

@@ -12,8 +12,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 # - sync: Ensures data is synchronized
 # - processing-target: Performs the actual processing
 newspaper: | $(BUILD_DIR)
-	$(MAKE) sync
-	$(MAKE) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) sync
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) processing-target
 
 .PHONY: newspaper
 
@@ -54,8 +54,8 @@ MAX_LOAD ?= $(PARALLEL_JOBS)
 # 1. Resync data (serial)
 # 2. Process data (parallel)
 all:
-	$(MAKE) -j 1 sync-input resync-output
-	$(MAKE) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -j 1 sync-input resync-output
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
 
 .PHONY: all
 
@@ -84,7 +84,7 @@ collection: check-parallel newspaper-list-target
 	parallel  --tag -v --progress  \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay 3 --memfree 1G --load $(MAX_LOAD) \
-		"NEWSPAPER={} $(MAKE) -k --max-load $(MAX_LOAD) all"
+		"NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all"
 
 help::
 	@echo "  collection        #  Process fulll impresso collection with parallel processing"
