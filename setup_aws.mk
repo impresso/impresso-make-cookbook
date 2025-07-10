@@ -70,7 +70,8 @@ install-aws:
 #
 # This rule extracts AWS credentials from the `.env` file and writes them to
 # `.aws/credentials`. Ensure that `.env` contains `SE_ACCESS_KEY` and `SE_SECRET_KEY`.
-.aws/credentials: | .env
+.aws/credentials: | .env 
+	mkdir -p .aws
 	@echo "Creating local AWS CLI credentials: $@"
 	echo "[default]" > .aws/credentials
 	@echo "aws_access_key_id = $$(grep SE_ACCESS_KEY .env | cut -d '=' -f2)" >> .aws/credentials
