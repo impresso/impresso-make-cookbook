@@ -12,7 +12,7 @@ import os
 import sys
 import time
 import traceback
-from typing import Optional, List, Generator, Tuple, Any
+from typing import Optional, List, Generator, Tuple, Any, Dict
 
 import boto3
 
@@ -32,7 +32,7 @@ def extract_year(content_item_id: str) -> str:
     return content_item_id[-18:-14]
 
 
-def get_transport_params(filepath: str) -> dict:
+def get_transport_params(filepath: str) -> Dict[str, Any]:
     """Get transport parameters for S3 or local file access."""
     if filepath.startswith("s3://"):
         return {"client": get_s3_client()}

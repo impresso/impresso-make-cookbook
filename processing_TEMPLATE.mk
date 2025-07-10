@@ -46,14 +46,13 @@ TEMPLATE-target: $(LOCAL_TEMPLATE_FILES)
 $(LOCAL_PATH_TEMPLATE)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	{  set +e ; \
-     python3 lib/cli_TEMPLATE.py \
+    python3 lib/cli_TEMPLATE.py \
           --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
           --output $@ \
-          --log-file $@.log.gz ; \
+          --log-file $@.log.gz \
     && python3 -m impresso_cookbook.local_to_s3 \
-      $@    $(call LocalToS3,$@,'') \
-      $@.log.gz    $(call LocalToS3,$@,'').log.gz \
+      $@        $(call LocalToS3,$@,'') \
+      $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1 ; }
 
 
