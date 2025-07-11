@@ -5,3 +5,4 @@ lib/build
 *_myprocessing.mk
 lib/*_myprocessing.py
 .DS_Store
+Pipfile.lock
