@@ -8,9 +8,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_bboxqa.mk)
 processing-target :: bboxqa-target
 
 
-#BBOXQA_VERBOSE_OUTPUT_OPTION ?= --verbose-output
-BBOXQA_VERBOSE_OUTPUT_OPTION ?= 
-  $(call log.debug, BBOXQA_VERBOSE_OUTPUT_OPTION)
+#BBOXQA_IIIF_GALLICA_V3_OPTION ?= --iiif-gallica-v3
+BBOXQA_IIIF_GALLICA_V3_OPTION ?= $(EMPTY)
+  $(call log.debug, #BBOXQA_IIIF_GALLICA_V3_OPTION ?= --iiif-gallica-v3)
 
 # VARIABLE: CANONICAL_PAGES_STAMP_FILES
 # Stores all canonical stamp files for dependency tracking
@@ -41,40 +41,22 @@ bboxqa-target: $(LOCAL_BBOXQA_FILES)
 .PHONY: bboxqa-target
 
 # FILE-RULE: $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2
-#: Rule to process a single newspaper
-#  \
-# Note: Unsets errexit flag to communicate exit codes
+#: Rule to process a single newspaper year file
 $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) && \
-	{  set +e ; \
-     python3 lib/check_lines_within_boundaries.py \
-          --git_version $(GIT_VERSION) \
-          --output $@ \
-          --log-file $@.log.gz \
-          $(call LocalToS3,$<,.stamp) \
-          ; \
-    EXIT_CODE=$$? ; \
-    echo "Processing exit code: $$EXIT_CODE" ; \
-      if [ $$EXIT_CODE -eq 0 ] ; then \
-          echo "Processing completed successfully. Uploading logfile..." ; \
-          python3 lib/s3_to_local_stamps.py \
-              $(call LocalToS3,$@,.stamp).log.gz \
-              --upload-file $@.log.gz \
-        --force-overwrite ; \
-        python3 lib/s3_to_local_stamps.py \
-              $(call LocalToS3,$@,) \
-              --upload-file $@ \
-        --force-overwrite ; \
-      elif [ $$EXIT_CODE -eq 3 ] ; then \
-          echo "Processing skipped (output exists on S3). Not uploading logfile." ; \
-          rm -f $@ ; \
-          exit 0 ; \
-      else \
-          echo "An error occurred during processing. Exit code: $$EXIT_CODE" ; \
-          rm -f $@ ; \
-          exit $$EXIT_CODE ; \
-      fi ; }
+	mkdir -p $(@D) \
+  && \
+  python3 lib/check_lines_within_boundaries.py \
+      --git_version $(GIT_VERSION) \
+      --output $@ \
+      --log-file $@.log.gz \
+      $(BBOXQA_IIIF_GALLICA_V3_OPTION) \
+      $(call LocalToS3,$<,.stamp) \
+  && \
+  python3 -m impresso_cookbook.local_to_s3 \
+    $@        $(call LocalToS3,$@,'') \
+    $@.log.gz $(call LocalToS3,$@,'').log.gz \
+  || { rm -vf $@ ; exit 1 ; }
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_bboxqa.mk)
