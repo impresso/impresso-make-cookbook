@@ -21,6 +21,9 @@ import smart_open
 # Set up module logger
 log = logging.getLogger(__name__)
 
+# Global registry for shared file handlers to prevent conflicts with gzipped files
+_shared_file_handlers: Dict[str, logging.Handler] = {}
+
 
 def extract_newspaper_id(content_item_id: str) -> str:
     """Extract newspaper ID from content item ID."""
@@ -297,9 +300,44 @@ def setup_logging(
             """
             return smart_open.open(self.baseFilename, self.mode, encoding="utf-8")
 
+        def close(self):
+            """Close the file handler and ensure proper cleanup of gzipped files."""
+            if self.stream:
+                try:
+                    self.flush()
+                    if hasattr(self.stream, "close"):
+                        self.stream.close()
+                except (OSError, ValueError):
+                    # Ignore errors during close - file may already be closed
+                    pass
+                finally:
+                    # Use setattr to avoid type checker issues
+                    object.__setattr__(self, "stream", None)
+            super().close()
+
+        def __del__(self):
+            """Ensure proper cleanup when the handler is garbage collected."""
+            try:
+                self.close()
+            except Exception:
+                # Ignore any errors during cleanup
+                pass
+
     handlers: List[logging.Handler] = [logging.StreamHandler()]
+    file_handler = None
+
     if log_file:
-        handlers.append(SmartFileHandler(log_file, mode="w"))
+        # Check if we already have a shared handler for this file
+        if log_file in _shared_file_handlers:
+            file_handler = _shared_file_handlers[log_file]
+            log.debug(f"Reusing existing shared handler for {log_file}")
+        else:
+            # Create new handler and register it in the shared registry
+            file_handler = SmartFileHandler(log_file, mode="w")
+            _shared_file_handlers[log_file] = file_handler
+            log.debug(f"Created new shared handler for {log_file}")
+
+        handlers.append(file_handler)
 
     if logger:
         # Configure specific logger
@@ -325,6 +363,45 @@ def setup_logging(
             handlers=handlers,
             force=force,
         )
+
+    # Register cleanup function to ensure proper file closure on exit
+    import atexit
+
+    def cleanup_shared_handlers():
+        """Ensure all shared file handlers are properly closed on program exit."""
+        for filename, handler in _shared_file_handlers.items():
+            try:
+                if hasattr(handler, "close"):
+                    log.debug(f"Cleaning up shared handler for {filename}")
+                    handler.close()
+            except Exception as e:
+                # Ignore errors during cleanup but log them if possible
+                print(f"Error cleaning up handler for {filename}: {e}")
+
+    # Only register the cleanup function once
+    if not hasattr(setup_logging, "_cleanup_registered"):
+        atexit.register(cleanup_shared_handlers)
+        setup_logging._cleanup_registered = True
+
+
+def clear_shared_handlers() -> None:
+    """Clear the shared file handlers registry and close all handlers.
+
+    This function should be called when you want to reset the logging system,
+    for example in test scenarios or when changing log files programmatically.
+    """
+    global _shared_file_handlers
+
+    for filename, handler in _shared_file_handlers.items():
+        try:
+            if hasattr(handler, "close"):
+                log.debug(f"Closing shared handler for {filename}")
+                handler.close()
+        except Exception as e:
+            log.warning(f"Error closing handler for {filename}: {e}")
+
+    _shared_file_handlers.clear()
+    log.debug("Cleared all shared file handlers")
 
 
 def calculate_md5(file_path: str, s3_client: Any = None) -> str:
