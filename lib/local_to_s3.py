@@ -13,11 +13,12 @@ __license__ = "GNU GPL 3.0 or later"
 
 import argparse
 import logging
+
 import sys
 import traceback
 from dotenv import load_dotenv
 
-from impresso_cookbook import get_s3_client, upload_file_to_s3
+from impresso_cookbook import get_s3_client, upload_file_to_s3, keep_timestamp_only  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,16 @@ def main():
         help="Overwrite files on S3 even if they already exist.",
     )
     parser.add_argument(
+        "--keep-timestamp-only",
+        action="store_true",
+        help=(
+            "Truncate local *.jsonl.bz2 files to zero length and keep only timestamp"
+            " after successful upload."
+        ),
+    )
+    parser.add_argument(
         "--level",
+        "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Set the logging level. Default: %(default)s",
@@ -102,6 +112,14 @@ def main():
                 s3_path,
                 args.force_overwrite,
             )
+
+            # Handle --keep-timestamp-only option for *.jsonl.bz2 files
+            if args.keep_timestamp_only and local_path.endswith(".jsonl.bz2"):
+                log.info(
+                    "Truncating %s and keeping only timestamp after successful upload",
+                    local_path,
+                )
+                keep_timestamp_only(local_path)
 
         log.info("All uploads completed successfully")
 
