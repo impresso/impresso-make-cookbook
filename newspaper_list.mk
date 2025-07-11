@@ -53,7 +53,7 @@ newspaper-list-target: $(NEWSPAPERS_TO_PROCESS_FILE)
 #
 # This rule retrieves the list of available newspapers from an S3 bucket,
 # shuffles them to distribute processing evenly, and writes them to a file.
-$(NEWSPAPERS_TO_PROCESS_FILE): check-s3-credentials | $(BUILD_DIR)
+$(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	python -c \
 	"import boto3, os, random; from dotenv import load_dotenv; load_dotenv() ; \
   secret = os.getenv('SE_SECRET_KEY') ; \
