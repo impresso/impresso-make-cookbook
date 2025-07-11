@@ -2,3 +2,6 @@
 lib/build
 .venv
 *.egg-info/
+*_myprocessing.mk
+lib/*_myprocessing.py
+.DS_Store
