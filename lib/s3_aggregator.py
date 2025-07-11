@@ -30,10 +30,13 @@ import re
 import sys
 import tempfile
 from typing import Dict, Any, Optional, Sequence
+from dotenv import load_dotenv
 
 import jq
 from impresso_cookbook import get_s3_client, yield_s3_objects
 from smart_open import open as smart_open
+
+load_dotenv()
 
 
 class SmartFileHandler(logging.FileHandler):
