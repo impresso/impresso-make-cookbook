@@ -46,7 +46,7 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONIC
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
-  python3 lib/check_lines_within_boundaries.py \
+  python3 lib/bboxqa.py \
       --git_version $(GIT_VERSION) \
       --output $@ \
       --log-file $@.log.gz \

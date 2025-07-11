@@ -8,7 +8,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_bboxqa.mk)
 
 # VARIABLE: S3_BUCKET_BBOXQA
 # S3 bucket name for storing processed boundary box quality assessment data
-S3_BUCKET_BBOXQA := 41-processed-data-staging
+S3_BUCKET_BBOXQA := 140-processed-data-sandbox
   $(call log.debug, S3_BUCKET_BBOXQA)
 
 
