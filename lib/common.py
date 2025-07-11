@@ -142,7 +142,7 @@ def s3_file_exists(s3_client, bucket_or_path: str, key: Optional[str] = None) ->
 
 def upload_file_to_s3(
     s3_client, local_file_path: str, s3_path: str, force_overwrite: bool = False
-) -> None:
+) -> bool:
     """Uploads a local file to an S3 bucket and verifies the upload.
 
     Args:
@@ -150,6 +150,9 @@ def upload_file_to_s3(
         local_file_path (str): The path to the local file to upload.
         s3_path (str): The destination S3 path.
         force_overwrite (bool): Whether to overwrite the file on S3 if it already exists.
+
+    Returns:
+        bool: True if the file was actually uploaded, False if skipped or failed.
     """
     if not s3_path.startswith("s3://"):
         log.error("The s3_path must start with 's3://'.")
@@ -157,7 +160,7 @@ def upload_file_to_s3(
     bucket, key = parse_s3_path(s3_path)
     if not force_overwrite and s3_file_exists(s3_client, bucket, key):
         log.warning(f"The file s3://{bucket}/{key} already exists. Skipping upload.")
-        return
+        return False
 
     try:
         # Calculate the MD5 checksum of the local file
@@ -175,6 +178,7 @@ def upload_file_to_s3(
 
         if local_md5 == s3_md5:
             log.info(f"File {local_file_path} successfully verified after upload.")
+            return True
         else:
             log.error(
                 f"MD5 checksum mismatch: local file {local_md5} != s3 file {s3_md5}"
@@ -183,13 +187,17 @@ def upload_file_to_s3(
 
     except FileNotFoundError:
         log.error(f"The file {local_file_path} was not found.")
+        return False
     except s3_client.exceptions.NoCredentialsError:
         log.error("Credentials not available.")
+        return False
     except s3_client.exceptions.PartialCredentialsError:
         log.error("Incomplete credentials provided.")
+        return False
     except Exception as e:
         log.error(f"An error occurred: {e}")
         log.error(traceback.format_exc())
+        return False
 
 
 def read_json(path: str, s3_client=None) -> dict:

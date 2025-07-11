@@ -18,7 +18,7 @@ import sys
 import traceback
 from dotenv import load_dotenv
 
-from impresso_cookbook import get_s3_client, upload_file_to_s3, keep_timestamp_only  # type: ignore
+from impresso_cookbook import get_s3_client, upload_file_to_s3, keep_timestamp_only, setup_logging  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -53,15 +53,19 @@ def main():
         ),
     )
     parser.add_argument(
-        "--level",
+        "--log-file", dest="log_file", help="Write log to FILE", metavar="FILE"
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Set the logging level. Default: %(default)s",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: %(default)s)",
     )
-    parser.add_argument("--logfile", help="Write log to FILE", metavar="FILE")
 
     args = parser.parse_args()
+
+    # Set up logging using impresso_cookbook
+    setup_logging(args.log_level, args.log_file, logger=log)
 
     # Validate that we have pairs of arguments
     if len(args.files) % 2 != 0:
@@ -70,26 +74,6 @@ def main():
             len(args.files),
         )
         sys.exit(1)
-
-    # Set up logging
-    to_logging_level = {
-        "CRITICAL": logging.CRITICAL,
-        "ERROR": logging.ERROR,
-        "WARNING": logging.WARNING,
-        "INFO": logging.INFO,
-        "DEBUG": logging.DEBUG,
-    }
-
-    logging_config = {
-        "level": to_logging_level[args.level],
-        "format": "%(asctime)-15s %(filename)s:%(lineno)d %(levelname)s: %(message)s",
-        "force": True,
-    }
-
-    if args.logfile:
-        logging_config["filename"] = args.logfile
-
-    logging.basicConfig(**logging_config)
 
     log.info("Arguments: %s", args)
 
@@ -102,19 +86,71 @@ def main():
             (args.files[i], args.files[i + 1]) for i in range(0, len(args.files), 2)
         ]
 
-        log.info("Uploading %d file(s) to S3", len(file_pairs))
+        log.info("Uploading %d file pair(s) to S3", len(file_pairs))
 
         for local_path, s3_path in file_pairs:
-            log.info("Uploading %s to %s", local_path, s3_path)
-            upload_file_to_s3(
-                s3_client,
-                local_path,
-                s3_path,
-                args.force_overwrite,
-            )
+            # Check if this is actually a pair of files (e.g., data file + log file)
+            # If we have an even number of arguments, treat as pairs where second depends on first
+            if len(file_pairs) > 1 and file_pairs.index((local_path, s3_path)) % 2 == 0:
+                # This is the first file of a pair
+                log.info("Uploading first file of pair: %s to %s", local_path, s3_path)
+                first_file_uploaded = upload_file_to_s3(
+                    s3_client,
+                    local_path,
+                    s3_path,
+                    args.force_overwrite,
+                )
+
+                # Only upload the second file if the first was successful
+                if first_file_uploaded and file_pairs.index(
+                    (local_path, s3_path)
+                ) + 1 < len(file_pairs):
+                    next_local, next_s3 = file_pairs[
+                        file_pairs.index((local_path, s3_path)) + 1
+                    ]
+                    log.info(
+                        "First file uploaded successfully, now uploading second file:"
+                        " %s to %s",
+                        next_local,
+                        next_s3,
+                    )
+                    upload_file_to_s3(
+                        s3_client,
+                        next_local,
+                        next_s3,
+                        True,  # Force overwrite the second file (log file)
+                    )
+                elif not first_file_uploaded and file_pairs.index(
+                    (local_path, s3_path)
+                ) + 1 < len(file_pairs):
+                    next_local, next_s3 = file_pairs[
+                        file_pairs.index((local_path, s3_path)) + 1
+                    ]
+                    log.info(
+                        "First file was not uploaded, skipping second file: %s",
+                        next_local,
+                    )
+            elif (
+                len(file_pairs) > 1 and file_pairs.index((local_path, s3_path)) % 2 == 1
+            ):
+                # This is the second file of a pair, already handled above
+                continue
+            else:
+                # Single file or odd number of files
+                log.info("Uploading single file: %s to %s", local_path, s3_path)
+                first_file_uploaded = upload_file_to_s3(
+                    s3_client,
+                    local_path,
+                    s3_path,
+                    args.force_overwrite,
+                )
 
             # Handle --keep-timestamp-only option for *.jsonl.bz2 files
-            if args.keep_timestamp_only and local_path.endswith(".jsonl.bz2"):
+            if (
+                first_file_uploaded
+                and args.keep_timestamp_only
+                and local_path.endswith(".jsonl.bz2")
+            ):
                 log.info(
                     "Truncating %s and keeping only timestamp after successful upload",
                     local_path,
@@ -124,7 +160,7 @@ def main():
         log.info("All uploads completed successfully")
 
     except Exception as e:
-        print(f"An error occurred: {e}", file=sys.stderr)
+        log.error("An error occurred: %s", e)
         log.error("Traceback: %s", traceback.format_exc())
         sys.exit(1)
 
