@@ -60,7 +60,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 		$(S3_PATH_LANGIDENT_STAGE1) \
 		--local-dir $(BUILD_DIR) \
-		--stamp-extension $(LOCAL_STAMP_SUFFIX) \
+		--stamp-extension "$(LOCAL_STAMP_SUFFIX)" \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \
 	&& touch $@
