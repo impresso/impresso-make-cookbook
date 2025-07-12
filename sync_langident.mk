@@ -64,22 +64,14 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	&& touch $@
 
 
-# TARGET: sync-input-langident
+# TARGET: sync-langident
 # Synchronizes processed input data from S3 to local directory.
 #
 # This target ensures that the latest processed language identification
 # data from S3 is made available in the local environment.
-sync-input-langident: $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-.PHONY: sync-input-langident
+sync-langident: $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+.PHONY: sync-langident
 
-
-# TARGET: sync-output-langident
-# Synchronizes processed output data from S3 to local directory.
-#
-# This target ensures that the latest processed language identification
-# output data from S3 is made available in the local environment.
-sync-output-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-.PHONY: sync-output-langident
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_langident.mk)
