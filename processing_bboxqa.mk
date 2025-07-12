@@ -64,6 +64,7 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONIC
   && \
   python3 -m impresso_cookbook.local_to_s3 \
     $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
+    --set-timestamp \
     $@        $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
   || { rm -vf $@ ; exit 1 ; }

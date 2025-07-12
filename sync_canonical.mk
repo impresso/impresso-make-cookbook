@@ -24,17 +24,17 @@ LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
 # pages data was last successfully synchronized from S3 storage.
 LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_synced
   $(call log.debug, LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
-  
 
-# TARGET: sync-input-canonical
+
+# TARGET: sync-canonical
 #: Synchronize canonical pages input data from S3 to local storage
 #
 # This target ensures that the canonical pages data is available locally
 # by triggering the synchronization process if needed. It depends on the
 # stamp file to determine if synchronization is required.
-sync-input-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+sync-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
-.PHONY: sync-input-canonical
+.PHONY: sync-canonical
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp
