@@ -1,30 +1,47 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_canonical.mk)
-
 ###############################################################################
-# SYNC CANONICAL PAGES DATA TARGETS
+# Sync Canonical Pages Data
 # Targets for synchronizing canonical pages data from S3 to local storage
-# Subsumes all sync-input targets from the necessary inputs.
+#
+# This module provides functionality to sync canonical pages data from S3
+# storage to local directories using stamp files to track synchronization
+# status. Subsumes all sync-input targets from the necessary inputs.
 ###############################################################################
 
-# TARGET: sync-input-canonical
-# Synchronizes canonical pages input data from S3 to local directory
-sync-input:: sync-input-canonical
-.PHONY: sync-input
+# USER-VARIABLE: LOCAL_CANONICAL_STAMP_SUFFIX
+# The suffix for the local stamp files (added to the input paths on S3)
+#
+# This suffix is appended to local stamp files to track synchronization
+# status and avoid unnecessary re-downloads of unchanged data.
+LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
+  $(call log.debug, LOCAL_CANONICAL_STAMP_SUFFIX)
 
+
+# VARIABLE: LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE
 # Local synchronization stamp file for canonical pages input data
+#
+# This file serves as a timestamp marker indicating when the canonical
+# pages data was last successfully synchronized from S3 storage.
 LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_synced
   $(call log.debug, LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+  
 
+# TARGET: sync-input-canonical
+#: Synchronize canonical pages input data from S3 to local storage
+#
+# This target ensures that the canonical pages data is available locally
+# by triggering the synchronization process if needed. It depends on the
+# stamp file to determine if synchronization is required.
 sync-input-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
 .PHONY: sync-input-canonical
 
-
-# The suffix for the local stamp files (added to the input paths on S3)
-LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_CANONICAL_STAMP_SUFFIX)
-
-# Rule to sync the input data from the S3 bucket to the local directory
+# STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
+#: Sync canonical pages data from S3 and create synchronization stamp
+#
+# Downloads canonical pages data from the S3 bucket to the local directory
+# using the impresso_cookbook.s3_to_local_stamps module. Creates stamp files
+# to track individual file synchronization and a master stamp file upon completion.
 $(LOCAL_PATH_CANONICAL_PAGES).last_synced:
 	mkdir -p $(@D) \
 	&& \
