@@ -105,6 +105,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		    --git-describe $(GIT_VERSION) \
         --logfile $@.log.gz  \
     && python3 -m impresso_cookbook.local_to_s3 \
+    --set-timestamp \
       $@ $(call LocalToS3,$@,'') \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1 ; }
@@ -174,9 +175,10 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
         --log-level $(LOGGING_LEVEL) \
         --log-file $@.log.gz \
     && python3 -m impresso_cookbook.local_to_s3 \
+      --set-timestamp \
       $@    $(call LocalToS3,$@,'') \
-      $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
       $@.log.gz    $(call LocalToS3,$@,'').log.gz \
+      $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
     || { rm -vf $@ ; exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-stage2-target

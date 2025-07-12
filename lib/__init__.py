@@ -20,6 +20,9 @@ from .common import (
     keep_timestamp_only,
 )
 
+# Import S3TimestampProcessor from s3_set_timestamp module
+from .s3_set_timestamp import S3TimestampProcessor
+
 __all__ = [
     # Logging-related
     "setup_logging",
@@ -40,4 +43,6 @@ __all__ = [
     # Utility functions
     "get_timestamp",
     "keep_timestamp_only",
+    # S3 timestamp processing
+    "S3TimestampProcessor",
 ]

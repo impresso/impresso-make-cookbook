@@ -13,12 +13,17 @@ __license__ = "GNU GPL 3.0 or later"
 
 import argparse
 import logging
-
 import sys
 import traceback
 from dotenv import load_dotenv
 
-from impresso_cookbook import get_s3_client, upload_file_to_s3, keep_timestamp_only, setup_logging  # type: ignore
+from impresso_cookbook import (
+    get_s3_client,
+    upload_file_to_s3,
+    keep_timestamp_only,
+    setup_logging,
+    S3TimestampProcessor,
+)
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +56,25 @@ def main():
             "Truncate local *.jsonl.bz2 files to zero length and keep only timestamp"
             " after successful upload."
         ),
+    )
+    parser.add_argument(
+        "--set-timestamp",
+        action="store_true",
+        help=(
+            "Automatically set impresso timestamp metadata after successful upload "
+            "of *.jsonl.bz2 files."
+        ),
+    )
+    parser.add_argument(
+        "--ts-key",
+        default="ts",
+        choices=["ts", "cdt"],
+        help="Timestamp key to extract from JSONL records (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--metadata-key",
+        default="impresso-last-ts",
+        help="S3 metadata key for timestamp (default: %(default)s).",
     )
     parser.add_argument(
         "--log-file", dest="log_file", help="Write log to FILE", metavar="FILE"
@@ -158,6 +182,30 @@ def main():
                 keep_timestamp_only(local_path)
 
         log.info("All uploads completed successfully")
+
+        # Set timestamps on S3 files if requested
+        if args.set_timestamp:
+            log.info("Setting timestamps on S3 files")
+
+            for local_path, s3_path in file_pairs:
+                if local_path.endswith(".jsonl.bz2"):
+                    log.info("Processing timestamp for: %s", s3_path)
+                    try:
+                        timestamp_processor = S3TimestampProcessor(
+                            s3_file=s3_path,
+                            metadata_key=args.metadata_key,
+                            ts_key=args.ts_key,
+                            all_lines=False,
+                            force=True,
+                            log_level=args.log_level,
+                            log_file=args.log_file,
+                        )
+                        timestamp_processor.update_metadata_for_file()
+                        log.info("Successfully set timestamp for %s", s3_path)
+                    except Exception as e:
+                        log.error("Failed to set timestamp for %s: %s", s3_path, e)
+
+            log.info("Timestamp setting completed")
 
     except Exception as e:
         log.error("An error occurred: %s", e)
