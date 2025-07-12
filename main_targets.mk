@@ -66,7 +66,7 @@ all:
 collection-xargs: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		NEWSPAPER={} $(MAKE) -k --max-load $(MAX_LOAD) all 
+		NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all 
 
 
 check-parallel:
