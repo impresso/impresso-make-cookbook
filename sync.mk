@@ -70,7 +70,7 @@ help::
 #
 # This target ensures that both input and output files are freshly synchronized
 resync-output: clean-sync-output
-	$(MAKE) sync-output
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) sync-output
 
 .PHONY: resync-output
 
@@ -82,7 +82,7 @@ help::
 #
 # This target ensures that both input and output files are freshly synchronized
 resync-input: clean-sync-input
-	$(MAKE) sync-input
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) sync-input
 
 .PHONY: resync-input
 
