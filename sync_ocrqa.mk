@@ -5,13 +5,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_ocrqa.mk)
 # Targets for synchronizing processed OCR quality assessment data between S3 and local storage
 ###############################################################################
 
-# DOUBLE-COLON-TARGET: sync-output
-# Synchronizes OCR quality assessment output data
-sync-output :: sync-ocrqa
-
-# DOUBLE-COLON-TARGET: sync-input
-# Synchronizes OCR quality assessment input data
-sync-input :: sync-ocrqa
 
 # VARIABLE: LOCAL_OCRQA_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed OCR quality assessment data
