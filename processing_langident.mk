@@ -6,7 +6,23 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 # This file defines the processing rules for language identification tasks.
 ###############################################################################
 
-processing-target :: sync langident-target
+# DOUBLE-COLON-TARGET: sync-input
+# Synchronizes processed input language identification data.
+#
+# This target ensures that language identification input data is
+# retrieved from S3 and stored locally for further processing.
+sync-input :: sync-input-langident
+
+
+# DOUBLE-COLON-TARGET: sync-output
+# Synchronizes processed output language identification data.
+#
+# This target ensures that language identification output data is
+# retrieved from S3 and stored locally for further analysis.
+sync-output :: sync-output-langident
+
+
+processing-target :: langident-target
 
 langident-target :: impresso-lid-stage1a-target impresso-lid-stage1b-target  impresso-lid-stage2-target # impresso-lid-statistics impresso-lid-eval
 # VARIBALE: 
