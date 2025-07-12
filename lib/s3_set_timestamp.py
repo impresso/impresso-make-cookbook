@@ -46,6 +46,8 @@ from datetime import datetime
 from urllib.parse import urlparse
 import logging
 import bz2
+from dotenv import load_dotenv
+
 import signal
 from contextlib import contextmanager
 from typing import List, Optional, Iterator, Any
@@ -58,6 +60,7 @@ from impresso_cookbook import (  # type: ignore
 )
 
 log = logging.getLogger(__name__)
+load_dotenv()
 
 
 @contextmanager
