@@ -5,13 +5,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_bboxqa.mk)
 # Targets for synchronizing processed BBOX quality assessment data between S3 and local storage
 ###############################################################################
 
-# DOUBLE-COLON-TARGET: sync-output
-# Synchronizes BBOX quality assessment output data
-sync-output :: sync-bboxqa
 
-# DOUBLE-COLON-TARGET: sync-input
-# Synchronizes BBOX quality assessment input data
-#sync-input :: sync-canonical
 
 # VARIABLE: LOCAL_BBOXQA_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed BBOX quality assessment data
@@ -26,12 +20,14 @@ LOCAL_BBOXQA_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
 # STAMPED-FILE-RULE: $(LOCAL_PATH_BBOXQA).last_synced
 #: Synchronizes data from S3 to the local directory
 $(LOCAL_PATH_BBOXQA).last_synced:
-	mkdir -p $(@D) && \
+	mkdir -p $(@D) \
+	&& \
 	python  -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_BBOXQA) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_BBOXQA_STAMP_SUFFIX) \
-	   --logfile $@.log.gz && \
+		$(S3_PATH_BBOXQA) \
+		--local-dir $(BUILD_DIR) \
+		--stamp-extension $(LOCAL_BBOXQA_STAMP_SUFFIX) \
+		--logfile $@.log.gz \
+	&& \
 	touch $@
 
 # TARGET: sync-bboxqa
