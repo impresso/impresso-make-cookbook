@@ -8,22 +8,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_langident.mk)
 ###############################################################################
 
 
-# DOUBLE-COLON-TARGET: sync-input
-# Synchronizes processed input language identification data.
-#
-# This target ensures that language identification input data is
-# retrieved from S3 and stored locally for further processing.
-sync-input :: sync-input-langident
-
-
-# DOUBLE-COLON-TARGET: sync-output
-# Synchronizes processed output language identification data.
-#
-# This target ensures that language identification output data is
-# retrieved from S3 and stored locally for further analysis.
-sync-output :: sync-output-langident
-
-
 # VARIABLE: LOCAL_LANGIDENT_SYNC_STAMP_FILE
 # Local synchronization stamp file for processed input data.
 #

@@ -13,9 +13,9 @@ setup-topics: | $(BUILD_DIR)
 	# Install the OS level dependencies
 	# lib/install_$(INSTALLER).sh
 	# check the python environment
-	$(MAKE) check-python-installation
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) check-python-installation
 	# Sync the newspaper media list to process (testing s3 connectivity as well)
-	$(MAKE) newspaper-list-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) newspaper-list-target
 
  .PHONY: setup-topics
 
