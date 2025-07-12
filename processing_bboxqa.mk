@@ -4,6 +4,16 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_bboxqa.mk)
 # Targets for processing newspaper content with BBOX quality assessment
 ###############################################################################
 
+# DOUBLE-COLON-TARGET: sync-input
+# Synchronizes BBOX quality assessment input data
+sync-input :: sync-canonical
+
+
+# DOUBLE-COLON-TARGET: sync-output
+# Synchronizes BBOX quality assessment output data
+sync-output :: sync-bboxqa
+
+
 # DOUBLE-COLON-TARGET: bboxqa-target
 processing-target :: bboxqa-target
 
