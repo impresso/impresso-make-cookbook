@@ -28,7 +28,7 @@ import traceback
 from typing import Optional, Any
 
 
-import smart_open
+import smart_open  # type: ignore
 from dotenv import load_dotenv
 from impresso_cookbook import (
     get_s3_client,
@@ -37,12 +37,37 @@ from impresso_cookbook import (
     get_s3_resource,
     download_with_retries,
     upload_with_retries,
+    setup_logging,
 )
 
 load_dotenv()
 log = logging.getLogger(__name__)
 
 SCHEMA_BASE_URI = "https://impresso.github.io/impresso-schemas/json/"
+
+
+def get_last_modified(response: Any) -> datetime.datetime:
+    """
+    Extracts the last modified timestamp from an S3 response.
+
+    Args:
+        response: The S3 response object.
+
+    Returns:
+        datetime.datetime: The last modified timestamp.
+    """
+    if "Metadata" in response:
+        metadata = response["Metadata"]
+        if "impresso-last-ts" in metadata:
+            last_ts = metadata["impresso-last-ts"]
+            log.debug("Using impresso-last-ts from metadata: %s", last_ts)
+            return datetime.datetime.fromisoformat(last_ts)
+    if "LastModified" in response:
+        log.debug("Using LastModified from response: %s", response["LastModified"])
+        return response["LastModified"]
+    else:
+        log.warning("No LastModified field found in the S3 response.")
+        return datetime.datetime.now()  # Fallback to current time if not found
 
 
 class S3Compressor:
@@ -255,7 +280,7 @@ class LocalStampCreator(object):
             content = (
                 self.get_s3_object_content(s3_key) if self.args.write_content else None
             )
-
+            log.debug("s3 object metadata: %s", s3_object.meta)
             # Create a local stamp file
             self.create_local_stamp_file(s3_key, s3_object.last_modified, content)
 
@@ -296,7 +321,8 @@ class LocalStampCreator(object):
 
             # Retrieve the last modified timestamp of the object
             response = s3_client.head_object(Bucket=bucket_name, Key=key)
-            last_modified = response["LastModified"]
+            last_modified = get_last_modified(response)
+            log.debug("RESPONSE: %s", response)
 
             # Determine the directory based on the user-specified level
             parts = key.split("/")
@@ -425,6 +451,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--level",
+        "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Set the logging level. Default: %(default)s",
@@ -493,18 +520,8 @@ if __name__ == "__main__":
     )
     arguments = parser.parse_args()
 
-    to_logging_level = {
-        "CRITICAL": logging.CRITICAL,
-        "ERROR": logging.ERROR,
-        "WARNING": logging.WARNING,
-        "INFO": logging.INFO,
-        "DEBUG": logging.DEBUG,
-    }
-    logging.basicConfig(
-        level=to_logging_level[arguments.level],
-        format="%(asctime)-15s %(filename)s:%(lineno)d %(levelname)s: %(message)s",
-        force=True,
-    )
+    # Configure logging using the impresso_cookbook setup_logging function
+    setup_logging(arguments.level, arguments.logfile, logger=log)
     log.info("Arguments: %s", arguments)
     try:
         processor = LocalStampCreator(arguments)

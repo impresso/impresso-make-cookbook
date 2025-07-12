@@ -11,7 +11,7 @@ sync-output :: sync-bboxqa
 
 # DOUBLE-COLON-TARGET: sync-input
 # Synchronizes BBOX quality assessment input data
-sync-input :: sync-bboxqa
+#sync-input :: sync-canonical
 
 # VARIABLE: LOCAL_BBOXQA_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed BBOX quality assessment data

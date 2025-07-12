@@ -5,18 +5,16 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_rebuilt.mk)
 # Targets for synchronizing rebuilt data from S3 to local storage
 ###############################################################################
 
-# TARGET: sync-input-rebuilt
-# Synchronizes rebuilt input data from S3 to local directory
-sync-input:: sync-input-rebuilt 
-.PHONY: sync-input
 
 # Local synchronization stamp file for rebuilt input data
 LOCAL_REBUILT_SYNC_STAMP_FILE := $(LOCAL_PATH_REBUILT).last_synced
   $(call log.debug, LOCAL_REBUILT_SYNC_STAMP_FILE)
 
-sync-input-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
+# TARGET: sync-rebuilt
+# Synchronizes rebuilt input data from S3 to local directory
+sync-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 
-.PHONY: sync-input-rebuilt
+.PHONY: sync-rebuilt
 
 
 # Rule to sync the input data from the S3 bucket to the local directory

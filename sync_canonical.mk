@@ -3,6 +3,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_canonical.mk)
 ###############################################################################
 # SYNC CANONICAL PAGES DATA TARGETS
 # Targets for synchronizing canonical pages data from S3 to local storage
+# Subsumes all sync-input targets from the necessary inputs.
 ###############################################################################
 
 # TARGET: sync-input-canonical
@@ -25,13 +26,16 @@ LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
 
 # Rule to sync the input data from the S3 bucket to the local directory
 $(LOCAL_PATH_CANONICAL_PAGES).last_synced:
-	mkdir -p $(@D) && \
+	mkdir -p $(@D) \
+	&& \
 	python -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_CANONICAL_PAGES)/$(NEWSPAPER) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_CANONICAL_STAMP_SUFFIX) \
 	   --stamp-api v2 \
-	   --logfile $@.log.gz && \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& \
 	touch $@
 
 
