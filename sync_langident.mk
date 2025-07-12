@@ -24,17 +24,16 @@ LOCAL_LANGIDENT_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT).last_synced
 # from the specified S3 path to the local directory.
 $(LOCAL_PATH_LANGIDENT).last_synced:
 	# Syncing the processed data from $(S3_PATH_LANGIDENT)
-	#
 	# to $(LOCAL_PATH_LANGIDENT)
 	mkdir -p $(@D) && \
 	python -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_STAMP_SUFFIX) \
+	   --stamp-extension '' \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& \
-	&& touch $@
+	touch $@
 
 # VARIABLE: LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE
 # Local synchronization stamp file for processed input data.
@@ -60,7 +59,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 		$(S3_PATH_LANGIDENT_STAGE1) \
 		--local-dir $(BUILD_DIR) \
-		--stamp-extension "$(LOCAL_STAMP_SUFFIX)" \
+		--stamp-extension  '' \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \
 	&& touch $@
