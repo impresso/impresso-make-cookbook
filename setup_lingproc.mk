@@ -11,8 +11,8 @@ setup::
 	# Create the local directory
 	mkdir -p $(LOCAL_PATH_REBUILT)
 	mkdir -p $(LOCAL_PATH_LINGPROC)
-	$(MAKE) newspaper-list-target
-	$(MAKE) check-spacy-pipelines
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) newspaper-list-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) check-spacy-pipelines
 
 # TARGET: check-spacy-pipelines
 # Validates spacy pipeline installations
