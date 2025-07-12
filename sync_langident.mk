@@ -32,6 +32,8 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_STAMP_SUFFIX) \
 	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& \
 	&& touch $@
 
 # VARIABLE: LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE
