@@ -4,6 +4,14 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_ocrqa.mk)
 # Targets for processing newspaper content with OCR quality assessment
 ###############################################################################
 
+# DOUBLE-COLON-TARGET: sync-input
+# Synchronize rebuilt input data for OCR quality assessment
+sync-input :: sync-rebuilt
+
+# DOUBLE-COLON-TARGET: sync-output
+# Synchronizes OCR quality assessment output data
+sync-output :: sync-ocrqa
+
 # DOUBLE-COLON-TARGET: ocrqa-target
 processing-target :: ocrqa-target
 
