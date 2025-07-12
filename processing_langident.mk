@@ -11,7 +11,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 #
 # This target ensures that language identification input data is
 # retrieved from S3 and stored locally for further processing.
-sync-input :: sync-input-langident
+sync-input :: sync-rebuilt
 
 
 # DOUBLE-COLON-TARGET: sync-output
@@ -19,7 +19,7 @@ sync-input :: sync-input-langident
 #
 # This target ensures that language identification output data is
 # retrieved from S3 and stored locally for further analysis.
-sync-output :: sync-output-langident
+sync-output :: sync-langident
 
 
 processing-target :: langident-target
