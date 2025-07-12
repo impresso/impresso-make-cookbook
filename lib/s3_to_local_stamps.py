@@ -276,13 +276,25 @@ class LocalStampCreator(object):
                     os.makedirs(local_dir)
                     logging.info("Created local directory: '%s'", local_dir)
                 continue
+
+            # Only consider files with jsonl.bz2 extension
+            if not s3_key.endswith("jsonl.bz2"):
+                continue
             # Get the content of the S3 object
             content = (
                 self.get_s3_object_content(s3_key) if self.args.write_content else None
             )
-            log.debug("s3 object metadata: %s", s3_object.meta)
+
+            # Get object metadata to check for custom timestamp
+            obj = self.s3_resource.Object(self.bucket_name, s3_key)
+            response = obj.meta.client.head_object(Bucket=self.bucket_name, Key=s3_key)
+            log.debug("s3 metadata: %s", response.get("Metadata", {}))
+
+            # Use the get_last_modified function to handle custom metadata
+            last_modified = get_last_modified(response)
+
             # Create a local stamp file
-            self.create_local_stamp_file(s3_key, s3_object.last_modified, content)
+            self.create_local_stamp_file(s3_key, last_modified, content)
 
     def create_stamp_files_v2(self, bucket_name: str, prefix: str) -> None:
         """Creates local stamp files using the S3 client API, supporting directory prefixes.
