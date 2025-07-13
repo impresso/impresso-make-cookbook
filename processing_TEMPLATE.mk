@@ -4,6 +4,15 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_TEMPLATE.mk)
 # Targets for processing newspaper content with OCR quality assessment
 ###############################################################################
 
+# DOUBLE-COLON-TARGET: sync-output
+# Synchronizes TEMPLATE processing output data
+sync-output :: sync-TEMPLATE
+
+# DOUBLE-COLON-TARGET: sync-input
+# Synchronizes TEMPLATE processing input data
+# @TODO: This needs to be updated to TEMPLATE processing
+sync-input :: sync-rebuilt 
+
 # DOUBLE-COLON-TARGET: TEMPLATE-target
 processing-target :: TEMPLATE-target
 
