@@ -5,13 +5,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_TEMPLATE.mk)
 # Targets for synchronizing processed TEMPLATE processing data between S3 and local storage
 ###############################################################################
 
-# DOUBLE-COLON-TARGET: sync-output
-# Synchronizes TEMPLATE processing output data
-sync-output :: sync-TEMPLATE
-
-# DOUBLE-COLON-TARGET: sync-input
-# Synchronizes TEMPLATE processing input data
-sync-input :: sync-TEMPLATE
 
 # VARIABLE: LOCAL_TEMPLATE_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed TEMPLATE processing data
