@@ -1,19 +1,19 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_newsagencies.mk)
 ###############################################################################
-# myprocessing TARGETS
+# newsagencies TARGETS
 # Targets for processing newspaper content with OCR quality assessment
 ###############################################################################
 
 # DOUBLE-COLON-TARGET: sync-output
-# Synchronizes myprocessing processing output data
-sync-output :: sync-myprocessing
+# Synchronizes newsagencies processing output data
+sync-output :: sync-newsagencies
 
 # DOUBLE-COLON-TARGET: sync-input
-# Synchronizes myprocessing processing input data
+# Synchronizes newsagencies processing input data
 sync-input :: sync-rebuilt
 
-# DOUBLE-COLON-TARGET: myprocessing-target
-processing-target :: myprocessing-target
+# DOUBLE-COLON-TARGET: newsagencies-target
+processing-target :: newsagencies-target
 
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
@@ -24,34 +24,34 @@ LOCAL_REBUILT_STAMP_FILES := \
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 
-# FUNCTION: LocalRebuiltTomyprocessingFile
-# Converts a local rebuilt file name to a local myprocessing file name
-define LocalRebuiltTomyprocessingFile
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_MYPROCESSING)/%.jsonl.bz2)
+# FUNCTION: LocalRebuiltTonewsagenciesFile
+# Converts a local rebuilt file name to a local newsagencies file name
+define LocalRebuiltTonewsagenciesFile
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2)
 endef
 
 
-# VARIABLE: LOCAL_MYPROCESSING_FILES
+# VARIABLE: LOCAL_NEWSAGENCIES_FILES
 # Stores the list of OCR quality assessment files based on rebuilt stamp files
-LOCAL_MYPROCESSING_FILES := \
-    $(call LocalRebuiltTomyprocessingFile,$(LOCAL_REBUILT_STAMP_FILES))
+LOCAL_NEWSAGENCIES_FILES := \
+    $(call LocalRebuiltTonewsagenciesFile,$(LOCAL_REBUILT_STAMP_FILES))
 
-  $(call log.debug, LOCAL_MYPROCESSING_FILES)
+  $(call log.debug, LOCAL_NEWSAGENCIES_FILES)
 
-# TARGET: myprocessing-target
+# TARGET: newsagencies-target
 #: Processes newspaper content with OCR quality assessment
 #
 # Just uses the local data that is there, does not enforce synchronization
-myprocessing-target: $(LOCAL_MYPROCESSING_FILES)
+newsagencies-target: $(LOCAL_NEWSAGENCIES_FILES)
 
-.PHONY: myprocessing-target
+.PHONY: newsagencies-target
 
-# FILE-RULE: $(LOCAL_PATH_MYPROCESSING)/%.jsonl.bz2
+# FILE-RULE: $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2
 #: Rule to process a single newspaper
-$(LOCAL_PATH_MYPROCESSING)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)
+$(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_myprocessing.py \
+    python3 lib/cli_newsagencies.py \
       --input $(<) \
       --output $@ \
       --log-file $@.log.gz \
