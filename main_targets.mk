@@ -36,16 +36,13 @@ endif
 endif
   $(call log.info, NPROC)
 
-PARALLEL_JOBS ?= $(NPROC)
-  $(call log.info, PARALLEL_JOBS)
-
 COLLECTION_JOBS ?= 2
   $(call log.info, COLLECTION_JOBS)
 
-NEWSPAPER_JOBS ?= $(shell expr $(PARALLEL_JOBS) / $(COLLECTION_JOBS))
+NEWSPAPER_JOBS ?= $(shell expr $(NPROC) / $(COLLECTION_JOBS))
   $(call log.info, NEWSPAPER_JOBS	)
 
-MAX_LOAD ?= $(PARALLEL_JOBS)
+MAX_LOAD ?= $(NPROC)
   $(call log.info, MAX_LOAD)
 
 # TARGET: all
