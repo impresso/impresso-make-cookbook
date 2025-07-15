@@ -52,9 +52,10 @@ $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
     python3 lib/cli_newsagencies.py \
-      --input $(<) \
+      --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
       --output $@ \
       --log-file $@.log.gz \
+      --log-level $(LOGGING_LEVEL) \
     && \
     python3 -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@,'') \
