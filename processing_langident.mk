@@ -120,22 +120,25 @@ impresso-lid-stage1b-target : $(LOCAL_LANGIDENT_STAGE1B_FILES)
 # Rule to generate statistics for a single newspaper from stage1 results
 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/
 	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) && \
+	mkdir -p $(@D) \
+  && \
 	python3 lib/newspaper_statistics.py \
-        --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-        --boosted-lids orig_lg impresso_ft \
-        --minimal-text-length $(LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION) \
-        --boost-factor $(LANGIDENT_BOOST_FACTOR_OPTION) \
-        --minimal-vote-score $(LANGIDENT_MINIMAL_VOTE_SCORE_OPTION) \
-        --minimal-lid-probability $(LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION) \
-        --git-describe $(GIT_VERSION) \
-        --logfile $@.log.gz \
-        --outfile $@ \
-        $(call LocalToS3,$<,'') \
-    && python3 -m impresso_cookbook.local_to_s3 \
-      $@ $(call LocalToS3,$@,'') \
-      $@.log.gz $(call LocalToS3,$@,'').log.gz \
-    || { rm -vf $@ ; exit 1 ; }
+    --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+    --boosted-lids orig_lg impresso_ft \
+    --minimal-text-length $(LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION) \
+    --boost-factor $(LANGIDENT_BOOST_FACTOR_OPTION) \
+    --minimal-vote-score $(LANGIDENT_MINIMAL_VOTE_SCORE_OPTION) \
+    --minimal-lid-probability $(LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION) \
+    --git-describe $(GIT_VERSION) \
+    --logfile $@.log.gz \
+    --outfile $@ \
+    $(call LocalToS3,$<,'') \
+  && \
+  python3 -m impresso_cookbook.local_to_s3 \
+    --set-timestamp \
+    $@ $(call LocalToS3,$@,'') \
+    $@.log.gz $(call LocalToS3,$@,'').log.gz \
+  || { rm -vf $@ ; exit 1 ; }
 
 
 # FUNCTION: LocalRebuiltToLangIdentFile
@@ -159,26 +162,28 @@ impresso-lid-stage2-target :: $(LOCAL_LANGIDENT_FILES)
 
 $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
 	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) && \
-     python3 lib/impresso_ensemble_lid.py \
-        --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-        --weight-lb-impresso-ft $(LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION) \
-        --minimal-lid-probability $(LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION) \
-        --minimal-voting-score $(LANGIDENT_MINIMAL_VOTING_SCORE_OPTION) \
-        --minimal-text-length $(LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION) \
-        --newspaper-stats-filename $(call LocalToS3,$(word 2,$^),'') \
-        --git-describe $(GIT_VERSION) \
-        --alphabetical-ratio-threshold  $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
-        --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
-        --infile $< \
-        --outfile $@ \
-        --log-level $(LOGGING_LEVEL) \
-        --log-file $@.log.gz \
-    && python3 -m impresso_cookbook.local_to_s3 \
-      --set-timestamp \
-      $@    $(call LocalToS3,$@,'') \
-      $@.log.gz    $(call LocalToS3,$@,'').log.gz \
-      $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
+	mkdir -p $(@D) \
+  && \
+  python3 lib/impresso_ensemble_lid.py \
+    --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+    --weight-lb-impresso-ft $(LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION) \
+    --minimal-lid-probability $(LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION) \
+    --minimal-voting-score $(LANGIDENT_MINIMAL_VOTING_SCORE_OPTION) \
+    --minimal-text-length $(LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION) \
+    --newspaper-stats-filename $(call LocalToS3,$(word 2,$^),'') \
+    --git-describe $(GIT_VERSION) \
+    --alphabetical-ratio-threshold  $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+    --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
+    --infile $< \
+    --outfile $@ \
+    --log-level $(LOGGING_LEVEL) \
+    --log-file $@.log.gz \
+  && \
+  python3 -m impresso_cookbook.local_to_s3 \
+    --set-timestamp \
+    $@    $(call LocalToS3,$@,'') \
+    $@.log.gz    $(call LocalToS3,$@,'').log.gz \
+    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
     || { rm -vf $@ ; exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-stage2-target
