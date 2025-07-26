@@ -7,10 +7,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 ###############################################################################
 
 # DOUBLE-COLON-TARGET: sync-input
-# Synchronizes processed input language identification data.
-#
-# This target ensures that language identification input data is
-# retrieved from S3 and stored locally for further processing.
+# Synchronizes rebuilt data.
 sync-input :: sync-rebuilt
 
 
@@ -21,33 +18,128 @@ sync-input :: sync-rebuilt
 # retrieved from S3 and stored locally for further analysis.
 sync-output :: sync-langident
 
-
+# DOUBLE-COLON-TARGET: langident-target
+# Processing target for language identification.
+#
 processing-target :: langident-target
 
-langident-target :: impresso-lid-stage1a-target impresso-lid-stage1b-target  impresso-lid-stage2-target # impresso-lid-statistics impresso-lid-eval
-# VARIBALE: 
+# TARGET: langident-target
+#: Processes language identification tasks.#
+langident-target : impresso-lid-stage1a-target impresso-lid-stage1b-target  impresso-lid-stage2-target # impresso-lid-statistics impresso-lid-eval
 
-# all LID systems to use 
+.PHONY: langident-target
+
+# USER-VARIABLE: LANGIDENT_LID_SYSTEMS_OPTION
+# Option to specify language identification systems to use.
+## This variable allows the user to select which language identification systems
+# will be used in the processing.
+# The default value includes several systems such as langid, impresso_ft, wp_ft,
+# impresso_langident_pipeline, and lingua.
+# The user can modify this variable to include or exclude specific systems as needed.
 LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
+  $(call log.info, LANGIDENT_LID_SYSTEMS_OPTION)
 
-# fast text models
+# USER-VARIABLE: LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION
+# Option to specify the Impresso FastText model for language identification.
+# This variable allows the user to set the path to the Impresso FastText model
+# that will be used in the language identification processing.
 LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION ?= models/fasttext/impresso-lid.bin
+  $(call log.debug, LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION)
+
+# USER-VARIABLE: LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION
+# Option to specify the Wikipedia FastText model for language identification.
+# This variable allows the user to set the path to the Wikipedia FastText model
+# that will be used in the language identification processing.
 LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION ?= models/fasttext/lid.176.bin
+  $(call log.debug, LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION)
 
 # minimal text length threshold for automatic LID in stage 1 and 2
-LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION ?= 100
-LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION ?= 200
-LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION ?= 50
+# USER-VARIABLE: LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify the minimal text length for stage 1a language identification.
+# This variable sets the minimum length of text that will be considered for
+# language identification in stage 1a processing.
+# If the text length is below this threshold, the language identification will not be
+# performed.
 
+LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION ?= 100
+  $(call log.debug, LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION)
+
+# USER-VARIABLE: LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify the minimal text length for stage 1b language identification.
+# This variable sets the minimum length of text that will be considered for
+# language identification in stage 1b processing.
+# If the text length is below this threshold, the language identification will not be
+# performed.
+# This is used to filter out very short texts that may not provide enough context for
+# accurate language identification.
+LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION ?= 200
+  $(call log.debug, LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION)
+
+# USER-VARIABLE: LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify the minimal text length for stage 2 language identification.
+# This variable sets the minimum length of text that will be considered for
+# language identification in stage 2 processing.
+# If the text length is below this threshold, the language identification will not be
+# performed.
+# This is used to ensure that only sufficiently long texts are processed in stage 2,
+LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION ?= 50
+  $(call log.debug, LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION)
+
+# USER-VARIABLE: LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION
+# Option to specify the threshold for the ratio of alphabetical characters in stage 1a.
+# This variable sets the minimum ratio of alphabetical characters required for a text to
+# be considered for language identification in stage 1a processing.
+# If the ratio of alphabetical characters is below this threshold, the text will not be
+# processed for language identification.
+# This is used to filter out texts that may not be suitable for language identification
+# due to a low proportion of alphabetical content.
 LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION)
 
 # hyperparameters for scoring the languages
+# USER-VARIABLE: LANGIDENT_BOOST_FACTOR_OPTION
+# Option to specify the boost factor for language identification scoring.
+# This variable sets the factor by which the scores of certain languages are boosted
+# during the language identification process.
+# It is used to adjust the influence of specific languages in the scoring mechanism,
+# allowing for more flexibility in how languages are prioritized based on their scores.
 LANGIDENT_BOOST_FACTOR_OPTION ?= 1.5
+  $(call log.debug, LANGIDENT_BOOST_FACTOR_OPTION)
+
+# USER-VARIABLE: LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION
+# Option to specify the weight for the Impresso FastText model in language identification.
+# This variable sets the weight assigned to the Impresso FastText model when scoring
+# languages during the language identification process.
 LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION ?= 3
+  $(call log.debug, LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION)
+
+# USER-VARIABLE: LANGIDENT_MINIMAL_VOTING_SCORE_OPTION
+# Option to specify the minimal voting score for language identification.
+# This variable sets the minimum score required for a language to be considered as a
+# valid identification in the language identification process.
 LANGIDENT_MINIMAL_VOTING_SCORE_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_MINIMAL_VOTING_SCORE_OPTION)
+
+# USER-VARIABLE: LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION
+# Option to specify the minimal language identification probability for stage 1.
+# This variable sets the minimum probability threshold for a language identification
+# to be considered valid in stage 1 processing.
 LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION ?= 0.20
+  $(call log.debug, LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION)
+
+# USER-VARIABLE: LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION
+# Option to specify the minimal language identification probability for stage 2.
+# This variable sets the minimum probability threshold for a language identification
+# to be considered valid in stage 2 processing.
 LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION)
+
+# USER-VARIABLE: LANGIDENT_MINIMAL_VOTE_SCORE_OPTION
+# Option to specify the minimal vote score for language identification.
+# This variable sets the minimum score required for a language to be considered as a
+# valid identification in the language identification process.
 LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 1
+  $(call log.debug, LANGIDENT_MINIMAL_VOTE_SCORE_OPTION)
 
 
 # FUNCTION: LocalRebuiltToLangIdentStage1File
