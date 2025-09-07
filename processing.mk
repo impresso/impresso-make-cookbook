@@ -15,6 +15,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing.mk)
 # This target is used to define the current processing target for the recursive build.
 processing-target:: | $(BUILD_DIR)
 
+.PHONY: processing-target
+
 
 # USER-VARIABLE: MAX_LOAD
 # Maximum load average for the machine to allow processing

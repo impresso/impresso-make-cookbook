@@ -210,10 +210,8 @@ impresso-lid-stage1b-target : $(LOCAL_LANGIDENT_STAGE1B_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1B)/%.stats.json
 # Rule to generate statistics for a single newspaper from stage1 results
-$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/
+$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_STAGE1_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) \
-  && \
 	python3 lib/newspaper_statistics.py \
     --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
     --boosted-lids orig_lg impresso_ft \
@@ -224,7 +222,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/
     --git-describe $(GIT_VERSION) \
     --logfile $@.log.gz \
     --outfile $@ \
-    $(call LocalToS3,$<,'') \
+    $(call LocalToS3,$(dir $<),'') \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp \

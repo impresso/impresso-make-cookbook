@@ -188,7 +188,7 @@ def main():
             log.info("Setting timestamps on S3 files")
 
             for local_path, s3_path in file_pairs:
-                if local_path.endswith(".jsonl.bz2"):
+                if local_path.endswith(".jsonl.bz2") or local_path.endswith(".json"):
                     log.info("Processing timestamp for: %s", s3_path)
                     try:
                         timestamp_processor = S3TimestampProcessor(
@@ -204,7 +204,10 @@ def main():
                         log.info("Successfully set timestamp for %s", s3_path)
                     except Exception as e:
                         log.error("Failed to set timestamp for %s: %s", s3_path, e)
-
+                else:
+                    log.info(
+                        "Skipping non-JSON file for timestamp setting: %s", s3_path
+                    )
             log.info("Timestamp setting completed")
 
     except Exception as e:

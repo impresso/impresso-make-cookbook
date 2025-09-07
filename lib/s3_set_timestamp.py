@@ -45,8 +45,8 @@ import sys
 from datetime import datetime
 from urllib.parse import urlparse
 import logging
-import bz2
 from dotenv import load_dotenv
+from smart_open import open as smart_open
 
 import signal
 from contextlib import contextmanager
@@ -105,15 +105,13 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--s3-prefix",
-        help=(
-            "S3 prefix to process multiple .jsonl.bz2 files (e.g., s3://bucket/path/)."
-        ),
+        help="S3 prefix to process multiple .jsonl files (e.g., s3://bucket/path/).",
     )
     group.add_argument(
         "--s3-file",
         help=(
-            "S3 URI of a single .jsonl.bz2 file to process (e.g.,"
-            " s3://bucket/path/file.jsonl.bz2)."
+            "S3 URI of a single .jsonl file to process (e.g.,"
+            " s3://bucket/path/file.jsonl)."
         ),
     )
     parser.add_argument(
@@ -168,7 +166,7 @@ class S3TimestampProcessor:
     single file processing and batch processing of multiple files using S3 prefixes.
 
     The processor handles:
-    - Downloading and parsing compressed JSONL files (.bz2)
+    - Downloading and parsing JSONL files (compressed or uncompressed)
     - Extracting timestamps using configurable keys ('ts', 'cdt', 'timestamp')
     - Creating atomic backups before modifications
     - Verifying checksums for data integrity
@@ -195,8 +193,8 @@ class S3TimestampProcessor:
         Initializes the S3TimestampProcessor with explicit parameters.
 
         Args:
-            s3_file: S3 URI of a single .jsonl.bz2 file to process
-            s3_prefix: S3 prefix to process multiple .jsonl.bz2 files
+            s3_file: S3 URI of a single .jsonl file to process
+            s3_prefix: S3 prefix to process multiple .jsonl files
             metadata_key: The metadata key to update with the latest timestamp
             ts_key: The key in the JSONL records to extract the timestamp from
             all_lines: If False, only the first timestamp is considered
@@ -303,7 +301,8 @@ class S3TimestampProcessor:
         for page in page_iterator:
             for obj in page.get("Contents", []):
                 key = obj["Key"]
-                if key.endswith(".jsonl.bz2"):
+                # Handle both compressed and uncompressed JSONL files
+                if key.endswith((".jsonl", ".jsonl.bz2", ".jsonl.gz")):
                     log.info("Processing file: %s", key)
                     s3_uri = f"s3://{bucket}/{key}"
                     try:
@@ -346,17 +345,17 @@ class S3TimestampProcessor:
 
     def get_last_timestamp(self, fileobj: str, ts_key: str, all_lines: bool) -> str:
         """
-        Extracts the latest or first timestamp from a compressed JSONL file.
+        Extracts the latest or first timestamp from a JSONL file.
 
-        This method processes a .jsonl.bz2 file to extract timestamps from individual
-        records based on a configurable key. It supports multiple timestamp formats
-        and can either return the first timestamp found or scan all records to find
-        the latest one.
+        This method processes a .jsonl file (with optional compression) to extract
+        timestamps from individual records based on a configurable key. It supports
+        multiple timestamp formats and can either return the first timestamp found
+        or scan all records to find the latest one.
 
         Args:
-            fileobj: Path to the .jsonl.bz2 file to process
-            ts_key: The key in JSONL records to extract timestamps from ('ts', 'cdt', 'timestamp')
-            all_lines: If False, returns first timestamp found; if True, scans all lines for latest
+            fileobj: Path to the .jsonl file to process (may be compressed)
+            ts_key: The key in JSONL records to extract timestamps from
+            all_lines: If False, returns first timestamp found
 
         Returns:
             str: The timestamp in ISO 8601 format (e.g., '2023-01-01T12:00:00Z')
@@ -379,8 +378,8 @@ class S3TimestampProcessor:
 
             log.debug("Processing file for timestamps with key '%s'", ts_key)
 
-            # Handle .bz2 decompression
-            with bz2.open(fileobj, "rt", encoding="utf-8") as f:
+            # Use smart_open to handle compressed/uncompressed files automatically
+            with smart_open(fileobj, "rt") as f:
                 for line in f:
                     try:
                         record = json.loads(line.strip())
@@ -482,7 +481,17 @@ class S3TimestampProcessor:
             raise ValueError("Metadata key already exists.")
 
         # Proceed with downloading the file only if the metadata key does not exist
-        with tempfile.NamedTemporaryFile(mode="w+b", delete=True) as tmp:
+        # Extract file extension to preserve compression format detection
+        if key.endswith(".jsonl.bz2"):
+            file_suffix = ".jsonl.bz2"
+        elif key.endswith(".jsonl.gz"):
+            file_suffix = ".jsonl.gz"
+        else:
+            file_suffix = ".jsonl"
+
+        with tempfile.NamedTemporaryFile(
+            mode="w+b", delete=True, suffix=file_suffix
+        ) as tmp:
             log.debug("Downloading S3 object to temporary file")
             self.s3_client.download_fileobj(bucket, key, tmp)
             tmp.seek(0)

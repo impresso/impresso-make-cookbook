@@ -60,6 +60,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 		$(S3_PATH_LANGIDENT_STAGE1) \
 		--local-dir $(BUILD_DIR) \
 		--stamp-extension  '' \
+		--file-extensions jsonl.bz2 stats.json \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \
 	&& touch $@
