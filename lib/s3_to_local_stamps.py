@@ -277,8 +277,13 @@ class LocalStampCreator(object):
                     logging.info("Created local directory: '%s'", local_dir)
                 continue
 
-            # Only consider files with jsonl.bz2 extension
-            if not s3_key.endswith("jsonl.bz2"):
+            # Only consider files with specified extensions
+            if not any(s3_key.endswith(ext) for ext in self.args.file_extensions):
+                log.debug(
+                    "Skipping file '%s' - extension not in allowed list: %s",
+                    s3_key,
+                    self.args.file_extensions,
+                )
                 continue
             # Get the content of the S3 object
             content = (
@@ -326,9 +331,16 @@ class LocalStampCreator(object):
         dir_to_latest_ts: dict = {}
         local_stamp_path = ""  # Initialize local stamp path
 
-        # Iterate over all object keys to find the latest LastModified timestamp for each directory
+        # Iterate over all object keys to find the latest LastModified timestamp
+        # for each directory
         for key in object_keys:
-            if not key.endswith("jsonl.bz2"):  # Only consider files with this extension
+            # Only consider files with specified extensions
+            if not any(key.endswith(ext) for ext in self.args.file_extensions):
+                log.debug(
+                    "Skipping file '%s' - extension not in allowed list: %s",
+                    key,
+                    self.args.file_extensions,
+                )
                 continue
 
             # Retrieve the last modified timestamp of the object
@@ -528,6 +540,16 @@ if __name__ == "__main__":
         help=(
             "Specify the number of directory levels to consider when creating stamp"
             " files. Default: %(default)s"
+        ),
+    )
+    parser.add_argument(
+        "--file-extensions",
+        nargs="+",
+        default=["jsonl.bz2"],
+        help=(
+            "File extensions to consider for stamp creation. Multiple extensions "
+            "can be specified. Default: %(default)s. "
+            "Example: --file-extensions jsonl.bz2 json txt"
         ),
     )
     arguments = parser.parse_args()
