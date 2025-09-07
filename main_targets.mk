@@ -45,6 +45,9 @@ NEWSPAPER_JOBS ?= $(shell expr $(NPROC) / $(COLLECTION_JOBS))
 MAX_LOAD ?= $(NPROC)
   $(call log.info, MAX_LOAD)
 
+PARALLEL_DELAY ?= 3
+  $(call log.debug, PARALLEL_DELAY)
+
 # TARGET: all
 # Complete processing with fresh data sync
 # Steps:
@@ -81,7 +84,7 @@ collection: check-parallel newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v --progress --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
-	   --delay 3 --memfree 1G --load $(MAX_LOAD) \
+	   --delay $(PARALLEL_DELAY) --memfree 1G --load $(MAX_LOAD) \
 		"NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all"
 
 help::
