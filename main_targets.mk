@@ -77,8 +77,9 @@ check-parallel:
 # Note: Requires GNU parallel installed
 # Dependencies: newspaper-list-target
 collection: check-parallel newspaper-list-target
+	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
-	parallel  --tag -v --progress  \
+	parallel  --tag -v --progress --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay 3 --memfree 1G --load $(MAX_LOAD) \
 		"NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all"
