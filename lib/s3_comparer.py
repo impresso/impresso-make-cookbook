@@ -12,6 +12,7 @@ Features:
 - Efficiently finds the intersection of IDs between the two datasets
 - Outputs the common IDs to a local file or an S3 path
 - Integrates with impresso_cookbook for consistent logging and S3 handling
+- Memory-efficient processing: processes files one by one without storing large datasets
 
 Usage:
     python s3_comparer.py \\
@@ -40,9 +41,8 @@ to matching records and evaluates the comparison expression on the tuple.
 import argparse
 import json
 import logging
-import re
 import sys
-from typing import List, Optional
+from typing import List, Optional, Generator, Dict, Any
 
 import jq
 from dotenv import load_dotenv
@@ -54,6 +54,7 @@ from impresso_cookbook import (
     setup_logging,
     get_transport_params,
     yield_s3_objects,
+    parse_s3_path,
 )
 
 log = logging.getLogger(__name__)
@@ -129,6 +130,7 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
 class S3ComparerProcessor:
     """
     A processor class that compares datasets from two S3 prefixes and finds common IDs.
+    Uses memory-efficient processing by handling files one at a time.
     """
 
     def __init__(
@@ -206,207 +208,289 @@ class S3ComparerProcessor:
                 )
                 sys.exit(1)
 
-    def parse_s3_path(self, s3_path: str) -> tuple[str, str]:
-        """Parses an S3 path into bucket and prefix. Exits on invalid format."""
-        match = re.match(r"s3://([^/]+)/(.+)", s3_path)
-        if not match:
-            log.error(f"Invalid S3 path format: {s3_path}. Expected s3://BUCKET/PREFIX")
-            sys.exit(1)
-        return match.groups()
+        # Initialize output file
+        self.output_writer = None
 
-    def get_records_from_s3_prefix(self, bucket: str, prefix: str) -> dict[str, dict]:
+    def read_jsonl_records(
+        self, bucket: str, file_key: str
+    ) -> Generator[Dict[str, Any], None, None]:
         """
-        Scans a given S3 prefix, processes JSONL.bz2 files, and returns a dictionary
-        mapping IDs to their full JSON records.
+        Generator that yields JSON records from a JSONL.bz2 file.
 
         Args:
             bucket (str): The S3 bucket name.
-            prefix (str): The S3 prefix to scan for files.
+            file_key (str): The S3 file key.
+
+        Yields:
+            Dict[str, Any]: JSON records with their extracted IDs.
+        """
+        transport_params = get_transport_params(f"s3://{bucket}/{file_key}")
+
+        try:
+            with smart_open(
+                f"s3://{bucket}/{file_key}",
+                "rb",
+                transport_params=transport_params,
+            ) as infile:
+                for line_num, line in enumerate(infile, 1):
+                    try:
+                        data = json.loads(line)
+                        item_id = self.id_program.input(data).first()
+                        if item_id is not None:
+                            yield {"id": str(item_id), "record": data}
+                    except (json.JSONDecodeError, StopIteration):
+                        log.warning(f"Skipping malformed line {line_num} in {file_key}")
+                    except Exception as e:
+                        log.error(
+                            f"Error processing line {line_num} in {file_key}: {e}"
+                        )
+        except Exception as e:
+            log.error(f"Failed to open or read file {file_key}: {e}")
+
+    def get_corresponding_file_key(
+        self, file_key1: str, bucket2: str, prefix2: str
+    ) -> Optional[str]:
+        """
+        Find the corresponding file in the second prefix based on the file key from the first prefix.
+
+        Args:
+            file_key1 (str): File key from the first prefix
+            bucket2 (str): Bucket for the second prefix
+            prefix2 (str): Prefix for the second dataset
 
         Returns:
-            A dictionary mapping IDs to their JSON records.
+            Optional[str]: Corresponding file key if it exists, None otherwise
         """
-        records = {}
-        transport_params = get_transport_params(f"s3://{bucket}/{prefix}")
-        log.info(f"Scanning prefix s3://{bucket}/{prefix} to collect records...")
+        # Extract the relative path from the first file key
+        bucket1, prefix1 = parse_s3_path(self.s3_prefix1)
 
-        for file_key in yield_s3_objects(bucket, prefix):
-            if not file_key.endswith("jsonl.bz2"):
-                continue
+        if not file_key1.startswith(prefix1):
+            log.warning(f"File key {file_key1} doesn't start with prefix {prefix1}")
+            return None
 
-            log.debug(f"Processing file: {file_key}")
-            try:
-                with smart_open(
-                    f"s3://{bucket}/{file_key}",
-                    "rb",
-                    transport_params=transport_params,
-                ) as infile:
-                    for line in infile:
-                        try:
-                            data = json.loads(line)
-                            item_id = self.id_program.input(data).first()
-                            if item_id is not None:
-                                records[str(item_id)] = data
-                        except (json.JSONDecodeError, StopIteration):
-                            log.warning(f"Skipping malformed line in {file_key}")
-                        except Exception as e:
-                            log.error(f"Error processing line in {file_key}: {e}")
-            except Exception as e:
-                log.error(f"Failed to open or read file {file_key}: {e}")
+        # Get the relative path after the prefix
+        relative_path = file_key1[len(prefix1) :].lstrip("/")
 
-        log.info(f"Collected {len(records)} records from s3://{bucket}/{prefix}")
-        return records
+        # Construct the corresponding file key in the second prefix
+        corresponding_key = f"{prefix2.rstrip('/')}/{relative_path}"
+
+        # Check if the file exists
+        try:
+            self.s3_client.head_object(Bucket=bucket2, Key=corresponding_key)
+            return corresponding_key
+        except Exception:
+            return None
+
+    def open_output_writer(self):
+        """Open the output file for writing."""
+        if self.output_writer is None:
+            self.output_writer = smart_open(
+                self.output_file,
+                "w",
+                encoding="utf-8",
+                transport_params=get_transport_params(self.output_file),
+            )
+
+    def close_output_writer(self):
+        """Close the output file."""
+        if self.output_writer is not None:
+            self.output_writer.close()
+            self.output_writer = None
+
+    def write_result(self, result: Any) -> None:
+        """Write a single result to the output file."""
+        if isinstance(result, (dict, list)):
+            self.output_writer.write(json.dumps(result, ensure_ascii=False) + "\n")
+        else:
+            self.output_writer.write(str(result) + "\n")
+
+    def process_file_pair(
+        self, bucket1: str, file_key1: str, bucket2: str, file_key2: str
+    ) -> int:
+        """
+        Process a pair of corresponding files from both prefixes.
+
+        Args:
+            bucket1 (str): Bucket for the first file
+            file_key1 (str): Key for the first file
+            bucket2 (str): Bucket for the second file
+            file_key2 (str): Key for the second file
+
+        Returns:
+            int: Number of results written
+        """
+        log.debug(f"Processing file pair: {file_key1} <-> {file_key2}")
+
+        # Read all records from the first file into a dictionary for fast lookup
+        records1 = {}
+        record_count1 = 0
+        for record_data in self.read_jsonl_records(bucket1, file_key1):
+            records1[record_data["id"]] = record_data["record"]
+            record_count1 += 1
+
+        log.debug(f"Loaded {record_count1} records from {file_key1}")
+
+        if not records1:
+            log.warning(f"No valid records found in {file_key1}")
+            return 0
+
+        # Process records from the second file and find matches
+        results_written = 0
+        record_count2 = 0
+
+        for record_data2 in self.read_jsonl_records(bucket2, file_key2):
+            record_count2 += 1
+            item_id = record_data2["id"]
+            record2 = record_data2["record"]
+
+            # Check if this ID exists in the first dataset
+            if item_id in records1:
+                record1 = records1[item_id]
+
+                if self.transform_program and self.comparison_program:
+                    # Apply transformation and comparison
+                    result = self._process_with_transformation_single(
+                        item_id, record1, record2
+                    )
+                    if result is not None:
+                        self.write_result(result)
+                        results_written += 1
+                else:
+                    # Basic mode - just write the common ID
+                    self.write_result(item_id)
+                    results_written += 1
+
+        log.debug(
+            f"Processed {record_count2} records from {file_key2}, found"
+            f" {results_written} matches"
+        )
+        return results_written
+
+    def _process_with_transformation_single(
+        self, item_id: str, record1: Dict[str, Any], record2: Dict[str, Any]
+    ) -> Any:
+        """
+        Apply transformations to a single pair of matching records and evaluate comparison expression.
+
+        Args:
+            item_id (str): The ID of the records
+            record1 (Dict[str, Any]): Record from the first dataset
+            record2 (Dict[str, Any]): Record from the second dataset
+
+        Returns:
+            Any: Result of the comparison expression, or None if processing failed
+        """
+        try:
+            # Apply transformation to each record
+            if self.transform_program is not None:
+                try:
+                    transformed1 = self.transform_program.input(record1).first()
+                except StopIteration:
+                    log.debug(f"Transform returned empty for record1 with ID {item_id}")
+                    return None
+                except Exception as e:
+                    log.warning(f"Transform failed for record1 with ID {item_id}: {e}")
+                    return None
+
+                try:
+                    transformed2 = self.transform_program.input(record2).first()
+                except StopIteration:
+                    log.debug(f"Transform returned empty for record2 with ID {item_id}")
+                    return None
+                except Exception as e:
+                    log.warning(f"Transform failed for record2 with ID {item_id}: {e}")
+                    return None
+            else:
+                transformed1 = record1
+                transformed2 = record2
+
+            # Create tuple and apply comparison expression
+            tuple_data = [transformed1, transformed2]
+            if self.comparison_program is not None:
+                try:
+                    result = self.comparison_program.input(tuple_data).first()
+                except StopIteration:
+                    # JQ expression returned empty (e.g., condition was false)
+                    log.debug(f"Comparison returned empty for ID {item_id}")
+                    return None
+                except Exception as e:
+                    log.warning(f"Comparison failed for ID {item_id}: {e}")
+                    return None
+            else:
+                result = tuple_data
+
+            return result
+
+        except Exception as e:
+            log.warning(f"Unexpected error processing ID {item_id}: {e}", exc_info=True)
+            return None
 
     def run(self) -> None:
         """
-        Runs the S3 comparer processor. If transform and comparison expressions
-        are provided, applies transformations to matching records and evaluates
-        the comparison. Otherwise, finds and outputs common IDs.
+        Runs the S3 comparer processor using memory-efficient file-by-file processing.
         """
         try:
             log.info(
                 f"Starting comparison between {self.s3_prefix1} and {self.s3_prefix2}"
             )
 
-            # Get records from both prefixes
-            bucket1, prefix1 = self.parse_s3_path(self.s3_prefix1)
-            records1 = self.get_records_from_s3_prefix(bucket1, prefix1)
+            bucket1, prefix1 = parse_s3_path(self.s3_prefix1)
+            bucket2, prefix2 = parse_s3_path(self.s3_prefix2)
 
-            bucket2, prefix2 = self.parse_s3_path(self.s3_prefix2)
-            records2 = self.get_records_from_s3_prefix(bucket2, prefix2)
+            # Open output file
+            self.open_output_writer()
 
-            # Find common IDs
-            common_ids = set(records1.keys()).intersection(set(records2.keys()))
-            log.info(f"Found {len(common_ids)} common IDs.")
+            total_results = 0
+            processed_files = 0
+            missing_files = 0
 
-            if not common_ids:
-                log.warning("No common IDs found. Output file will be empty.")
+            # Process files one by one
+            for file_key1 in yield_s3_objects(bucket1, prefix1):
+                if not file_key1.endswith("jsonl.bz2"):
+                    continue
 
-            # Process based on whether transform/comparison is requested
-            log.debug(f"Transform program loaded: {self.transform_program is not None}")
-            log.debug(
-                f"Comparison program loaded: {self.comparison_program is not None}"
+                # Find corresponding file in the second prefix
+                file_key2 = self.get_corresponding_file_key(file_key1, bucket2, prefix2)
+
+                if file_key2 is None:
+                    log.warning(
+                        f"No corresponding file found for {file_key1} in"
+                        f" {self.s3_prefix2}"
+                    )
+                    missing_files += 1
+                    continue
+
+                # Process the file pair
+                try:
+                    results_count = self.process_file_pair(
+                        bucket1, file_key1, bucket2, file_key2
+                    )
+                    total_results += results_count
+                    processed_files += 1
+                    log.info(
+                        f"Processed file pair {processed_files}: {file_key1} ->"
+                        f" {results_count} results"
+                    )
+                except Exception as e:
+                    log.error(
+                        f"Error processing file pair {file_key1} <-> {file_key2}: {e}"
+                    )
+                    continue
+
+            # Close output file
+            self.close_output_writer()
+
+            log.info(
+                f"Processing complete. Processed {processed_files} file pairs, found"
+                f" {missing_files} missing files, wrote {total_results} results to"
+                f" {self.output_file}"
             )
-
-            if self.transform_program and self.comparison_program:
-                log.info("Using transformation and comparison mode")
-                self._process_with_transformation(records1, records2, common_ids)
-            else:
-                log.info("Using basic mode - outputting common IDs only")
-                self._output_common_ids(common_ids)
 
         except Exception as e:
             log.error(f"Error during comparison process: {e}", exc_info=True)
+            if self.output_writer:
+                self.close_output_writer()
             sys.exit(1)
-
-    def _process_with_transformation(
-        self, records1: dict, records2: dict, common_ids: set
-    ) -> None:
-        """
-        Apply transformations to matching records and evaluate comparison expression.
-        """
-        results = []
-
-        for item_id in common_ids:
-            try:
-                # Get the records for this ID
-                record1 = records1.get(item_id)
-                record2 = records2.get(item_id)
-
-                # Skip if either record is missing
-                if record1 is None or record2 is None:
-                    log.debug(f"Skipping ID {item_id}: missing in one or both datasets")
-                    continue
-
-                # Apply transformation to each record
-                if self.transform_program is not None:
-                    try:
-                        transformed1 = self.transform_program.input(record1).first()
-                    except StopIteration:
-                        log.debug(
-                            f"Transform returned empty for record1 with ID {item_id}"
-                        )
-                        continue
-                    except Exception as e:
-                        log.warning(
-                            f"Transform failed for record1 with ID {item_id}: {e}"
-                        )
-                        continue
-
-                    try:
-                        transformed2 = self.transform_program.input(record2).first()
-                    except StopIteration:
-                        log.debug(
-                            f"Transform returned empty for record2 with ID {item_id}"
-                        )
-                        continue
-                    except Exception as e:
-                        log.warning(
-                            f"Transform failed for record2 with ID {item_id}: {e}"
-                        )
-                        continue
-                else:
-                    transformed1 = record1
-                    transformed2 = record2
-
-                # Create tuple and apply comparison expression
-                tuple_data = [transformed1, transformed2]
-                if self.comparison_program is not None:
-                    try:
-                        result = self.comparison_program.input(tuple_data).first()
-                    except StopIteration:
-                        # JQ expression returned empty (e.g., condition was false)
-                        log.debug(f"Comparison returned empty for ID {item_id}")
-                        continue
-                    except Exception as e:
-                        log.warning(f"Comparison failed for ID {item_id}: {e}")
-                        continue
-                else:
-                    result = tuple_data
-
-                if result is not None:
-                    results.append(result)
-
-            except Exception as e:
-                log.warning(
-                    f"Unexpected error processing ID {item_id}: {e}", exc_info=True
-                )
-                continue
-
-        # Write results to output
-        with smart_open(
-            self.output_file,
-            "w",
-            encoding="utf-8",
-            transport_params=get_transport_params(self.output_file),
-        ) as f:
-            for result in results:
-                if isinstance(result, (dict, list)):
-                    f.write(json.dumps(result, ensure_ascii=False) + "\n")
-                else:
-                    f.write(str(result) + "\n")
-
-        log.info(
-            f"Successfully wrote {len(results)} transformation results to "
-            f"{self.output_file}"
-        )
-
-    def _output_common_ids(self, common_ids: set) -> None:
-        """
-        Output common IDs to the output file.
-        """
-        with smart_open(
-            self.output_file,
-            "w",
-            encoding="utf-8",
-            transport_params=get_transport_params(self.output_file),
-        ) as f:
-            for item_id in sorted(list(common_ids)):
-                f.write(f"{item_id}\n")
-
-        log.info(
-            f"Successfully wrote {len(common_ids)} common IDs to {self.output_file}"
-        )
 
 
 def main(args: Optional[List[str]] = None) -> None:
