@@ -33,8 +33,13 @@ langident-target : impresso-lid-stage1a-target impresso-lid-stage1b-target  impr
 # Option to specify language identification systems to use.
 ## This variable allows the user to select which language identification systems
 # will be used in the processing.
-# The default value includes several systems such as langid, impresso_ft, wp_ft,
-# impresso_langident_pipeline, and lingua.
+# Available systems:
+# - langid: Original langid.py library (supports many languages including 'lb')
+# - langdetect: Python port of Google's language-detection library (many languages, no 'lb')
+# - wp_ft: Wikipedia FastText model (supports many languages including 'lb')
+# - impresso_ft: Custom Impresso FastText model (supports fr/de/lb/en/it)
+# - impresso_langident_pipeline: Impresso-specific pipeline from impresso-pipelines
+# - lingua: Lingua language detector (high accuracy, supports many languages including 'lb')
 # The user can modify this variable to include or exclude specific systems as needed.
 LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
   $(call log.info, LANGIDENT_LID_SYSTEMS_OPTION)

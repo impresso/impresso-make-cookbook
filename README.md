@@ -326,10 +326,10 @@ The build system automatically detects CPU cores and configures parallel process
 
 ```bash
 # Process a single newspaper
-make newspaper NEWSPAPER=gazette-de-lausanne
+make newspaper NEWSPAPER=actionfem
 
 # Process with custom parallel settings
-make newspaper NEWSPAPER=journal-de-geneve PARALLEL_JOBS=4
+make newspaper NEWSPAPER=EZR PARALLEL_JOBS=4
 
 # Process a specific processing stage
 make lingproc-target NEWSPAPER=actionfem
@@ -356,11 +356,11 @@ make collection COLLECTION_JOBS=6 NEWSPAPER_JOBS=2
 
 ```bash
 # Sync specific dataset types
-make sync-input-rebuilt NEWSPAPER=gazette-de-lausanne
+make sync-input-rebuilt NEWSPAPER=actionfem
 make sync-output-lingproc NEWSPAPER=actionfem
 
 # Force resync with fresh data
-make resync NEWSPAPER=journal-de-geneve
+make resync NEWSPAPER=EZR
 
 # Clean up specific processing outputs
 make clean-sync-lingproc
@@ -437,7 +437,7 @@ make all \
   LOGGING_LEVEL=INFO
 
 # Process specific newspaper subset
-echo "gazette-de-lausanne journal-de-geneve" > newspapers.txt
+echo "actionfem EZR" > newspapers.txt
 make collection NEWSPAPERS_TO_PROCESS_FILE=newspapers.txt
 ```
 
