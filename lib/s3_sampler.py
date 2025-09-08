@@ -179,6 +179,12 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
         type=str,
         help="Path to file containing JQ transform expression",
     )
+    parser.add_argument(
+        "--record-id-field",
+        type=str,
+        default="id",
+        help="JSON property name containing the record ID (default: %(default)s)",
+    )
 
     return parser.parse_args(args)
 
@@ -201,6 +207,7 @@ class S3SamplerProcessor:
         filter_file: Optional[str] = None,
         transform_expr: Optional[str] = None,
         transform_file: Optional[str] = None,
+        record_id_field: str = "id",
         log_level: str = "INFO",
         log_file: Optional[str] = None,
     ) -> None:
@@ -218,6 +225,7 @@ class S3SamplerProcessor:
             filter_file: Path to JQ filter file
             transform_expr: JQ expression for transformation
             transform_file: Path to JQ transform file
+            record_id_field: JSON property name containing the record ID
             log_level: Logging level
             log_file: Path to log file
         """
@@ -231,6 +239,7 @@ class S3SamplerProcessor:
         self.filter_file = filter_file
         self.transform_expr = transform_expr
         self.transform_file = transform_file
+        self.record_id_field = record_id_field
         self.log_level = log_level
         self.log_file = log_file
 
@@ -255,8 +264,75 @@ class S3SamplerProcessor:
         self.total_processed = 0
         self.total_sampled = 0
 
+    def _get_record_id(self, record: Dict[str, Any]) -> str:
+        """
+        Extract record ID from a record using the configured field name.
+
+        This method attempts to extract a record identifier using the configured
+        record_id_field. If the specified field is not found, it falls back to
+        common alternative field names before using "unknown".
+
+        Args:
+            record: JSON record (dict) from which to extract the ID
+
+        Returns:
+            str: Record ID or "unknown" if no ID field is found
+
+        Examples:
+            >>> # With record_id_field="id" (default)
+            >>> processor._get_record_id({"id": "123", "content": "..."})
+            "123"
+
+            >>> # With record_id_field="ci_id"
+            >>> processor._get_record_id({"ci_id": "456", "content": "..."})
+            "456"
+
+            >>> # With missing ID field
+            >>> processor._get_record_id({"content": "..."})
+            "unknown"
+        """
+        # Try the configured field first
+        if self.record_id_field in record:
+            return str(record[self.record_id_field])
+
+        # Fall back to common alternative field names
+        fallback_fields = ["id", "_id", "ci_id", "uuid", "identifier"]
+        for field in fallback_fields:
+            if field in record and field != self.record_id_field:
+                return str(record[field])
+
+        return "unknown"
+
     def _validate_sampling_config(self) -> None:
-        """Validate sampling configuration parameters."""
+        """
+        Validate sampling configuration parameters to ensure only one sampling strategy
+        is used.
+
+        This method performs comprehensive validation of the sampling configuration to
+        ensure that the provided parameters are consistent and valid. It checks for
+        mutually exclusive options and validates parameter ranges.
+
+        Validation Rules:
+        - Only one of sampling_rate or max_samples_per_group can be specified
+        - At least one sampling strategy must be provided
+        - sampling_rate must be between 0.0 and 1.0 (inclusive)
+        - max_samples_per_group must be positive
+        - max_samples_per_group requires group_by_expr to be specified
+
+        Raises:
+            SystemExit: If validation fails, the program exits with error code 1
+
+        Examples:
+            Valid configurations:
+            - sampling_rate=0.1 (10% random sampling)
+            - max_samples_per_group=100, group_by_expr='.newspaper_id'
+              (stratified sampling)
+
+            Invalid configurations:
+            - sampling_rate=0.1, max_samples_per_group=100 (mutually exclusive)
+            - sampling_rate=1.5 (out of range)
+            - max_samples_per_group=100 (missing group_by_expr)
+        """
         if self.sampling_rate is not None and self.max_samples_per_group is not None:
             log.error("Cannot specify both sampling-rate and max-samples-per-group")
             sys.exit(1)
@@ -279,7 +355,48 @@ class S3SamplerProcessor:
                 sys.exit(1)
 
     def _compile_jq_expressions(self) -> None:
-        """Compile all JQ expressions."""
+        """
+        Compile all JQ expressions into executable programs for data processing.
+
+        This method compiles JQ expressions for group-by operations, filtering, and
+        transformation. JQ compilation is done once at initialization to avoid
+        recompilation overhead during data processing. Invalid expressions will
+        cause the program to exit with an error.
+
+        The method handles three types of JQ expressions:
+        1. Group-by expression: Used for stratified sampling to extract group
+           identifiers
+        2. Filter expression: Used to filter records based on conditions
+        3. Transform expression: Used to modify record structure before output
+
+        Expression Sources:
+        - Direct string expressions via command-line arguments
+        - File-based expressions loaded from specified paths
+        - Both local files and S3 paths are supported for expression files
+
+        Error Handling:
+        - Invalid JQ syntax causes immediate program termination
+        - File loading errors are logged and cause program exit
+        - All compilation errors include descriptive error messages
+
+        Side Effects:
+        - Sets self.group_by_program, self.filter_program, self.transform_program
+        - Logs successful compilation of expressions
+        - May call sys.exit(1) on compilation or file loading errors
+
+        Examples:
+            Group-by expressions:
+            - '.newspaper_id' - Extract newspaper identifier
+            - '.metadata.source' - Extract nested source field
+
+            Filter expressions:
+            - 'select(.type == "article")' - Only keep articles
+            - 'select(.date >= "2020-01-01")' - Date-based filtering
+
+            Transform expressions:
+            - '{id: .id, text: .content}' - Extract specific fields
+            - '. + {processed_date: now}' - Add processing timestamp
+        """
         # Group-by expression
         self.group_by_program = None
         if self.group_by_expr:
@@ -341,75 +458,271 @@ class S3SamplerProcessor:
 
     def _apply_filter(self, record: Dict[str, Any]) -> bool:
         """
-        Apply filter to a record.
+        Apply filter to a record using the compiled JQ filter expression.
+
+        This method evaluates a record against the compiled filter expression to
+        determine if it should be included in further processing. If no filter is
+        configured, all records pass through. The filter uses JQ expressions which can
+        perform complex conditional logic.
+
+        Filter Behavior:
+        - Returns True if no filter is configured (pass-through)
+        - Returns True if the filter expression returns a truthy value
+        - Returns False if the filter expression returns false, null, or empty
+        - Returns False if the filter expression throws an error
+
+        Common Filter Patterns:
+        - Content-based: 'select(.type == "article")'
+        - Date-based: 'select(.date >= "2020-01-01")'
+        - Length-based: 'select(.content | length > 100)'
+        - Existence-based: 'select(has("metadata"))'
+        - Complex logic: 'select(.type == "article" and .lang == "en")'
 
         Args:
-            record: JSON record to filter
+            record: JSON record (dict) to evaluate against the filter
 
         Returns:
-            bool: True if record passes filter, False otherwise
+            bool: True if record passes filter and should be processed further,
+                  False if record should be excluded
+
+        Examples:
+            >>> # With filter 'select(.type == "article")'
+            >>> processor._apply_filter({"type": "article", "content": "..."})
+            True
+            >>> processor._apply_filter({"type": "advertisement", "content": "..."})
+            False
+
+            >>> # With no filter configured
+            >>> processor._apply_filter({"any": "record"})
+            True
         """
         if self.filter_program is None:
+            log.debug("No filter configured, record passes through")
             return True
 
         try:
-            result = list(self.filter_program.input(record).iter())
-            return len(result) > 0 and result[0] is not False
+            log.debug(f"Applying filter to record with keys: {list(record.keys())}")
+            result = self.filter_program.input(record).all()
+
+            if len(result) > 0 and result[0] is not False:
+                log.debug(f"Filter passed: result={result[0]}")
+                return True
+            else:
+                log.debug(f"Filter rejected: result={result if result else 'empty'}")
+                return False
+
         except Exception as e:
-            log.debug(f"Filter error for record: {e}")
+            record_id = self._get_record_id(record)
+            log.debug(f"Filter error for record {record_id}: {e}")
+            log.debug(f"Record keys that caused filter error: {list(record.keys())}")
             return False
 
     def _apply_transform(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        Apply transformation to a record.
+        Apply transformation to a record using the compiled JQ transform expression.
+
+        This method transforms a record using the compiled JQ transform expression. If
+        no transform is configured, the original record is returned unchanged.
+        Transformations can reshape data, extract specific fields, add computed values,
+        or perform any structural modifications that JQ supports.
+
+        Transform Behavior:
+        - Returns original record if no transform is configured (pass-through)
+        - Returns transformed record if transformation succeeds
+        - Returns None if transformation fails or produces empty results
+        - Logs debug messages for transformation errors
+
+        Common Transform Patterns:
+        - Field selection: '{id: .id, text: .content, date: .date}'
+        - Field renaming: '{identifier: .id, body: .content}'
+        - Nested extraction: '{title: .metadata.title, source: .metadata.source}'
+        - Computed fields: '. + {word_count: (.content | split(" ") | length)}'
+        - Flattening: '{id, title, content, author: .metadata.author}'
+        - Type conversion: '{id, date: .date | strptime("%Y-%m-%d") | todate}'
 
         Args:
-            record: JSON record to transform
+            record: JSON record (dict) to transform
 
         Returns:
-            Optional[Dict[str, Any]]: Transformed record or None if transformation fails
+            Optional[Dict[str, Any]]: Transformed record if successful, None if
+                                      transformation fails or produces empty results
+
+        Examples:
+            >>> # With transform '{id: .id, text: .content}'
+            >>> processor._apply_transform({"id": 1, "content": "Hello", "extra": "X"})
+            {"id": 1, "text": "Hello"}
+
+            >>> # With no transform configured
+            >>> processor._apply_transform({"id": 1, "content": "Hello"})
+            {"id": 1, "content": "Hello"}
+
+            >>> # With failing transform (missing field)
+            >>> processor._apply_transform({"id": 1})  # missing .content
+            None
         """
         if self.transform_program is None:
+            log.debug("No transform configured, returning original record")
             return record
 
         try:
-            return self.transform_program.input(record).first()
+            record_id = self._get_record_id(record)
+            log.debug(
+                f"Applying transform to record {record_id} with keys: "
+                f"{list(record.keys())}"
+            )
+
+            transformed = self.transform_program.input(record).first()
+
+            if transformed is not None:
+                if isinstance(transformed, dict):
+                    transformed_keys = list(transformed.keys())
+                    original_keys = list(record.keys())
+                    log.debug(
+                        f"Transform successful for record {record_id}: "
+                        f"original keys={original_keys} -> "
+                        f"transformed keys={transformed_keys}"
+                    )
+                else:
+                    log.debug(
+                        f"Transform successful for record {record_id}: "
+                        f"result type={type(transformed).__name__}"
+                    )
+                return transformed
+            else:
+                log.debug(f"Transform returned None for record {record_id}")
+                return None
+
         except StopIteration:
-            log.debug("Transform returned empty result")
+            record_id = self._get_record_id(record)
+            log.debug(f"Transform returned empty result for record {record_id}")
             return None
         except Exception as e:
-            log.debug(f"Transform error for record: {e}")
+            record_id = self._get_record_id(record)
+            log.debug(f"Transform error for record {record_id}: {e}")
+            log.debug(f"Record keys that caused transform error: {list(record.keys())}")
+            # Log a sample of the record structure for debugging (first few chars)
+            record_str = str(record)
+            record_preview = (
+                record_str[:200] + "..." if len(record_str) > 200 else record_str
+            )
+            log.debug(f"Record preview: {record_preview}")
             return None
 
     def _get_group_id(self, record: Dict[str, Any]) -> Optional[str]:
         """
-        Extract group identifier from a record.
+        Extract group identifier from a record using the compiled group-by expression.
+
+        This method applies the compiled JQ group-by expression to extract a group
+        identifier from a JSON record. Group identifiers are used for stratified
+        sampling to ensure balanced representation across different groups (e.g.,
+        newspapers, sources, categories).
+
+        Behavior:
+        - Returns "default" if no group-by expression is configured
+        - Extracts and stringifies the result of the group-by expression
+        - Returns None if the expression fails or returns null
+        - Logs debug messages for extraction errors
+
+        Common Group-by Patterns:
+        - Simple field: '.newspaper_id' - Extract newspaper identifier
+        - Nested field: '.metadata.source' - Extract nested source field
+        - Computed group: '.date | split("-")[0]' - Group by year
+        - Conditional: 'if .type == "article" then .newspaper_id else "other" end'
 
         Args:
-            record: JSON record
+            record: JSON record (dict) from which to extract group identifier
 
         Returns:
-            Optional[str]: Group identifier or None if extraction fails
+            Optional[str]: String representation of the group identifier, or None if
+                          extraction fails or returns null
+
+        Examples:
+            >>> # With group-by expression '.newspaper_id'
+            >>> processor._get_group_id({"newspaper_id": "NYT", "content": "..."})
+            "NYT"
+
+            >>> # With nested expression '.metadata.source'
+            >>> processor._get_group_id({"metadata": {"source": "Reuters"}})
+            "Reuters"
+
+            >>> # With no group-by expression
+            >>> processor._get_group_id({"any": "record"})
+            "default"
+
+            >>> # With failing expression (missing field)
+            >>> processor._get_group_id({"content": "..."})  # missing .newspaper_id
+            None
         """
         if self.group_by_program is None:
+            log.debug("No group-by expression configured, using default group")
             return "default"
 
         try:
+            record_id = self._get_record_id(record)
+            log.debug(
+                f"Extracting group ID for record {record_id} with keys: "
+                f"{list(record.keys())}"
+            )
+
             result = self.group_by_program.input(record).first()
-            return str(result) if result is not None else None
+
+            if result is not None:
+                group_id = str(result)
+                log.debug(
+                    f"Group extraction successful for record {record_id}: "
+                    f"group_id='{group_id}'"
+                )
+                return group_id
+            else:
+                log.debug(f"Group extraction returned None for record {record_id}")
+                return None
+
         except Exception as e:
-            log.debug(f"Group-by error for record: {e}")
+            record_id = self._get_record_id(record)
+            log.debug(f"Group-by error for record {record_id}: {e}")
+            log.debug(f"Record keys that caused group-by error: {list(record.keys())}")
             return None
 
     def _should_sample(self, record: Dict[str, Any]) -> bool:
         """
         Determine if a record should be sampled based on the sampling strategy.
 
+        This method implements the core sampling logic for both random and stratified
+        sampling strategies. It evaluates each record against the configured sampling
+        parameters to make a binary decision about inclusion.
+
+        Sampling Strategies:
+        1. Random Sampling: Uses configured sampling_rate to randomly select records
+           - Each record has an independent probability of selection
+           - Uses random.random() < sampling_rate for decision
+           - Provides approximate but not exact sampling ratios
+
+        2. Stratified Sampling: Uses max_samples_per_group with group identifiers
+           - Maintains counters for each group (e.g., newspaper, source)
+           - Accepts records until group quota is reached
+           - Ensures balanced representation across groups
+           - Requires valid group identifier extraction
+
         Args:
-            record: JSON record
+            record: JSON record (dict) to evaluate for sampling
 
         Returns:
-            bool: True if record should be sampled, False otherwise
+            bool: True if record should be included in the sample, False otherwise
+
+        Side Effects:
+            - Updates self.group_sample_counts for stratified sampling
+            - Increments group counters when records are selected
+
+        Examples:
+            Random sampling (sampling_rate=0.1):
+            >>> # Approximately 10% of records return True
+            >>> processor._should_sample({"any": "record"})  # ~10% chance of True
+
+            Stratified sampling (max_samples_per_group=100):
+            >>> # First 100 records from each group return True
+            >>> processor._should_sample({"newspaper_id": "NYT", "content": "..."})
+            True  # if NYT count < 100
+            False  # if NYT count >= 100
         """
         if self.sampling_rate is not None:
             # Random sampling
@@ -434,12 +747,55 @@ class S3SamplerProcessor:
         """
         Read and process a single JSONL.bz2 file, yielding sampled records.
 
+        This method implements the core file processing logic, handling the complete
+        pipeline from reading compressed JSONL files to yielding sampled and transformed
+        records. It processes files line by line for memory efficiency and applies all
+        configured filtering, sampling, and transformation operations.
+
+        Processing Pipeline:
+        1. Opens compressed JSONL.bz2 file from S3 using smart_open
+        2. Reads and parses each JSON line
+        3. Applies filtering (if configured) to exclude unwanted records
+        4. Makes sampling decisions based on configured strategy
+        5. Applies transformations (if configured) to modify record structure
+        6. Yields successfully processed records
+
+        Error Handling:
+        - Malformed JSON lines are logged and skipped
+        - File access errors are logged with full traceback
+        - Processing errors for individual lines are logged but don't stop processing
+        - Maintains processing statistics for monitoring
+
+        Memory Efficiency:
+        - Streams data line by line rather than loading entire files
+        - Uses generators to avoid accumulating records in memory
+        - Suitable for processing very large datasets
+
         Args:
-            bucket: S3 bucket name
-            file_key: S3 file key
+            bucket: S3 bucket name containing the file
+            file_key: S3 object key (path) of the JSONL.bz2 file to process
 
         Yields:
-            Dict[str, Any]: Processed and sampled records
+            Dict[str, Any]: Successfully processed and sampled records that have passed
+                           all filtering, sampling, and transformation steps
+
+        Side Effects:
+            - Updates self.total_processed counter for all processed records
+            - Updates self.total_sampled counter for records that pass sampling
+            - Updates self.group_sample_counts for stratified sampling
+            - Logs warnings for malformed lines and processing errors
+
+        Examples:
+            >>> # Process a file and collect results
+            >>> records = list(processor._read_and_process_file("bucket",
+            ...                                                 "data.jsonl.bz2"))
+            >>> print(f"Processed {len(records)} records")
+
+            >>> # Stream processing without collecting in memory
+            >>> for record in processor._read_and_process_file("bucket",
+            ...                                                "data.jsonl.bz2"):
+            ...     # Process record immediately
+            ...     send_to_output(record)
         """
         transport_params = get_transport_params(f"s3://{bucket}/{file_key}")
 
@@ -454,19 +810,37 @@ class S3SamplerProcessor:
                         record = json.loads(line)
                         self.total_processed += 1
 
+                        record_id = self._get_record_id(record)
+                        log.debug(f"Processing record {record_id} (line {line_num})")
+
                         # Apply filter
                         if not self._apply_filter(record):
+                            log.debug(f"Record {record_id} filtered out")
                             continue
+
+                        log.debug(f"Record {record_id} passed filter")
 
                         # Check sampling decision
                         if not self._should_sample(record):
+                            log.debug(f"Record {record_id} not selected for sampling")
                             continue
+
+                        log.debug(f"Record {record_id} selected for sampling")
 
                         # Apply transformation
                         transformed_record = self._apply_transform(record)
                         if transformed_record is not None:
                             self.total_sampled += 1
+                            log.debug(
+                                f"Record {record_id} successfully transformed "
+                                "and will be included in output"
+                            )
                             yield transformed_record
+                        else:
+                            log.debug(
+                                f"Record {record_id} transformation failed, "
+                                "skipping from output"
+                            )
 
                     except json.JSONDecodeError:
                         log.warning(f"Skipping malformed line {line_num} in {file_key}")
@@ -479,13 +853,83 @@ class S3SamplerProcessor:
             log.error(f"Failed to open or read file {file_key}: {e}")
 
     def _upload_to_s3(self, local_path: str, s3_path: str) -> None:
-        """Upload a local file to S3."""
+        """
+        Upload a local file to S3.
+
+        This method uploads a local file to an S3 location using the configured S3
+        client. It uses the parse_s3_path utility to extract bucket and key from the
+        S3 path, then performs the upload operation.
+
+        Args:
+            local_path: Full path to the local file to upload
+            s3_path: S3 destination path in format 's3://bucket/key'
+
+        Side Effects:
+            - Uploads file to S3
+            - Logs successful upload with paths
+
+        Raises:
+            Exception: If S3 upload fails (propagated from boto3)
+
+        Examples:
+            >>> processor._upload_to_s3("/tmp/sample.jsonl", "s3://bucket/output.jsonl")
+            # Logs: "Uploaded /tmp/sample.jsonl to s3://bucket/output.jsonl"
+        """
         bucket, key = parse_s3_path(s3_path)
         self.s3_client.upload_file(local_path, bucket, key)
         log.info(f"Uploaded {local_path} to {s3_path}")
 
     def run(self) -> None:
-        """Run the sampling process."""
+        """
+        Execute the complete sampling process from S3 input to output.
+
+        This is the main orchestrator method that coordinates all sampling operations.
+        It handles the entire pipeline from reading S3 files through final output,
+        including temporary file management, progress logging, and error handling.
+
+        Processing Workflow:
+        1. Parses S3 prefix to extract bucket and path components
+        2. Creates temporary file for intermediate storage
+        3. Iterates through all JSONL.bz2 files in the S3 prefix
+        4. Processes each file using the configured sampling strategy
+        5. Writes sampled records to temporary file in JSONL format
+        6. Transfers final results to the specified output location
+        7. Logs comprehensive statistics about the sampling process
+
+        Output Handling:
+        - Local paths: Uses shutil.move for efficient file transfer
+        - S3 paths: Uploads using boto3 S3 client
+        - Maintains original file permissions and metadata where possible
+
+        Statistics and Monitoring:
+        - Tracks total files processed
+        - Counts total records processed vs. sampled
+        - Reports sampling ratios and group distributions
+        - Logs progress information for long-running operations
+
+        Error Handling:
+        - Catches and logs all exceptions with full tracebacks
+        - Exits with status code 1 on any processing errors
+        - Ensures cleanup of temporary files on failure
+        - Provides detailed error context for debugging
+
+        Side Effects:
+        - Creates and manages temporary files in system temp directory
+        - Updates all instance counters and statistics
+        - Writes final output to specified location
+        - Logs comprehensive processing statistics
+
+        Raises:
+            SystemExit: Exits with code 1 if any processing errors occur
+
+        Examples:
+            >>> processor = S3SamplerProcessor(...)
+            >>> processor.run()
+            # Logs: "Starting sampling from s3://bucket/prefix"
+            # Logs: "Processing file: data1.jsonl.bz2"
+            # Logs: "File data1.jsonl.bz2: sampled 150 records"
+            # Logs: "Processing complete: 1500 records sampled from 10000 processed"
+        """
         try:
             log.info(f"Starting sampling from {self.s3_prefix}")
 
@@ -554,8 +998,38 @@ def main(args: Optional[List[str]] = None) -> None:
     """
     Main function to run the S3 Sampler Processor.
 
+    This function serves as the primary entry point for the S3 sampling tool. It handles
+    argument parsing, processor initialization, and execution coordination. The function
+    is designed to be called both from the command line and programmatically.
+
+    Workflow:
+    1. Parses command-line arguments using parse_arguments()
+    2. Creates S3SamplerProcessor instance with parsed options
+    3. Configures logging after processor initialization
+    4. Logs the parsed configuration for debugging
+    5. Executes the sampling process via processor.run()
+
+    Error Handling:
+    - Invalid arguments cause argparse to exit with usage message
+    - Configuration errors in processor initialization cause sys.exit(1)
+    - Processing errors are handled by the processor's run() method
+
     Args:
-        args: Command-line arguments (uses sys.argv if None)
+        args: Command-line arguments (uses sys.argv if None). Useful for testing
+              and programmatic invocation with custom arguments.
+
+    Examples:
+        Command-line usage:
+        >>> main()  # Uses sys.argv
+
+        Programmatic usage:
+        >>> main(['--s3-prefix', 's3://bucket/data', '--output', 'sample.jsonl',
+        ...       '--sampling-rate', '0.1'])
+
+        Testing usage:
+        >>> test_args = ['--s3-prefix', 's3://test/data', '--output', 'test.jsonl',
+        ...              '--sampling-rate', '0.05', '--log-level', 'DEBUG']
+        >>> main(test_args)
     """
     options: argparse.Namespace = parse_arguments(args)
 
@@ -570,6 +1044,7 @@ def main(args: Optional[List[str]] = None) -> None:
         filter_file=options.filter_file,
         transform_expr=options.transform_expr,
         transform_file=options.transform_file,
+        record_id_field=options.record_id_field,
         log_level=options.log_level,
         log_file=options.log_file,
     )
