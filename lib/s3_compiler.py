@@ -251,6 +251,7 @@ class S3CompilerProcessor:
         self._compile_jq_expressions()
 
         # Initialize file cache and statistics
+        self.file_key_cache: Dict[str, Optional[str]] = {}  # Cache for file lookups
         self.statistics = {
             "input_records": 0,
             "parsed_ids": 0,
@@ -313,6 +314,7 @@ class S3CompilerProcessor:
     def _get_file_key(self, parsed_id: Dict[str, str]) -> Optional[str]:
         """
         Find S3 file key from parsed ID components by searching for matching files.
+        Uses caching to avoid repeated S3 list operations for the same file pattern.
 
         Args:
             parsed_id: Parsed ID components
@@ -320,6 +322,16 @@ class S3CompilerProcessor:
         Returns:
             Optional[str]: S3 file key if found, None otherwise
         """
+        # Create cache key from newspaper and year
+        cache_key = f"{parsed_id['newspaper']}-{parsed_id['year']}"
+
+        # Check cache first
+        if cache_key in self.file_key_cache:
+            cached_result = self.file_key_cache[cache_key]
+            if cached_result is not None:
+                log.debug(f"Using cached file key: {cached_result}")
+            return cached_result
+
         bucket, prefix = parse_s3_path(self.s3_prefix)
 
         # Search pattern: files ending with NEWSPAPER-YEAR.jsonl.bz2
@@ -342,12 +354,16 @@ class S3CompilerProcessor:
                     # Check if the key ends with our target pattern
                     if key.endswith(search_suffix):
                         log.debug(f"Found matching file: {key}")
+                        # Cache the result
+                        self.file_key_cache[cache_key] = key
                         return key
 
         except Exception as e:
             log.debug(f"Error searching for file with pattern {search_suffix}: {e}")
 
         log.debug(f"No file found matching pattern {search_suffix}")
+        # Cache the negative result
+        self.file_key_cache[cache_key] = None
         return None
 
     def _load_s3_file(self, bucket: str, file_key: str) -> Dict[str, Dict[str, Any]]:
@@ -391,15 +407,16 @@ class S3CompilerProcessor:
 
         return records
 
-    def _group_ids_by_file(self) -> Dict[str, List[Dict[str, Any]]]:
+    def _group_ids_by_pattern(self) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Read input file and group IDs by their target S3 files.
+        Read input file and group IDs by their newspaper-year pattern.
+        This avoids S3 operations during the grouping phase.
 
         Returns:
-            Dict[str, List[Dict[str, Any]]]: Mapping from file keys to list of
-            records containing ID and input data
+            Dict[str, List[Dict[str, Any]]]: Mapping from newspaper-year patterns to
+            list of records containing ID and input data
         """
-        file_to_records: Dict[str, List[Dict[str, Any]]] = {}
+        pattern_to_records: Dict[str, List[Dict[str, Any]]] = {}
 
         with smart_open(
             self.input_file,
@@ -423,11 +440,9 @@ class S3CompilerProcessor:
                         continue
 
                     self.statistics["parsed_ids"] += 1
-                    file_key = self._get_file_key(parsed_id)
 
-                    # Skip if no matching file found
-                    if file_key is None:
-                        continue
+                    # Group by newspaper-year pattern (not actual file key yet)
+                    pattern_key = f"{parsed_id['newspaper']}-{parsed_id['year']}"
 
                     # Store both ID and selected input fields
                     record_info = {"id": record_id}
@@ -435,9 +450,9 @@ class S3CompilerProcessor:
                         if field in input_record:
                             record_info[field] = input_record[field]
 
-                    if file_key not in file_to_records:
-                        file_to_records[file_key] = []
-                    file_to_records[file_key].append(record_info)
+                    if pattern_key not in pattern_to_records:
+                        pattern_to_records[pattern_key] = []
+                    pattern_to_records[pattern_key].append(record_info)
 
                 except json.JSONDecodeError:
                     log.warning(f"Skipping malformed line {line_num}")
@@ -446,9 +461,9 @@ class S3CompilerProcessor:
 
         log.info(
             f"Grouped {self.statistics['parsed_ids']} IDs into "
-            f"{len(file_to_records)} files"
+            f"{len(pattern_to_records)} newspaper-year patterns"
         )
-        return file_to_records
+        return pattern_to_records
 
     def _apply_transform(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -484,8 +499,8 @@ class S3CompilerProcessor:
             log.info(f"Starting compilation from {self.input_file}")
             log.info(f"Looking up records in {self.s3_prefix}")
 
-            # Group IDs by their target files for efficient processing
-            file_to_records = self._group_ids_by_file()
+            # Group IDs by newspaper-year patterns for efficient processing
+            pattern_to_records = self._group_ids_by_pattern()
 
             # Create temporary file for output
             suffix = self.output_file.split(".")[-1]
@@ -498,12 +513,25 @@ class S3CompilerProcessor:
                 bucket, _ = parse_s3_path(self.s3_prefix)
 
                 with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
-                    # Process each file only once
-                    for file_key, record_list in file_to_records.items():
+                    # Process each newspaper-year pattern
+                    for pattern_key, record_list in pattern_to_records.items():
                         log.info(
-                            f"Processing s3://{bucket}/{file_key} for"
-                            f" {len(record_list)} IDs"
+                            f"Processing pattern {pattern_key} with "
+                            f"{len(record_list)} IDs"
                         )
+
+                        # Parse the pattern to get newspaper and year
+                        newspaper, year = pattern_key.split("-", 1)
+                        parsed_id = {"newspaper": newspaper, "year": year}
+
+                        # Find the S3 file for this pattern
+                        file_key = self._get_file_key(parsed_id)
+
+                        if file_key is None:
+                            log.warning(f"No S3 file found for pattern {pattern_key}")
+                            continue
+
+                        log.info(f"Found S3 file: s3://{bucket}/{file_key}")
 
                         # Check if file exists in S3
                         try:
@@ -512,10 +540,10 @@ class S3CompilerProcessor:
                             log.warning(f"File {file_key} not found in S3")
                             continue
 
-                        # Load file records
+                        # Load file records once for all IDs in this pattern
                         file_records = self._load_s3_file(bucket, file_key)
 
-                        # Find and process matching records
+                        # Process all IDs for this file
                         for record_info in record_list:
                             record_id = record_info["id"]
                             if record_id in file_records:
@@ -561,7 +589,7 @@ class S3CompilerProcessor:
             log.info(f"  IDs successfully parsed: {self.statistics['parsed_ids']}")
             log.info(f"  Records found in S3: {self.statistics['found_records']}")
             log.info(f"  Files loaded from S3: {self.statistics['files_loaded']}")
-            log.info(f"  Unique files processed: {len(file_to_records)}")
+            log.info(f"  Unique patterns processed: {len(pattern_to_records)}")
 
             if self.statistics["input_records"] > 0:
                 success_rate = (
