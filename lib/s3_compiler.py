@@ -47,7 +47,9 @@ Examples:
 
 ID Format:
 The script expects IDs in the format: NEWSPAPER-YEAR-CONTENTITEMID
-It will look for files named: NEWSPAPER-YEAR.jsonl.bz2 in the S3 prefix
+It will search for files ending with: NEWSPAPER-YEAR.jsonl.bz2 in the S3 prefix
+Files may be in nested directories and optionally have prefixes
+(e.g., path/to/NEWSPAPER-YEAR.jsonl.bz2 or path/to/PREFIX-NEWSPAPER-YEAR.jsonl.bz2)
 """
 
 import argparse
@@ -143,7 +145,7 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--id-pattern",
         type=str,
-        default=r"^([^-]+)-(\d{4})-(.+)$",
+        default=r"([^-]+)-(\d{4})-(.+)$",
         help="Regex pattern to parse ID (default: NEWSPAPER-YEAR-CONTENTID format)",
     )
     parser.add_argument(
@@ -193,7 +195,7 @@ class S3CompilerProcessor:
         s3_prefix: str,
         output_file: str,
         id_field: str = "id",
-        id_pattern: str = r"^([^-]+)-(\d{4})-(.+)$",
+        id_pattern: str = r"([^-]+)-(\d{4})-(.+)$",
         file_pattern: str = "{newspaper}-{year}.jsonl.bz2",
         transform_expr: Optional[str] = None,
         transform_file: Optional[str] = None,
@@ -308,19 +310,45 @@ class S3CompilerProcessor:
             }
         return None
 
-    def _get_file_key(self, parsed_id: Dict[str, str]) -> str:
+    def _get_file_key(self, parsed_id: Dict[str, str]) -> Optional[str]:
         """
-        Generate S3 file key from parsed ID components.
+        Find S3 file key from parsed ID components by searching for matching files.
 
         Args:
             parsed_id: Parsed ID components
 
         Returns:
-            str: S3 file key
+            Optional[str]: S3 file key if found, None otherwise
         """
         bucket, prefix = parse_s3_path(self.s3_prefix)
-        filename = self.file_pattern.format(**parsed_id)
-        return f"{prefix.rstrip('/')}/{filename}"
+
+        # Search pattern: files ending with NEWSPAPER-YEAR.jsonl.bz2
+        # Files may have optional prefixes or be in nested directories
+        search_suffix = f"{parsed_id['newspaper']}-{parsed_id['year']}.jsonl.bz2"
+
+        try:
+            # List objects with the prefix to find matching files
+            paginator = self.s3_client.get_paginator("list_objects_v2")
+            page_iterator = paginator.paginate(
+                Bucket=bucket, Prefix=prefix.rstrip("/") + "/" if prefix else ""
+            )
+
+            for page in page_iterator:
+                if "Contents" not in page:
+                    continue
+
+                for obj in page["Contents"]:
+                    key = obj["Key"]
+                    # Check if the key ends with our target pattern
+                    if key.endswith(search_suffix):
+                        log.debug(f"Found matching file: {key}")
+                        return key
+
+        except Exception as e:
+            log.debug(f"Error searching for file with pattern {search_suffix}: {e}")
+
+        log.debug(f"No file found matching pattern {search_suffix}")
+        return None
 
     def _load_s3_file(self, bucket: str, file_key: str) -> Dict[str, Dict[str, Any]]:
         """
@@ -397,6 +425,10 @@ class S3CompilerProcessor:
                     self.statistics["parsed_ids"] += 1
                     file_key = self._get_file_key(parsed_id)
 
+                    # Skip if no matching file found
+                    if file_key is None:
+                        continue
+
                     # Store both ID and selected input fields
                     record_info = {"id": record_id}
                     for field in self.include_from_input:
@@ -468,7 +500,10 @@ class S3CompilerProcessor:
                 with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
                     # Process each file only once
                     for file_key, record_list in file_to_records.items():
-                        log.info(f"Processing {file_key} for {len(record_list)} IDs")
+                        log.info(
+                            f"Processing s3://{bucket}/{file_key} for"
+                            f" {len(record_list)} IDs"
+                        )
 
                         # Check if file exists in S3
                         try:
