@@ -16,34 +16,34 @@ Features:
 
 Usage:
     python s3_compiler.py \
-        --input-file sample_ids.jsonl \
+        -i sample_ids.jsonl \
         --s3-prefix s3://bucket/path/to/dataset \
-        --output compiled_corpus.jsonl \
+        -o compiled_corpus.jsonl \
         --id-field id \
         --log-level INFO
 
     # With transformation:
     python s3_compiler.py \
-        --input-file sample_ids.jsonl \
+        -i sample_ids.jsonl \
         --s3-prefix s3://bucket/path/to/dataset \
-        --output compiled_corpus.jsonl \
+        -o compiled_corpus.jsonl \
         --id-field id \
         --transform-expr '{id: .id, title: .title, content: .content_text}' \
         --log-level INFO
 
 Examples:
 1. Basic compilation:
-    python s3_compiler.py --input-file ids.jsonl --s3-prefix s3://bucket/data \
-        --output corpus.jsonl --id-field id
+    python s3_compiler.py -i ids.jsonl --s3-prefix s3://bucket/data \
+        -o corpus.jsonl --id-field id
 
 2. With transformation:
-    python s3_compiler.py --input-file ids.jsonl --s3-prefix s3://bucket/data \
-        --output corpus.jsonl --id-field id \
+    python s3_compiler.py -i ids.jsonl --s3-prefix s3://bucket/data \
+        -o corpus.jsonl --id-field id \
         --transform-expr '{id: .id, text: .content_text, date: .date}'
 
 3. Using transform file:
-    python s3_compiler.py --input-file ids.jsonl --s3-prefix s3://bucket/data \
-        --output corpus.jsonl --id-field id --transform-file transform.jq
+    python s3_compiler.py -i ids.jsonl --s3-prefix s3://bucket/data \
+        -o corpus.jsonl --id-field id --transform-file transform.jq
 
 ID Format:
 The script expects IDs in the format: NEWSPAPER-YEAR-CONTENTITEMID
@@ -65,7 +65,6 @@ from smart_open import open as smart_open
 try:
     from impresso_cookbook import (
         get_s3_client,
-        get_timestamp,
         setup_logging,
         get_transport_params,
         parse_s3_path,
@@ -74,7 +73,6 @@ except ImportError:
     # Fallback for when impresso_cookbook is not available
     from common import (
         get_s3_client,
-        get_timestamp,
         setup_logging,
         get_transport_params,
         parse_s3_path,
@@ -128,7 +126,8 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "-o",
-        "--output-file",
+        "--output",
+        dest="output_file",
         type=str,
         required=True,
         help="Output path for compiled corpus (local or S3), JSONL format.",
@@ -144,7 +143,7 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--id-pattern",
         type=str,
-        default=r"([^-]+)-(\d{4})-(.+)$",
+        default=r"^([^-]+)-(\d{4})-(.+)$",
         help="Regex pattern to parse ID (default: NEWSPAPER-YEAR-CONTENTID format)",
     )
     parser.add_argument(
@@ -236,9 +235,8 @@ class S3CompilerProcessor:
         # Configure logging
         setup_logging(self.log_level, self.log_file, logger=log)
 
-        # Initialize S3 client and timestamp
+        # Initialize S3 client
         self.s3_client = get_s3_client()
-        self.timestamp = get_timestamp()
 
         # Compile regex pattern
         try:
@@ -496,6 +494,12 @@ class S3CompilerProcessor:
                                     if self.id_field not in transformed_record:
                                         transformed_record[self.id_field] = record_id
 
+                                    # Include fields from input file
+                                    for field in self.include_from_input:
+                                        if field in record_info:
+                                            key = f"input_{field}"
+                                            transformed_record[key] = record_info[field]
+
                                     outfile.write(
                                         json.dumps(
                                             transformed_record, ensure_ascii=False
@@ -523,101 +527,6 @@ class S3CompilerProcessor:
             log.info(f"  Records found in S3: {self.statistics['found_records']}")
             log.info(f"  Files loaded from S3: {self.statistics['files_loaded']}")
             log.info(f"  Unique files processed: {len(file_to_records)}")
-
-            if self.statistics["input_records"] > 0:
-                success_rate = (
-                    self.statistics["found_records"] / self.statistics["input_records"]
-                )
-                log.info(f"  Success rate: {success_rate:.4f}")
-
-            log.info(f"Results saved to {self.output_file}")
-
-        except Exception as e:
-            log.error(f"Error during compilation process: {e}", exc_info=True)
-            sys.exit(1)
-        """Run the compilation process."""
-        try:
-            log.info(f"Starting compilation from {self.input_file}")
-            log.info(f"Looking up records in {self.s3_prefix}")
-
-            # Create temporary file for output
-            suffix = self.output_file.split(".")[-1]
-            with tempfile.NamedTemporaryFile(
-                delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
-            ) as tmpfile:
-                tmpfile_path = tmpfile.name
-                log.info(f"Temporary file created: {tmpfile_path}")
-
-                with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
-                    # Read input file and process each ID
-                    with smart_open(
-                        self.input_file,
-                        "r",
-                        encoding="utf-8",
-                        transport_params=get_transport_params(self.input_file),
-                    ) as infile:
-                        for line_num, line in enumerate(infile, 1):
-                            try:
-                                input_record = json.loads(line)
-                                self.statistics["input_records"] += 1
-
-                                if self.id_field not in input_record:
-                                    log.warning(
-                                        f"Line {line_num}: Missing '{self.id_field}'"
-                                        " field"
-                                    )
-                                    continue
-
-                                record_id = str(input_record[self.id_field])
-
-                                # Find corresponding record in S3
-                                found_record = self._find_record(record_id)
-                                if found_record is None:
-                                    log.debug(f"Record '{record_id}' not found")
-                                    continue
-
-                                # Apply transformation
-                                transformed_record = self._apply_transform(found_record)
-                                if transformed_record is not None:
-                                    # Include ID in output if not already there
-                                    if self.id_field not in transformed_record:
-                                        transformed_record[self.id_field] = record_id
-
-                                    # Include fields from input file
-                                    for field in self.include_from_input:
-                                        if field in record_info:
-                                            key = f"input_{field}"
-                                            transformed_record[key] = record_info[field]
-
-                                    outfile.write(
-                                        json.dumps(
-                                            transformed_record, ensure_ascii=False
-                                        )
-                                        + "\n"
-                                    )
-
-                            except json.JSONDecodeError:
-                                log.warning(f"Skipping malformed line {line_num}")
-                            except Exception as e:
-                                log.error(f"Error processing line {line_num}: {e}")
-
-                # Upload to S3 or move to final location
-                if self.output_file.startswith("s3://"):
-                    self._upload_to_s3(tmpfile_path, self.output_file)
-                else:
-                    import shutil
-
-                    shutil.move(tmpfile_path, self.output_file)
-                    log.info(f"Moved {tmpfile_path} to {self.output_file}")
-
-            # Log summary statistics
-            log.info("Compilation complete:")
-            log.info(f"  Input records processed: {self.statistics['input_records']}")
-            log.info(f"  IDs successfully parsed: {self.statistics['parsed_ids']}")
-            log.info(f"  Records found in S3: {self.statistics['found_records']}")
-            log.info(f"  Files loaded from S3: {self.statistics['files_loaded']}")
-            log.info(f"  Cache hits: {self.statistics['cache_hits']}")
-            log.info(f"  Cache misses: {self.statistics['cache_misses']}")
 
             if self.statistics["input_records"] > 0:
                 success_rate = (
