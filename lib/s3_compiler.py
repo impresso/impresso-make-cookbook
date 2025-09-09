@@ -114,6 +114,7 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
 
     # Input/Output options
     parser.add_argument(
+        "-i",
         "--input-file",
         type=str,
         required=True,
@@ -127,7 +128,7 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "-o",
-        "--output",
+        "--output-file",
         type=str,
         required=True,
         help="Output path for compiled corpus (local or S3), JSONL format.",
@@ -143,7 +144,7 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--id-pattern",
         type=str,
-        default=r"^([^-]+)-(\d{4})-(.+)$",
+        default=r"([^-]+)-(\d{4})-(.+)$",
         help="Regex pattern to parse ID (default: NEWSPAPER-YEAR-CONTENTID format)",
     )
     parser.add_argument(
@@ -171,12 +172,11 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
         help="Field name to match against in S3 records (default: %(default)s)",
     )
 
-    # Performance options
     parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=1000,
-        help="Number of records to process in each batch (default: %(default)s)",
+        "--include-from-input",
+        type=str,
+        nargs="*",
+        help="Fields from input file to include in output (e.g., 'score', 'label')",
     )
 
     return parser.parse_args(args)
@@ -199,7 +199,7 @@ class S3CompilerProcessor:
         transform_expr: Optional[str] = None,
         transform_file: Optional[str] = None,
         match_field: str = "id",
-        batch_size: int = 1000,
+        include_from_input: Optional[List[str]] = None,
         log_level: str = "INFO",
         log_file: Optional[str] = None,
     ) -> None:
@@ -216,7 +216,7 @@ class S3CompilerProcessor:
             transform_expr: JQ expression for transformation
             transform_file: Path to JQ transform file
             match_field: Field name to match in S3 records
-            batch_size: Number of records to process in each batch
+            include_from_input: Fields from input file to include in output
             log_level: Logging level
             log_file: Path to log file
         """
@@ -229,7 +229,7 @@ class S3CompilerProcessor:
         self.transform_expr = transform_expr
         self.transform_file = transform_file
         self.match_field = match_field
-        self.batch_size = batch_size
+        self.include_from_input = include_from_input or []
         self.log_level = log_level
         self.log_file = log_file
 
@@ -365,14 +365,15 @@ class S3CompilerProcessor:
 
         return records
 
-    def _group_ids_by_file(self) -> Dict[str, List[str]]:
+    def _group_ids_by_file(self) -> Dict[str, List[Dict[str, Any]]]:
         """
         Read input file and group IDs by their target S3 files.
 
         Returns:
-            Dict[str, List[str]]: Mapping from file keys to lists of IDs
+            Dict[str, List[Dict[str, Any]]]: Mapping from file keys to list of
+            records containing ID and input data
         """
-        file_to_ids = {}
+        file_to_records: Dict[str, List[Dict[str, Any]]] = {}
 
         with smart_open(
             self.input_file,
@@ -398,9 +399,15 @@ class S3CompilerProcessor:
                     self.statistics["parsed_ids"] += 1
                     file_key = self._get_file_key(parsed_id)
 
-                    if file_key not in file_to_ids:
-                        file_to_ids[file_key] = []
-                    file_to_ids[file_key].append(record_id)
+                    # Store both ID and selected input fields
+                    record_info = {"id": record_id}
+                    for field in self.include_from_input:
+                        if field in input_record:
+                            record_info[field] = input_record[field]
+
+                    if file_key not in file_to_records:
+                        file_to_records[file_key] = []
+                    file_to_records[file_key].append(record_info)
 
                 except json.JSONDecodeError:
                     log.warning(f"Skipping malformed line {line_num}")
@@ -408,9 +415,10 @@ class S3CompilerProcessor:
                     log.error(f"Error processing line {line_num}: {e}")
 
         log.info(
-            f"Grouped {self.statistics['parsed_ids']} IDs into {len(file_to_ids)} files"
+            f"Grouped {self.statistics['parsed_ids']} IDs into "
+            f"{len(file_to_records)} files"
         )
-        return file_to_ids
+        return file_to_records
 
     def _apply_transform(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -447,7 +455,7 @@ class S3CompilerProcessor:
             log.info(f"Looking up records in {self.s3_prefix}")
 
             # Group IDs by their target files for efficient processing
-            file_to_ids = self._group_ids_by_file()
+            file_to_records = self._group_ids_by_file()
 
             # Create temporary file for output
             suffix = self.output_file.split(".")[-1]
@@ -461,8 +469,8 @@ class S3CompilerProcessor:
 
                 with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
                     # Process each file only once
-                    for file_key, id_list in file_to_ids.items():
-                        log.info(f"Processing {file_key} for {len(id_list)} IDs")
+                    for file_key, record_list in file_to_records.items():
+                        log.info(f"Processing {file_key} for {len(record_list)} IDs")
 
                         # Check if file exists in S3
                         try:
@@ -475,7 +483,8 @@ class S3CompilerProcessor:
                         file_records = self._load_s3_file(bucket, file_key)
 
                         # Find and process matching records
-                        for record_id in id_list:
+                        for record_info in record_list:
+                            record_id = record_info["id"]
                             if record_id in file_records:
                                 found_record = file_records[record_id]
                                 self.statistics["found_records"] += 1
@@ -513,7 +522,7 @@ class S3CompilerProcessor:
             log.info(f"  IDs successfully parsed: {self.statistics['parsed_ids']}")
             log.info(f"  Records found in S3: {self.statistics['found_records']}")
             log.info(f"  Files loaded from S3: {self.statistics['files_loaded']}")
-            log.info(f"  Unique files processed: {len(file_to_ids)}")
+            log.info(f"  Unique files processed: {len(file_to_records)}")
 
             if self.statistics["input_records"] > 0:
                 success_rate = (
@@ -574,6 +583,12 @@ class S3CompilerProcessor:
                                     if self.id_field not in transformed_record:
                                         transformed_record[self.id_field] = record_id
 
+                                    # Include fields from input file
+                                    for field in self.include_from_input:
+                                        if field in record_info:
+                                            key = f"input_{field}"
+                                            transformed_record[key] = record_info[field]
+
                                     outfile.write(
                                         json.dumps(
                                             transformed_record, ensure_ascii=False
@@ -629,14 +644,14 @@ def main(args: Optional[List[str]] = None) -> None:
     processor: S3CompilerProcessor = S3CompilerProcessor(
         input_file=options.input_file,
         s3_prefix=options.s3_prefix,
-        output_file=options.output,
+        output_file=options.output_file,
         id_field=options.id_field,
         id_pattern=options.id_pattern,
         file_pattern=options.file_pattern,
         transform_expr=options.transform_expr,
         transform_file=options.transform_file,
         match_field=options.match_field,
-        batch_size=options.batch_size,
+        include_from_input=options.include_from_input,
         log_level=options.log_level,
         log_file=options.log_file,
     )
