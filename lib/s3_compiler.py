@@ -252,6 +252,8 @@ class S3CompilerProcessor:
 
         # Initialize file cache and statistics
         self.file_key_cache: Dict[str, Optional[str]] = {}  # Cache for file lookups
+        # Cache for input record info
+        self.id_to_record_info: Dict[str, Dict[str, Any]] = {}
         self.statistics = {
             "input_records": 0,
             "parsed_ids": 0,
@@ -366,18 +368,25 @@ class S3CompilerProcessor:
         self.file_key_cache[cache_key] = None
         return None
 
-    def _load_s3_file(self, bucket: str, file_key: str) -> Dict[str, Dict[str, Any]]:
+    def _process_s3_file_streaming(
+        self, bucket: str, file_key: str, target_ids: List[str], outfile
+    ) -> int:
         """
-        Load an S3 file and return records indexed by match field.
+        Stream through an S3 file and process only the records we need.
+        This avoids loading the entire file into memory.
 
         Args:
             bucket: S3 bucket name
             file_key: S3 file key
+            target_ids: List of IDs to look for in this file
+            outfile: Output file handle to write results to
 
         Returns:
-            Dict[str, Dict[str, Any]]: Records indexed by match field
+            int: Number of records found and processed
         """
-        records = {}
+        # Convert to set for O(1) lookup
+        target_id_set = set(target_ids)
+        records_found = 0
         transport_params = get_transport_params(f"s3://{bucket}/{file_key}")
 
         try:
@@ -391,21 +400,64 @@ class S3CompilerProcessor:
                         record = json.loads(line)
                         if self.match_field in record:
                             match_value = str(record[self.match_field])
-                            records[match_value] = record
+                            # Only process if this ID is in our target list
+                            if match_value in target_id_set:
+                                records_found += 1
+                                self.statistics["found_records"] += 1
+
+                                # Apply transformation
+                                transformed_record = self._apply_transform(record)
+                                if transformed_record is not None:
+                                    # Include original ID in output if not already there
+                                    if self.id_field not in transformed_record:
+                                        transformed_record[self.id_field] = match_value
+
+                                    # Include fields from input file
+                                    # We need to get the record_info for this ID
+                                    record_info = self._get_record_info_for_id(
+                                        match_value
+                                    )
+                                    if record_info:
+                                        for field in self.include_from_input:
+                                            if field in record_info:
+                                                key = f"input_{field}"
+                                                transformed_record[key] = record_info[
+                                                    field
+                                                ]
+
+                                    outfile.write(
+                                        json.dumps(
+                                            transformed_record, ensure_ascii=False
+                                        )
+                                        + "\n"
+                                    )
+
                     except json.JSONDecodeError:
-                        log.warning(f"Skipping malformed line {line_num} in {file_key}")
+                        log.debug(f"Skipping malformed line {line_num} in {file_key}")
                     except Exception as e:
                         log.debug(
                             f"Error processing line {line_num} in {file_key}: {e}"
                         )
 
-            log.info(f"Loaded {len(records)} records from {file_key}")
+            log.info(f"Found {records_found} target records in {file_key}")
             self.statistics["files_loaded"] += 1
 
         except Exception as e:
-            log.warning(f"Failed to load file {file_key}: {e}")
+            log.warning(f"Failed to process file {file_key}: {e}")
 
-        return records
+        return records_found
+
+    def _get_record_info_for_id(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the cached record info for a given ID.
+
+        Args:
+            record_id: The record ID to look up
+
+        Returns:
+            Optional[Dict[str, Any]]: Record info if found, None otherwise
+        """
+        return self.id_to_record_info.get(record_id)
 
     def _group_ids_by_pattern(self) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -449,6 +501,9 @@ class S3CompilerProcessor:
                     for field in self.include_from_input:
                         if field in input_record:
                             record_info[field] = input_record[field]
+
+                    # Cache the record info for later lookup
+                    self.id_to_record_info[record_id] = record_info
 
                     if pattern_key not in pattern_to_records:
                         pattern_to_records[pattern_key] = []
@@ -540,39 +595,13 @@ class S3CompilerProcessor:
                             log.warning(f"File {file_key} not found in S3")
                             continue
 
-                        # Load file records once for all IDs in this pattern
-                        file_records = self._load_s3_file(bucket, file_key)
+                        # Extract just the IDs for this pattern
+                        target_ids = [record["id"] for record in record_list]
 
-                        # Process all IDs for this file
-                        for record_info in record_list:
-                            record_id = record_info["id"]
-                            if record_id in file_records:
-                                found_record = file_records[record_id]
-                                self.statistics["found_records"] += 1
-
-                                # Apply transformation
-                                transformed_record = self._apply_transform(found_record)
-                                if transformed_record is not None:
-                                    # Include original ID in output if not already there
-                                    if self.id_field not in transformed_record:
-                                        transformed_record[self.id_field] = record_id
-
-                                    # Include fields from input file
-                                    for field in self.include_from_input:
-                                        if field in record_info:
-                                            key = f"input_{field}"
-                                            transformed_record[key] = record_info[field]
-
-                                    outfile.write(
-                                        json.dumps(
-                                            transformed_record, ensure_ascii=False
-                                        )
-                                        + "\n"
-                                    )
-                            else:
-                                log.debug(
-                                    f"Record '{record_id}' not found in {file_key}"
-                                )
+                        # Stream through the S3 file and process matching records
+                        self._process_s3_file_streaming(
+                            bucket, file_key, target_ids, outfile
+                        )
 
                 # Upload to S3 or move to final location
                 if self.output_file.startswith("s3://"):
