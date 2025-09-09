@@ -685,23 +685,10 @@ class S3SamplerProcessor:
 
     def _should_sample(self, record: Dict[str, Any]) -> bool:
         """
-        Determine if a record should be sampled based on the sampling strategy.
+        Determine if a record should be sampled using random sampling strategy.
 
-        This method implements the core sampling logic for both random and stratified
-        sampling strategies. It evaluates each record against the configured sampling
-        parameters to make a binary decision about inclusion.
-
-        Sampling Strategies:
-        1. Random Sampling: Uses configured sampling_rate to randomly select records
-           - Each record has an independent probability of selection
-           - Uses random.random() < sampling_rate for decision
-           - Provides approximate but not exact sampling ratios
-
-        2. Stratified Sampling: Uses max_samples_per_group with group identifiers
-           - Maintains counters for each group (e.g., newspaper, source)
-           - Accepts records until group quota is reached
-           - Ensures balanced representation across groups
-           - Requires valid group identifier extraction
+        This method implements random sampling logic only, as stratified sampling
+        is now handled separately in the two-pass approach.
 
         Args:
             record: JSON record (dict) to evaluate for sampling
@@ -709,36 +696,16 @@ class S3SamplerProcessor:
         Returns:
             bool: True if record should be included in the sample, False otherwise
 
-        Side Effects:
-            - Updates self.group_sample_counts for stratified sampling
-            - Increments group counters when records are selected
-
         Examples:
             Random sampling (sampling_rate=0.1):
             >>> # Approximately 10% of records return True
             >>> processor._should_sample({"any": "record"})  # ~10% chance of True
-
-            Stratified sampling (max_samples_per_group=100):
-            >>> # First 100 records from each group return True
-            >>> processor._should_sample({"newspaper_id": "NYT", "content": "..."})
-            True  # if NYT count < 100
-            False  # if NYT count >= 100
         """
         if self.sampling_rate is not None:
             # Random sampling
             return random.random() < self.sampling_rate
 
-        elif self.max_samples_per_group is not None:
-            # Stratified sampling by group
-            group_id = self._get_group_id(record)
-            if group_id is None:
-                return False
-
-            if self.group_sample_counts[group_id] < self.max_samples_per_group:
-                self.group_sample_counts[group_id] += 1
-                return True
-            return False
-
+        # Should not reach here in normal operation
         return False
 
     def _read_and_process_file(
@@ -852,6 +819,165 @@ class S3SamplerProcessor:
         except Exception as e:
             log.error(f"Failed to open or read file {file_key}: {e}")
 
+    def _run_random_sampling(self, bucket: str, prefix: str, tmpfile_path: str) -> None:
+        """
+        Execute random sampling strategy with single-pass processing.
+
+        For random sampling, we can sample records directly as we process them
+        since each record has an independent probability of selection.
+
+        Args:
+            bucket: S3 bucket name
+            prefix: S3 prefix path
+            tmpfile_path: Path to temporary output file
+        """
+        with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
+            processed_files = 0
+
+            # Process each file
+            for file_key in yield_s3_objects(bucket, prefix):
+                if not file_key.endswith("jsonl.bz2"):
+                    continue
+
+                log.info(f"Processing file: {file_key}")
+                file_sample_count = 0
+
+                for record in self._read_and_process_file(bucket, file_key):
+                    outfile.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    file_sample_count += 1
+
+                processed_files += 1
+                log.info(f"File {file_key}: sampled {file_sample_count} records")
+
+    def _run_stratified_sampling(
+        self, bucket: str, prefix: str, tmpfile_path: str
+    ) -> None:
+        """
+        Execute stratified sampling strategy with two-pass processing.
+
+        For stratified sampling, we use a two-pass approach to eliminate bias:
+        1. First pass: collect all filtered and transformed records
+        2. Shuffle records randomly to eliminate ordering bias
+        3. Second pass: apply stratified sampling to shuffled data
+
+        Args:
+            bucket: S3 bucket name
+            prefix: S3 prefix path
+            tmpfile_path: Path to temporary output file
+        """
+        log.info("Using two-pass stratified sampling strategy")
+
+        # First pass: collect all filtered and transformed records
+        log.info("First pass: collecting and filtering records...")
+        all_records = []
+
+        for file_key in yield_s3_objects(bucket, prefix):
+            if not file_key.endswith("jsonl.bz2"):
+                continue
+
+            log.info(f"Processing file: {file_key}")
+            file_collected_count = 0
+
+            # Collect filtered and transformed records (but don't apply sampling yet)
+            for record in self._collect_filtered_records(bucket, file_key):
+                all_records.append(record)
+                file_collected_count += 1
+
+            log.info(
+                f"File {file_key}: collected {file_collected_count} filtered records"
+            )
+
+        log.info(f"First pass complete: collected {len(all_records)} total records")
+
+        # Shuffle records to eliminate ordering bias
+        log.info("Shuffling records to eliminate ordering bias...")
+        random.shuffle(all_records)
+
+        # Second pass: apply stratified sampling to shuffled data
+        log.info("Second pass: applying stratified sampling...")
+        self.group_sample_counts = defaultdict(int)  # Reset counters
+
+        with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
+            for record in all_records:
+                # Extract group ID and check if we should sample this record
+                group_id = self._get_group_id(record)
+                if group_id is None:
+                    continue
+
+                if (
+                    self.max_samples_per_group is not None
+                    and self.group_sample_counts[group_id] < self.max_samples_per_group
+                ):
+                    self.group_sample_counts[group_id] += 1
+                    self.total_sampled += 1
+                    outfile.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        log.info(f"Second pass complete: sampled {self.total_sampled} records")
+
+    def _collect_filtered_records(
+        self, bucket: str, file_key: str
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Read and collect filtered and transformed records without sampling.
+
+        This method is similar to _read_and_process_file but skips the sampling
+        decision. It's used in the first pass of stratified sampling to collect
+        all eligible records before shuffling and sampling.
+
+        Args:
+            bucket: S3 bucket name containing the file
+            file_key: S3 object key (path) of the JSONL.bz2 file to process
+
+        Yields:
+            Dict[str, Any]: Filtered and transformed records ready for sampling
+        """
+        transport_params = get_transport_params(f"s3://{bucket}/{file_key}")
+
+        try:
+            with smart_open(
+                f"s3://{bucket}/{file_key}",
+                "rb",
+                transport_params=transport_params,
+            ) as infile:
+                for line_num, line in enumerate(infile, 1):
+                    try:
+                        record = json.loads(line)
+                        self.total_processed += 1
+
+                        record_id = self._get_record_id(record)
+                        log.debug(f"Processing record {record_id} (line {line_num})")
+
+                        # Apply filter
+                        if not self._apply_filter(record):
+                            log.debug(f"Record {record_id} filtered out")
+                            continue
+
+                        log.debug(f"Record {record_id} passed filter")
+
+                        # Apply transformation
+                        transformed_record = self._apply_transform(record)
+                        if transformed_record is not None:
+                            log.debug(
+                                f"Record {record_id} successfully transformed "
+                                "and collected for sampling"
+                            )
+                            yield transformed_record
+                        else:
+                            log.debug(
+                                f"Record {record_id} transformation failed, "
+                                "skipping from collection"
+                            )
+
+                    except json.JSONDecodeError:
+                        log.warning(f"Skipping malformed line {line_num} in {file_key}")
+                    except Exception as e:
+                        log.error(
+                            f"Error processing line {line_num} in {file_key}: {e}"
+                        )
+
+        except Exception as e:
+            log.error(f"Failed to open or read file {file_key}: {e}")
+
     def _upload_to_s3(self, local_path: str, s3_path: str) -> None:
         """
         Upload a local file to S3.
@@ -888,13 +1014,13 @@ class S3SamplerProcessor:
         including temporary file management, progress logging, and error handling.
 
         Processing Workflow:
-        1. Parses S3 prefix to extract bucket and path components
-        2. Creates temporary file for intermediate storage
-        3. Iterates through all JSONL.bz2 files in the S3 prefix
-        4. Processes each file using the configured sampling strategy
-        5. Writes sampled records to temporary file in JSONL format
-        6. Transfers final results to the specified output location
-        7. Logs comprehensive statistics about the sampling process
+        For stratified sampling (max_samples_per_group):
+        1. First pass: collect all filtered and transformed records
+        2. Shuffle records randomly to eliminate ordering bias
+        3. Second pass: apply stratified sampling to shuffled data
+
+        For random sampling (sampling_rate):
+        1. Process files sequentially with direct sampling
 
         Output Handling:
         - Local paths: Uses shutil.move for efficient file transfer
@@ -943,25 +1069,12 @@ class S3SamplerProcessor:
                 tmpfile_path = tmpfile.name
                 log.info(f"Temporary file created: {tmpfile_path}")
 
-                with smart_open(tmpfile_path, "w", encoding="utf-8") as outfile:
-                    processed_files = 0
-
-                    # Process each file
-                    for file_key in yield_s3_objects(bucket, prefix):
-                        if not file_key.endswith("jsonl.bz2"):
-                            continue
-
-                        log.info(f"Processing file: {file_key}")
-                        file_sample_count = 0
-
-                        for record in self._read_and_process_file(bucket, file_key):
-                            outfile.write(json.dumps(record, ensure_ascii=False) + "\n")
-                            file_sample_count += 1
-
-                        processed_files += 1
-                        log.info(
-                            f"File {file_key}: sampled {file_sample_count} records"
-                        )
+                if self.max_samples_per_group is not None:
+                    # Two-pass strategy for stratified sampling
+                    self._run_stratified_sampling(bucket, prefix, tmpfile_path)
+                else:
+                    # Single-pass strategy for random sampling
+                    self._run_random_sampling(bucket, prefix, tmpfile_path)
 
                 # Upload to S3 or move to final location
                 if self.output_file.startswith("s3://"):
@@ -974,7 +1087,6 @@ class S3SamplerProcessor:
 
             # Log summary statistics
             log.info("Processing complete:")
-            log.info(f"  Files processed: {processed_files}")
             log.info(f"  Total records processed: {self.total_processed}")
             log.info(f"  Total records sampled: {self.total_sampled}")
 
