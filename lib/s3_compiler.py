@@ -374,6 +374,7 @@ class S3CompilerProcessor:
         """
         Stream through an S3 file and process only the records we need.
         This avoids loading the entire file into memory.
+        Stops processing when all target IDs have been found.
 
         Args:
             bucket: S3 bucket name
@@ -384,8 +385,8 @@ class S3CompilerProcessor:
         Returns:
             int: Number of records found and processed
         """
-        # Convert to set for O(1) lookup
-        target_id_set = set(target_ids)
+        # Convert to set for O(1) lookup and track remaining IDs
+        remaining_ids = set(target_ids)
         records_found = 0
         transport_params = get_transport_params(f"s3://{bucket}/{file_key}")
 
@@ -400,10 +401,13 @@ class S3CompilerProcessor:
                         record = json.loads(line)
                         if self.match_field in record:
                             match_value = str(record[self.match_field])
-                            # Only process if this ID is in our target list
-                            if match_value in target_id_set:
+                            # Only process if this ID is in our remaining target list
+                            if match_value in remaining_ids:
                                 records_found += 1
                                 self.statistics["found_records"] += 1
+
+                                # Remove from remaining IDs
+                                remaining_ids.remove(match_value)
 
                                 # Apply transformation
                                 transformed_record = self._apply_transform(record)
@@ -432,6 +436,15 @@ class S3CompilerProcessor:
                                         + "\n"
                                     )
 
+                                # Early exit if all target IDs have been found
+                                if not remaining_ids:
+                                    log.debug(
+                                        f"All {len(target_ids)} target IDs found, "
+                                        f"stopping processing of {file_key} at line "
+                                        f"{line_num}"
+                                    )
+                                    break
+
                     except json.JSONDecodeError:
                         log.debug(f"Skipping malformed line {line_num} in {file_key}")
                     except Exception as e:
@@ -439,7 +452,17 @@ class S3CompilerProcessor:
                             f"Error processing line {line_num} in {file_key}: {e}"
                         )
 
-            log.info(f"Found {records_found} target records in {file_key}")
+            if remaining_ids:
+                missing_sample = list(remaining_ids)[:5]
+                suffix = "..." if len(remaining_ids) > 5 else ""
+                log.debug(
+                    f"{len(remaining_ids)} target IDs not found in {file_key}: "
+                    f"{missing_sample}{suffix}"
+                )
+
+            log.info(
+                f"Found {records_found}/{len(target_ids)} target records in {file_key}"
+            )
             self.statistics["files_loaded"] += 1
 
         except Exception as e:
