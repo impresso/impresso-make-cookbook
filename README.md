@@ -525,6 +525,17 @@ Different processing stages use different S3 buckets:
 - `S3_BUCKET_LINGPROC`: Linguistic processing outputs (e.g., `40-processed-data-sandbox`)
 - `S3_BUCKET_TOPICS`: Topic modeling results (e.g., `41-processed-data-staging`)
 
+
+## FAQ
+
+### How to debug build process if a target can not be built?
+ - enable DEBUG mode: `export LOGGING_LEVEL=DEBUG`
+ - use the remake debugger to show the instantiated build rules:
+   ```
+   remake -x --debugger
+   remake<0> info rules
+   ```
+
 ## About Impresso
 
 ### Impresso project
