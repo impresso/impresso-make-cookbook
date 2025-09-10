@@ -424,8 +424,7 @@ class S3CompilerProcessor:
                                     if record_info:
                                         for field in self.include_from_input:
                                             if field in record_info:
-                                                key = f"input_{field}"
-                                                transformed_record[key] = record_info[
+                                                transformed_record[field] = record_info[
                                                     field
                                                 ]
 
