@@ -6,7 +6,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_ocrqa.mk)
 
 # DOUBLE-COLON-TARGET: sync-input
 # Synchronize rebuilt input data for OCR quality assessment
-sync-input :: sync-rebuilt
+sync-input :: sync-rebuilt sync-langident
 
 # DOUBLE-COLON-TARGET: sync-output
 # Synchronizes OCR quality assessment output data
@@ -90,11 +90,10 @@ ocrqa-target: $(LOCAL_OCRQA_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_OCRQA)/%.jsonl.bz2
 #: Rule to process a single newspaper
-#  \
+#
 # Note: Unsets errexit flag to communicate exit codes
 $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
-	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) && \
+	$(MAKE_SILENCE_RECIPE)mkdir -p $(@D) && \
 	{  set +e ; \
      python3 lib/ocrqa_bloom.py \
           --languages $(OCRQA_LANGUAGES_OPTION) \
