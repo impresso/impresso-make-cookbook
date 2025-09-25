@@ -6,10 +6,34 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 # This file defines the processing rules for language identification tasks.
 ###############################################################################
 
+# USER-VARIABLE: USE_CANONICAL
+# Flag to use canonical format instead of rebuilt format
+# Set to 1 or true to use canonical format, empty or 0 for rebuilt format
+USE_CANONICAL ?= 
+  $(call log.debug, USE_CANONICAL)
+
+# Conditional input synchronization based on format
+ifeq ($(USE_CANONICAL),1)
 # DOUBLE-COLON-TARGET: sync-input
-# Synchronizes rebuilt data.
+# Synchronizes canonical data when using canonical format.
+sync-input :: sync-canonical
+
+# USER-VARIABLE: LANGIDENT_FORMAT_OPTION  
+# Format option for language identification processing
+LANGIDENT_FORMAT_OPTION := --format=canonical
+  $(call log.debug, Using canonical format)
+
+else
+# DOUBLE-COLON-TARGET: sync-input
+# Synchronizes rebuilt data when using rebuilt format.
 sync-input :: sync-rebuilt
 
+# USER-VARIABLE: LANGIDENT_FORMAT_OPTION
+# Format option for language identification processing  
+LANGIDENT_FORMAT_OPTION := --format=rebuilt
+  $(call log.debug, Using rebuilt format)
+
+endif
 
 # DOUBLE-COLON-TARGET: sync-output
 # Synchronizes processed output language identification data.
@@ -122,30 +146,14 @@ LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION ?= 3
 # Option to specify the minimal voting score for language identification.
 # This variable sets the minimum score required for a language to be considered as a
 # valid identification in the language identification process.
-LANGIDENT_MINIMAL_VOTING_SCORE_OPTION ?= 0.5
-  $(call log.debug, LANGIDENT_MINIMAL_VOTING_SCORE_OPTION)
-
-# USER-VARIABLE: LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION
-# Option to specify the minimal language identification probability for stage 1.
-# This variable sets the minimum probability threshold for a language identification
-# to be considered valid in stage 1 processing.
-LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION ?= 0.20
-  $(call log.debug, LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION)
-
-# USER-VARIABLE: LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION
-# Option to specify the minimal language identification probability for stage 2.
-# This variable sets the minimum probability threshold for a language identification
-# to be considered valid in stage 2 processing.
-LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
-  $(call log.debug, LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION)
-
-# USER-VARIABLE: LANGIDENT_MINIMAL_VOTE_SCORE_OPTION
-# Option to specify the minimal vote score for language identification.
-# This variable sets the minimum score required for a language to be considered as a
-# valid identification in the language identification process.
 LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 1
   $(call log.debug, LANGIDENT_MINIMAL_VOTE_SCORE_OPTION)
 
+# USER-VARIABLE: LANGIDENT_OCRQA_OPTION
+# Option to enable OCR quality assessment using impresso_pipelines.ocrqa
+# Set to --ocrqa to enable OCR QA, or leave empty to disable
+LANGIDENT_OCRQA_OPTION ?= 
+  $(call log.debug, LANGIDENT_OCRQA_OPTION)
 
 # FUNCTION: LocalRebuiltToLangIdentStage1File
 # Converts a local rebuilt file name to a local langident stage1 file name
@@ -153,10 +161,21 @@ define LocalRebuiltToLangIdentStage1File
 $(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
 endef
 
+# FUNCTION: LocalCanonicalToLangIdentStage1File
+# Converts a canonical stamp file name to a local langident stage1 file name
+define LocalCanonicalToLangIdentStage1File
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
+endef
+
 # VARIABLE: LOCAL_LANGIDENT_STAGE1_FILES
-# Stores the list of BBOX quality assessment files based on canonical stamp files
+# Stores the list of language identification stage1 files based on rebuilt or canonical stamp files
+ifeq ($(USE_CANONICAL),1)
+LOCAL_LANGIDENT_STAGE1_FILES := \
+    $(call LocalCanonicalToLangIdentStage1File,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
+else
 LOCAL_LANGIDENT_STAGE1_FILES := \
     $(call LocalRebuiltToLangIdentStage1File,$(LOCAL_REBUILT_STAMP_FILES))
+endif
 
   $(call log.debug, LOCAL_LANGIDENT_STAGE1_FILES)
 
@@ -182,30 +201,74 @@ impresso-lid-stage1a-target : $(LOCAL_LANGIDENT_STAGE1_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2
 #: Rule to process a single newspaper
+ifeq ($(USE_CANONICAL),1)
 
+# FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 (canonical version)
+#: Rule to process a single newspaper from canonical format
+$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+	python3 lib/language_identification.py \
+		$(LANGIDENT_FORMAT_OPTION) \
+		--infile $(call LocalToS3,$(basename $<),'') \
+		--issue-file $(call LocalToS3,$(call CanonicalPagesToIssuesPath,$(basename $<)),'') \
+		--outfile $@ \
+		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
+		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
+		--minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits 3 \
+		--git-describe $(GIT_VERSION) \
+		--logfile $@.log.gz \
+		$(LANGIDENT_OCRQA_OPTION) \
+	&& python3 -m impresso_cookbook.local_to_s3 \
+		--set-timestamp \
+		$@ $(call LocalToS3,$@,'') \
+		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+	|| { rm -vf $@ ; exit 1 ; }
 
+else
 
-
-
+# FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 (rebuilt version)  
+#: Rule to process a single newspaper from rebuilt format
 $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-     python3 lib/language_identification.py \
-        --infile $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
-        --outfile $@ \
-        --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-        --impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
-        --wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
-        --minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
-		    --alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
-		    --round-ndigits 3 \
-		    --git-describe $(GIT_VERSION) \
-        --logfile $@.log.gz  \
-    && python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp \
-      $@ $(call LocalToS3,$@,'') \
-      $@.log.gz $(call LocalToS3,$@,'').log.gz \
-    || { rm -vf $@ ; exit 1 ; }
+	python3 lib/language_identification.py \
+		$(LANGIDENT_FORMAT_OPTION) \
+		--infile $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+		--outfile $@ \
+		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
+		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
+		--minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits 3 \
+		--git-describe $(GIT_VERSION) \
+		--logfile $@.log.gz \
+		$(LANGIDENT_OCRQA_OPTION) \
+	&& python3 -m impresso_cookbook.local_to_s3 \
+		--set-timestamp \
+		$@ $(call LocalToS3,$@,'') \
+		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+	|| {
+		--outfile $@ \
+		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
+		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
+		--minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits 3 \
+		--git-describe $(GIT_VERSION) \
+		--logfile $@.log.gz \
+	&& python3 -m impresso_cookbook.local_to_s3 \
+		--set-timestamp \
+		$@ $(call LocalToS3,$@,'') \
+		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+	|| { rm -vf $@ ; exit 1 ; }
+
+endif
 
 # DOUBLE-COLON-TARGET: impresso-lid-stage1b-target
 # Collect language identification statistics
@@ -242,10 +305,21 @@ define LocalRebuiltToLangIdentFile
 $(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
 endef
 
+# FUNCTION: LocalCanonicalToLangIdentFile
+# Converts a canonical stamp file name to a local langident file name
+define LocalCanonicalToLangIdentFile
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
+endef
+
 # VARIABLE: LOCAL_LANGIDENT_FILES
-# Stores the list of BBOX quality assessment files based on canonical stamp files
+# Stores the list of final langident files based on rebuilt or canonical stamp files
+ifeq ($(USE_CANONICAL),1)
+LOCAL_LANGIDENT_FILES := \
+    $(call LocalCanonicalToLangIdentFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
+else
 LOCAL_LANGIDENT_FILES := \
     $(call LocalRebuiltToLangIdentFile,$(LOCAL_REBUILT_STAMP_FILES))
+endif
 
   $(call log.debug, LOCAL_LANGIDENT_FILES)
 
