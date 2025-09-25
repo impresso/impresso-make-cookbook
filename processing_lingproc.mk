@@ -53,6 +53,11 @@ lingproc-target: $(LOCAL_LINGPROC_FILES)
 
 .PHONY: lingproc-target
 
+LINGPROC_LANGIDENT_NEEDED ?= 1
+  $(call log.debug, LINGPROC_LANGIDENT_NEEDED is $(LINGPROC_LANGIDENT_NEEDED))
+
+
+ifeq ($(LINGPROC_LANGIDENT_NEEDED),1)
 # FILE-RULE: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 #: Rule to process a single newspaper
 #
@@ -90,6 +95,40 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REB
           rm -f $@ ; \
           exit $$EXIT_CODE ; \
       fi ; }
-
-
+else
+# NO-LINGPROC_LANGIDENT_NEEDED: lingproc-target we trust the lg property inside the
+# rebuilt file
+$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+	{  set +e ; \
+     python3 lib/spacy_linguistic_processing.py \
+          $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+          $(LINGPROC_VALIDATE_OPTION) \
+          --s3-output-path $(call LocalToS3,$@,.'') \
+          $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
+          $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
+          $(PROCESSING_S3_OUTPUT_DRY_RUN) \
+          $(LINGPROC_QUIET_OPTION) \
+          --git-version $(GIT_VERSION) \
+          -o $@ \
+          --log-file $@.log.gz ; \
+    EXIT_CODE=$$? ; \
+    echo "Processing exit code: $$EXIT_CODE" ; \
+      if [ $$EXIT_CODE -eq 0 ] ; then \
+          echo "Processing completed successfully. Uploading logfile..." ; \
+          python3 lib/s3_to_local_stamps.py \
+              $(call LocalToS3,$@,.stamp).log.gz \
+              --upload-file $@.log.gz \
+        --force-overwrite ; \
+      elif [ $$EXIT_CODE -eq 3 ] ; then \
+          echo "Processing skipped (output exists on S3). Not uploading logfile." ; \
+          rm -f $@ ; \
+          exit 0 ; \
+      else \
+          echo "An error occurred during processing. Exit code: $$EXIT_CODE" ; \
+          rm -f $@ ; \
+          exit $$EXIT_CODE ; \
+      fi ; }
+endif
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_lingproc.mk)
