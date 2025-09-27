@@ -73,4 +73,13 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
     print(*l)" \
 	> $@
 
+
+# VARIABLE: ALL_NEWSPAPERS
+# List all available newspapers for parallel processing using newspaper list definitions
+#
+# Reads the canonical list of newspaper identifiers using make's file function
+# and newspaper_list.mk definitions to determine which newspapers should be processed.
+ALL_NEWSPAPERS := $(file < $(NEWSPAPERS_TO_PROCESS_FILE))
+  $(call log.info, ALL_NEWSPAPERS)
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/newspaper_list.mk)
