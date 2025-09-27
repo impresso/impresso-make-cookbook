@@ -19,6 +19,9 @@ import os
 import sys
 import time
 import traceback
+import socket
+import json
+import getpass
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -46,9 +49,25 @@ def main():
 
     parser.add_argument(
         "files",
-        nargs="+",
+        nargs="*",
         help="Pairs of local_path s3_path. Must be an even number of arguments.",
         metavar="PATH",
+    )
+    parser.add_argument(
+        "--s3-file-exists",
+        help="Check if S3 file exists and exit with code 0 if it does, 1 if not.",
+        metavar="S3_PATH",
+    )
+    parser.add_argument(
+        "--wip",
+        action="store_true",
+        help="Enable work-in-progress file checking.",
+    )
+    parser.add_argument(
+        "--wip-max-age",
+        type=int,
+        default=24,
+        help="Maximum age in hours for WIP files (default: %(default)s).",
     )
     parser.add_argument(
         "--force-overwrite",
@@ -94,13 +113,161 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: %(default)s)",
     )
+    parser.add_argument(
+        "--create-wip",
+        action="store_true",
+        help="Create a WIP file before processing to prevent concurrent execution.",
+    )
+    parser.add_argument(
+        "--remove-wip",
+        action="store_true",
+        help="Remove WIP files after successful upload.",
+    )
 
     args = parser.parse_args()
 
     # Set up logging using impresso_cookbook
     setup_logging(args.log_level, args.log_file, logger=log)
 
-    # Validate that we have pairs of arguments
+    # Handle --s3-file-exists option
+    if args.s3_file_exists:
+        try:
+            s3_client = get_s3_client()
+
+            # Check if file exists using head_object instead of s3_file_exists
+            try:
+                bucket, key = parse_s3_path(args.s3_file_exists)
+                s3_client.head_object(Bucket=bucket, Key=key)
+                log.info("S3 file exists: %s", args.s3_file_exists)
+                sys.exit(0)
+            except Exception as e:
+                # Check if it's a 404 (not found) error
+                if (
+                    hasattr(e, "response")
+                    and e.response.get("Error", {}).get("Code") == "404"
+                ):
+                    pass  # File doesn't exist, continue with WIP check
+                else:
+                    log.debug("Error checking file existence: %s", e)
+                    pass  # Treat as file not existing
+
+            # If WIP checking is enabled, check for WIP file
+            if args.wip:
+                wip_path = args.s3_file_exists + ".wip"
+                try:
+                    bucket, key = parse_s3_path(wip_path)
+                    response = s3_client.head_object(Bucket=bucket, Key=key)
+                    wip_modified = response["LastModified"]
+
+                    from datetime import timezone
+
+                    now = datetime.now(timezone.utc)
+                    age_hours = (now - wip_modified).total_seconds() / 3600
+
+                    if age_hours > args.wip_max_age:
+                        log.info(
+                            "Stale WIP file found (%.1f hours old), removing: %s",
+                            age_hours,
+                            wip_path,
+                        )
+                        s3_client.delete_object(Bucket=bucket, Key=key)
+                        log.info("S3 file does not exist: %s", args.s3_file_exists)
+                        # Fall through to create new WIP file if --create-wip is set
+                    else:
+                        log.info(
+                            "WIP file in progress (%.1f hours old): %s",
+                            age_hours,
+                            wip_path,
+                        )
+                        # Try to get WIP file content to show which host is processing
+                        try:
+                            wip_obj = s3_client.get_object(Bucket=bucket, Key=key)
+                            wip_content = wip_obj["Body"].read().decode("utf-8")
+                            wip_info = json.loads(wip_content)
+                            log.info(
+                                "WIP file being processed by user: %s on host: %s (%s)",
+                                wip_info.get("username", "unknown"),
+                                wip_info.get("hostname", "unknown"),
+                                wip_info.get("ip_address", "unknown"),
+                            )
+                        except Exception as e:
+                            log.debug("Could not read WIP file content: %s", e)
+                        sys.exit(0)
+                except Exception as e:
+                    # Check if it's a 404 (not found) error for WIP file
+                    if (
+                        hasattr(e, "response")
+                        and e.response.get("Error", {}).get("Code") == "404"
+                    ):
+                        pass  # WIP file doesn't exist, continue to create if needed
+                    else:
+                        log.warning("Could not check WIP file: %s", e)
+
+            # If --create-wip is used during file existence check, create WIP and exit 1 to proceed
+            if args.create_wip and args.files:
+                # Get hostname and IP address
+                hostname = socket.gethostname()
+                try:
+                    # Get IP address by connecting to a remote server
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s.connect(("8.8.8.8", 80))
+                    ip_address = s.getsockname()[0]
+                    s.close()
+                except Exception:
+                    ip_address = "127.0.0.1"
+
+                wip_info = {
+                    "hostname": hostname,
+                    "ip_address": ip_address,
+                    "username": getpass.getuser(),
+                    "start_time": datetime.now().isoformat(),
+                    "pid": os.getpid(),
+                    "files": args.files,
+                }
+
+                # Create WIP files for each target S3 path
+                file_pairs = [
+                    (args.files[i], args.files[i + 1])
+                    for i in range(0, len(args.files), 2)
+                ]
+
+                for local_path, s3_path in file_pairs:
+                    if local_path.endswith(
+                        (".txt.gz", ".jsonl.bz2")
+                    ):  # Only for data files, not log files
+                        wip_path = s3_path + ".wip"
+                        wip_content = json.dumps(wip_info, indent=2)
+
+                        try:
+                            bucket, key = parse_s3_path(wip_path)
+                            s3_client.put_object(
+                                Bucket=bucket,
+                                Key=key,
+                                Body=wip_content.encode("utf-8"),
+                                ContentType="application/json",
+                            )
+                            log.info(
+                                "Created WIP file during existence check: %s (host: %s,"
+                                " IP: %s, user: %s)",
+                                wip_path,
+                                hostname,
+                                ip_address,
+                                getpass.getuser(),
+                            )
+                        except Exception as e:
+                            log.error("Failed to create WIP file %s: %s", wip_path, e)
+
+            log.info("S3 file does not exist: %s", args.s3_file_exists)
+            sys.exit(1)
+        except Exception as e:
+            log.error("Error checking S3 file existence: %s", e)
+            sys.exit(1)
+
+    # Validate that we have pairs of arguments (only if not doing existence check)
+    if not args.files:
+        log.error("No file pairs provided for upload")
+        sys.exit(1)
+
     if len(args.files) % 2 != 0:
         log.error(
             "Arguments must be pairs of local_path s3_path. Got %d arguments.",
@@ -113,6 +280,58 @@ def main():
     try:
         # Get S3 client
         s3_client = get_s3_client()
+
+        # Create WIP files if requested (only when NOT doing existence check)
+        if args.create_wip and args.files and not args.s3_file_exists:
+            # Get hostname and IP address
+            hostname = socket.gethostname()
+            try:
+                # Get IP address by connecting to a remote server
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                ip_address = s.getsockname()[0]
+                s.close()
+            except Exception:
+                ip_address = "127.0.0.1"
+
+            wip_info = {
+                "hostname": hostname,
+                "ip_address": ip_address,
+                "username": getpass.getuser(),
+                "start_time": datetime.now().isoformat(),
+                "pid": os.getpid(),
+                "files": args.files,
+            }
+
+            # Create WIP files for each target S3 path
+            file_pairs = [
+                (args.files[i], args.files[i + 1]) for i in range(0, len(args.files), 2)
+            ]
+
+            for local_path, s3_path in file_pairs:
+                if local_path.endswith(
+                    (".txt.gz", ".jsonl.bz2")
+                ):  # Only for data files, not log files
+                    wip_path = s3_path + ".wip"
+                    wip_content = json.dumps(wip_info, indent=2)
+
+                    try:
+                        bucket, key = parse_s3_path(wip_path)
+                        s3_client.put_object(
+                            Bucket=bucket,
+                            Key=key,
+                            Body=wip_content.encode("utf-8"),
+                            ContentType="application/json",
+                        )
+                        log.info(
+                            "Created WIP file: %s (host: %s, IP: %s, user: %s)",
+                            wip_path,
+                            hostname,
+                            ip_address,
+                            getpass.getuser(),
+                        )
+                    except Exception as e:
+                        log.error("Failed to create WIP file %s: %s", wip_path, e)
 
         # Process pairs of local_path s3_path
         file_pairs = [
@@ -191,6 +410,26 @@ def main():
                 keep_timestamp_only(local_path)
 
         log.info("All uploads completed successfully")
+
+        # Clean up WIP files after successful upload
+        if args.remove_wip:
+            for local_path, s3_path in file_pairs:
+                if local_path.endswith(
+                    (".txt.gz", ".jsonl.bz2")
+                ):  # Only for data files
+                    wip_path = s3_path + ".wip"
+                    try:
+                        bucket, key = parse_s3_path(wip_path)
+                        s3_client.delete_object(Bucket=bucket, Key=key)
+                        log.info("Removed WIP file: %s", wip_path)
+                    except Exception as e:
+                        if (
+                            hasattr(e, "response")
+                            and e.response.get("Error", {}).get("Code") == "404"
+                        ):
+                            log.debug("WIP file already removed: %s", wip_path)
+                        else:
+                            log.warning("Failed to remove WIP file %s: %s", wip_path, e)
 
         # Set timestamps on S3 files if requested
         if args.set_timestamp:
@@ -317,7 +556,6 @@ def main():
                             log.error(
                                 "Could not verify metadata for %s: %s", s3_path, e
                             )
-
                 except Exception as e:
                     log.error("Failed to set timestamp for %s: %s", s3_path, e)
                     log.debug("Full exception traceback:", exc_info=True)

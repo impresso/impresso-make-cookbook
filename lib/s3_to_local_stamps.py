@@ -24,9 +24,13 @@ import fnmatch
 import logging
 import os
 import sys
+import time
 import traceback
+from datetime import datetime, timedelta
 from typing import Optional, Any
 
+import boto3
+from botocore.exceptions import ClientError
 
 import smart_open  # type: ignore
 from dotenv import load_dotenv
@@ -447,6 +451,165 @@ class LocalStampCreator(object):
 
         self.stats["files_created"] += 1
         log.info(f"'{local_file_path}' created. Last modification: {last_modified}")
+
+
+def check_wip_file(s3_client, s3_path, max_age_hours):
+    """
+    Check for WIP (work-in-progress) stamp file and handle based on age.
+
+    Args:
+        s3_client: Boto3 S3 client
+        s3_path: S3 path to check for WIP file (will append .wip)
+        max_age_hours: Maximum age in hours before WIP file is considered stale
+
+    Returns:
+        0: WIP file exists and is fresh (younger than max_age_hours)
+        1: No WIP file found, can proceed
+        3: WIP file was stale and removed
+    """
+    wip_path = s3_path + ".wip"
+
+    # Parse S3 path
+    if not wip_path.startswith("s3://"):
+        logging.error("Invalid S3 path format: %s", wip_path)
+        return 1
+
+    path_parts = wip_path[5:].split("/", 1)
+    if len(path_parts) != 2:
+        logging.error("Invalid S3 path format: %s", wip_path)
+        return 1
+
+    bucket, key = path_parts
+
+    try:
+        # Check if WIP file exists and get its metadata
+        response = s3_client.head_object(Bucket=bucket, Key=key)
+        last_modified = response["LastModified"]
+
+        # Calculate age
+        now = datetime.now(last_modified.tzinfo)
+        age = now - last_modified
+        max_age = timedelta(hours=max_age_hours)
+
+        if age <= max_age:
+            # WIP file is fresh
+            age_hours = age.total_seconds() / 3600
+            print(
+                f"Warning: WIP file {wip_path} exists and is {age_hours:.1f} hours old"
+                f" (< {max_age_hours}h). Skipping processing.",
+                file=sys.stderr,
+            )
+            return 0
+        else:
+            # WIP file is stale, remove it
+            age_hours = age.total_seconds() / 3600
+            logging.warning(
+                "WIP file %s is stale (%.1f hours old > %dh). Removing it.",
+                wip_path,
+                age_hours,
+                max_age_hours,
+            )
+
+            try:
+                s3_client.delete_object(Bucket=bucket, Key=key)
+                logging.info("Removed stale WIP file: %s", wip_path)
+                return 3
+            except ClientError as e:
+                logging.error("Failed to remove stale WIP file %s: %s", wip_path, e)
+                return 3
+
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "404":
+            # WIP file doesn't exist, can proceed
+            logging.debug("No WIP file found at %s", wip_path)
+            return 1
+        else:
+            logging.error("Error checking WIP file %s: %s", wip_path, e)
+            return 1
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Check S3 file existence and manage WIP files"
+    )
+    parser.add_argument("--s3-file-exists", help="Check if S3 file exists")
+    parser.add_argument(
+        "--wip",
+        action="store_true",
+        help="Check for WIP stamp file in combination with --s3-file-exists",
+    )
+    parser.add_argument(
+        "--wip-max-age",
+        type=int,
+        default=24,
+        help=(
+            "Maximum age in hours for WIP file before considering it stale"
+            " (default: 24)"
+        ),
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: %(default)s)",
+    )
+
+    args = parser.parse_args()
+
+    # Set up logging
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
+    if not args.s3_file_exists:
+        logging.error("--s3-file-exists is required")
+        sys.exit(1)
+
+    # Initialize S3 client
+    try:
+        s3_client = boto3.client("s3")
+    except Exception as e:
+        logging.error("Failed to create S3 client: %s", e)
+        sys.exit(1)
+
+    # If --wip is specified, check WIP file first
+    if args.wip:
+        wip_result = check_wip_file(s3_client, args.s3_file_exists, args.wip_max_age)
+        if wip_result == 0:
+            # Fresh WIP file exists, skip processing
+            sys.exit(0)
+        elif wip_result == 3:
+            # Stale WIP file was removed
+            sys.exit(3)
+        # If wip_result == 1, continue to check main file
+
+    # Check if main file exists
+    s3_path = args.s3_file_exists
+    if not s3_path.startswith("s3://"):
+        logging.error("Invalid S3 path format: %s", s3_path)
+        sys.exit(1)
+
+    path_parts = s3_path[5:].split("/", 1)
+    if len(path_parts) != 2:
+        logging.error("Invalid S3 path format: %s", s3_path)
+        sys.exit(1)
+
+    bucket, key = path_parts
+
+    try:
+        s3_client.head_object(Bucket=bucket, Key=key)
+        logging.info("File exists: %s", s3_path)
+        sys.exit(0)  # File exists
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "404":
+            logging.debug("File does not exist: %s", s3_path)
+            sys.exit(1)  # File doesn't exist
+        else:
+            logging.error("Error checking file %s: %s", s3_path, e)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

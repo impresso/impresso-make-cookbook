@@ -60,8 +60,8 @@ LOCAL_TOKENS_BASE_PATH := $(BUILD_DIR)/$(S3_BUCKET_LINGPROC_COMPONENT)/tokens/$(
 # Skips processing if output already exists on S3 to enable parallel execution.
 extract-tokens-%-de:
 	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)/de
-	@if python lib/s3_to_local_stamps.py --s3-file-exists $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz 2>/dev/null; then \
-		echo "File already exists, skipping processing for $*_de_tokens.txt.gz"; \
+	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz --wip --wip-max-age 2 --create-wip $(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz $(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz ; then \
+		echo "File already exists or WIP in progress, skipping processing for $*_de_tokens.txt.gz"; \
 	else \
 		LANGUAGE=de python cookbook/lib/s3_aggregator.py --jq-filter lib/extract_tokens.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
@@ -71,6 +71,7 @@ extract-tokens-%-de:
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
+		--remove-wip \
 		$(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz \
 		$(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz; \
 	fi
@@ -85,8 +86,8 @@ extract-tokens-%-de:
 # Skips processing if output already exists on S3 to enable parallel execution.
 extract-tokens-%-fr:
 	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)/fr
-	@if python lib/s3_to_local_stamps.py --s3-file-exists $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz 2>/dev/null; then \
-		echo "File already exists, skipping processing for $*_fr_tokens.txt.gz"; \
+	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz --wip --wip-max-age 2 --create-wip $(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz $(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz ; then \
+		echo "File already exists or WIP in progress, skipping processing for $*_fr_tokens.txt.gz"; \
 	else \
 		LANGUAGE=fr python cookbook/lib/s3_aggregator.py --jq-filter lib/extract_tokens.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
@@ -96,6 +97,7 @@ extract-tokens-%-fr:
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
+		--remove-wip \
 		$(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz \
 		$(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz; \
 	fi
@@ -110,8 +112,8 @@ extract-tokens-%-fr:
 # Skips processing if output already exists on S3 to enable parallel execution.
 extract-tokens-%-en:
 	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)/en
-	@if python lib/s3_to_local_stamps.py --s3-file-exists $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz 2>/dev/null; then \
-		echo "File already exists, skipping processing for $*_en_tokens.txt.gz"; \
+	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz --wip --wip-max-age 2 --create-wip $(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz $(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz ; then \
+		echo "File already exists or WIP in progress, skipping processing for $*_en_tokens.txt.gz"; \
 	else \
 		LANGUAGE=en python cookbook/lib/s3_aggregator.py --jq-filter lib/extract_tokens.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
@@ -121,6 +123,7 @@ extract-tokens-%-en:
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
+		--remove-wip \
 		$(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz \
 		$(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz; \
 	fi
@@ -200,6 +203,27 @@ list-newspapers:
 # Default target that extracts German tokens for all newspapers.
 # Maintains compatibility with existing workflows that expect German
 # as the default language for token extraction operations.
+extract-tokens: extract-tokens-de
+
+
+.PHONY: extract-tokens-de extract-tokens-fr extract-tokens-en extract-all-tokens
+.PHONY: aggregate-tokens-de aggregate-tokens-fr aggregate-tokens-en
+.PHONY: list-newspapers extract-tokens
+
+
+$(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
+# Default target that extracts German tokens for all newspapers.
+# Maintains compatibility with existing workflows that expect German
+# as the default language for token extraction operations.
+extract-tokens: extract-tokens-de
+
+
+.PHONY: extract-tokens-de extract-tokens-fr extract-tokens-en extract-all-tokens
+.PHONY: aggregate-tokens-de aggregate-tokens-fr aggregate-tokens-en
+.PHONY: list-newspapers extract-tokens
+
+
+$(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
 extract-tokens: extract-tokens-de
 
 
