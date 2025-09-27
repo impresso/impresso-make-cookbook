@@ -58,7 +58,7 @@ def list_s3_files_with_prefix(bucket: str, prefix: str) -> Sequence[str]:
     files = [
         file for file in yield_s3_objects(bucket, prefix) if file.endswith("jsonl.bz2")
     ]
-    logging.warning(f"Found {len(files)} files with prefix {prefix}")
+    logging.warning("Found %d files with prefix %s", len(files), prefix)
     return files
 
 
@@ -77,13 +77,11 @@ def parse_filter_arguments(filter_args: Sequence[str]) -> Dict[str, str]:
             key, value = arg.split("=", 1)
             filters[key] = value
         else:
-            logging.warning(f"Invalid filter argument: {arg}. Skipping.")
+            logging.warning("Invalid filter argument: %s. Skipping.", arg)
     return filters
 
 
-def apply_jq_filter(
-    data: Dict[str, Any], jq_filter: Optional[jq.jq]
-) -> Optional[Dict[str, Any]]:
+def apply_jq_filter(data: Dict[str, Any], jq_filter: Optional[jq.jq]) -> Optional[Any]:
     """Apply a jq filter to a JSON object.
 
     Args:
@@ -91,13 +89,14 @@ def apply_jq_filter(
         jq_filter (Optional[jq.jq]): A compiled jq filter.
 
     Returns:
-        Optional[Dict[str, Any]]: The filtered JSON object, or None if the filter excludes it.
+        Optional[Any]: The filtered result, or None if the filter excludes it.
     """
     if jq_filter:
         try:
-            return jq_filter.input(data).first()
+            results = list(jq_filter.input(data).all())
+            return results if results else None
         except Exception as e:
-            logging.error(f"Error applying jq filter: {e}")
+            logging.error("Error applying jq filter: %s", e)
             return None
     return data
 
@@ -107,7 +106,7 @@ def process_jsonl_file(
     keys: Sequence[str],
     filters: Dict[str, str],
     jq_filter: Optional[jq.jq],
-) -> Optional[Dict[str, Any]]:
+) -> Optional[Any]:
     """Process a single JSON object, apply filters, jq filter, and extract specified keys.
 
     Args:
@@ -117,24 +116,28 @@ def process_jsonl_file(
         jq_filter (Optional[jq.jq]): A compiled jq filter.
 
     Returns:
-        Optional[Dict[str, Any]]: A dictionary containing the extracted keys and values, or None if the input is invalid or does not match filters.
+        Optional[Any]: A dictionary containing the extracted keys and values, or list of results from jq filter, or None if the input is invalid or does not match filters.
     """
     try:
         for key, value in filters.items():
             logging.debug(
-                f"Filtering by {data.get(key)} for {value} {data.get(key) == value}"
+                "Filtering by %s for %s %s",
+                data.get(key),
+                value,
+                data.get(key) == value,
             )
             if data.get(key) != value:
                 return None
-        data = apply_jq_filter(data, jq_filter)
-        if data is None:
-            return None
+
+        if jq_filter:
+            return apply_jq_filter(data, jq_filter)
+
         # If no keys are specified, return the entire JSON object
         if not keys:
             return data
         return {key: data[key] for key in keys if key in data}
     except KeyError as e:
-        logging.warning(f"Missing key in data: {e}. Skipping this entry.")
+        logging.warning("Missing key in data: %s. Skipping this entry.", e)
         return None
 
 
@@ -148,7 +151,7 @@ def upload_to_s3(local_path: str, s3_path: str, s3_client) -> None:
     """
     bucket, key = re.match(r"s3://([^/]+)/(.+)", s3_path).groups()
     s3_client.upload_file(local_path, bucket, key)
-    logging.info(f"Uploaded {local_path} to {s3_path}")
+    logging.info("Uploaded %s to %s", local_path, s3_path)
 
 
 def process_s3_files(
@@ -179,12 +182,12 @@ def process_s3_files(
         delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
     ) as tmpfile:
         tmpfile_path = tmpfile.name
-        logging.info(f"Temporary file created: {tmpfile_path}")
+        logging.info("Temporary file created: %s", tmpfile_path)
         with smart_open(tmpfile_path, "w", encoding="utf-8") as tmpfile:
             for file_key in yield_s3_objects(bucket, prefix):
                 if not file_key.endswith("jsonl.bz2"):
                     continue
-                logging.info(f"Processing file: {file_key}")
+                logging.info("Processing file: %s", file_key)
                 with smart_open(
                     f"s3://{bucket}/{file_key}",
                     "rb",
@@ -198,17 +201,30 @@ def process_s3_files(
                                 data, keys, filters, jq_filter
                             )
                             if processed_data:
-                                tmpfile.write(
-                                    json.dumps(processed_data, ensure_ascii=False)
-                                    + "\n"
-                                )
-                                processed_count += 1
+                                if isinstance(processed_data, list):
+                                    # Handle jq filter results (list of strings/values)
+                                    for item in processed_data:
+                                        if isinstance(item, str):
+                                            tmpfile.write(item + "\n")
+                                        else:
+                                            tmpfile.write(
+                                                json.dumps(item, ensure_ascii=False)
+                                                + "\n"
+                                            )
+                                        processed_count += 1
+                                else:
+                                    # Handle regular JSON objects
+                                    tmpfile.write(
+                                        json.dumps(processed_data, ensure_ascii=False)
+                                        + "\n"
+                                    )
+                                    processed_count += 1
                         except json.JSONDecodeError:
                             logging.error(
-                                f"Could not decode JSON from line: {line.strip()}"
+                                "Could not decode JSON from line: %s", line.strip()
                             )
                         except Exception as e:
-                            logging.error(f"An error occurred: {e}")
+                            logging.error("An error occurred: %s", e)
 
     if output_path.startswith("s3://"):
         upload_to_s3(tmpfile_path, output_path, s3)
@@ -216,10 +232,10 @@ def process_s3_files(
         import shutil
 
         shutil.move(tmpfile_path, output_path)
-        logging.info(f"Moved {tmpfile_path} to {output_path}")
+        logging.info("Moved %s to %s", tmpfile_path, output_path)
 
-    logging.info(f"Total lines read: {total_lines}")
-    logging.info(f"Total items processed and written: {processed_count}")
+    logging.info("Total lines read: %d", total_lines)
+    logging.info("Total items processed and written: %d", processed_count)
 
 
 def parse_arguments(args: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -301,8 +317,8 @@ def main(args: Optional[Sequence[str]] = None) -> None:
         handlers=handlers,
         force=True,
     )
-    logging.info(f"Arguments: {options}")
-    logging.info(f"Processing S3 prefix: {options.s3_prefix}")
+    logging.info("Arguments: %s", options)
+    logging.info("Processing S3 prefix: %s", options.s3_prefix)
     match = re.match(r"s3://([^/]+)/(.+)", options.s3_prefix)
     if not match:
         logging.error("Invalid S3 prefix format. Expected s3://BUCKET/PREFIX")
@@ -316,7 +332,7 @@ def main(args: Optional[Sequence[str]] = None) -> None:
 
     keys = options.keys
     filters = parse_filter_arguments(options.filter) if options.filter else {}
-    logging.info(f"FILTERS: {filters}")
+    logging.info("FILTERS: %s", filters)
 
     jq_filter = None
     if options.jq_filter:
@@ -324,12 +340,12 @@ def main(args: Optional[Sequence[str]] = None) -> None:
             with open(options.jq_filter, "r", encoding="utf-8") as jq_file:
                 jq_filter = jq.compile(jq_file.read())
         except Exception as e:
-            logging.error(f"Failed to load jq filter: {e}")
+            logging.error("Failed to load jq filter: %s", e)
             sys.exit(1)
 
     process_s3_files(bucket, prefix, keys, filters, options.output, jq_filter)
 
-    logging.info(f"Processing complete. Results saved to {options.output}")
+    logging.info("Processing complete. Results saved to %s", options.output)
 
 
 if __name__ == "__main__":
