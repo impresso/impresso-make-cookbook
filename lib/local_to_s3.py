@@ -1,11 +1,36 @@
 """
-This module, `local_to_s3.py`, is a utility for uploading local files to S3.
+This module, `local_to_s3.py`, is a utility for uploading local files to S3 with 
+work-in-progress (WIP) file management and concurrent processing prevention.
 
 It imports functionality from the `impresso_cookbook` library and provides a
-simple interface for uploading multiple files to S3 with pairs of local_path
-s3_path arguments.
+comprehensive interface for uploading multiple files to S3 with pairs of local_path
+s3_path arguments, including advanced features for parallel processing workflows.
 
-Usage:
+Key Features:
+- S3 file existence checking with exit codes for makefile integration
+- Work-in-progress (WIP) file management for preventing concurrent processing
+- Automatic WIP file creation with hostname, IP address, username, and timestamp tracking
+- Stale WIP file detection and cleanup based on configurable age limits
+- File pair uploading with dependency management (data files + log files)
+- Timestamp metadata extraction and setting for JSONL and other file types
+- Local file truncation with timestamp preservation for space management
+- Comprehensive logging and error handling for production workflows
+
+WIP Workflow:
+1. Check file existence: --s3-file-exists --wip --create-wip creates WIP if needed
+2. Process files: Standard processing occurs while WIP file indicates work in progress  
+3. Upload and cleanup: --remove-wip removes WIP files after successful upload
+
+Usage Examples:
+    # Check existence and create WIP (for makefile integration)
+    python local_to_s3.py --s3-file-exists s3://bucket/file.txt.gz --wip --wip-max-age 2 \\
+        --create-wip local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
+
+    # Upload files and remove WIP
+    python local_to_s3.py --remove-wip --set-timestamp --keep-timestamp-only \\
+        local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
+
+    # Simple upload without WIP management
     python local_to_s3.py localpath1 s3path1 [localpath2 s3path2 ...] \\
         [--force-overwrite] [--set-timestamp] [--keep-timestamp-only]
 """
