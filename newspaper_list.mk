@@ -54,24 +54,10 @@ newspaper-list-target: $(NEWSPAPERS_TO_PROCESS_FILE)
 # This rule retrieves the list of available newspapers from an S3 bucket,
 # shuffles them to distribute processing evenly, and writes them to a file.
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
-	python -c \
-	"import boto3, os, random; from dotenv import load_dotenv; load_dotenv() ; \
-  secret = os.getenv('SE_SECRET_KEY') ; \
-  access = os.getenv('SE_ACCESS_KEY') ; \
-  assert secret is not None, 'SE_SECRET_KEY environment variable is not set. Please FIX!' ; \
-  assert access is not None, 'SE_ACCESS_KEY environment variable is not set. Please FIX!' ; \
-  endpoint_url ='https://os.zhdk.cloud.switch.ch/' ; \
-	s3 = boto3.resource( \
-        's3',\
-        aws_secret_access_key=secret,\
-        aws_access_key_id=access,\
-        endpoint_url=endpoint_url); \
-	bucket = s3.Bucket('$(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)'); \
-    result = bucket.meta.client.list_objects_v2(Bucket=bucket.name, Delimiter='/'); \
-	l = [prefix['Prefix'][:-1] for prefix in result.get('CommonPrefixes', [])]; \
-	random.shuffle(l); \
-    print(*l)" \
-	> $@
+	python cookbook/lib/list_newspapers.py \
+		--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
+		--log-level WARNING --large-first --num-groups 5\
+		> $@
 
 
 # VARIABLE: ALL_NEWSPAPERS
