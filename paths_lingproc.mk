@@ -61,11 +61,20 @@ RUN_ID_LINGPROC := $(PROCESS_LABEL_LINGPROC)-$(TASK_LINGPROC)-$(MODEL_ID_LINGPRO
   $(call log.debug, RUN_ID_LINGPROC)
 
 
-# VARIABLE: PATH_LINGPROC
-# Path for linguistic processing data
+# VARIABLE: PATH_LINGPROC_BASE
+# Path for linguistic processing data without newspaper
 #
-# Defines the full path for linguistic processing data.
-PATH_LINGPROC := $(S3_BUCKET_LINGPROC)/$(PROCESS_LABEL_LINGPROC)$(PROCESS_SUBTYPE_LABEL_LINGPROC)/$(RUN_ID_LINGPROC)/$(NEWSPAPER)
+# Defines the full path for linguistic processing data without the newspaper component.
+PATH_LINGPROC_BASE := $(S3_BUCKET_LINGPROC)/$(PROCESS_LABEL_LINGPROC)$(PROCESS_SUBTYPE_LABEL_LINGPROC)/$(RUN_ID_LINGPROC)
+  $(call log.debug, PATH_LINGPROC_BASE)
+
+
+
+# VARIABLE: PATH_LINGPROC
+# Path for linguistic processing data for newspaper
+#
+# Defines the full path of a newspaper for linguistic processing data.
+PATH_LINGPROC := $(PATH_LINGPROC_BASE)/$(NEWSPAPER)
   $(call log.debug, PATH_LINGPROC)
 
 
