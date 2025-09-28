@@ -1,31 +1,45 @@
 #!/usr/bin/env python3
 """
-This script processes JSONL.bz2 files stored in an S3 bucket. It extracts specified keys and their values from the JSON objects, applies optional filters, and writes the results to an output file (local or S3).
+This script processes JSONL.bz2 files stored in an S3 bucket. It extracts specified keys 
+and their values from the JSON objects, applies optional filters, and writes the results 
+to an output file (local or S3) with proper temporary file cleanup.
 
 Features:
-- Reads JSONL.bz2 files from an S3 bucket using a specified prefix.
-- Extracts specific keys from each JSON object.
-- Supports filtering JSON objects based on key-value pairs.
-- Allows applying advanced transformations using jq filters.
-- Outputs the processed data to a local file or an S3 path.
+- Reads JSONL.bz2 files from an S3 bucket using a specified prefix
+- Extracts specific keys from each JSON object or returns full objects
+- Supports filtering JSON objects based on key-value pairs
+- Allows applying advanced transformations using jq filters
+- Outputs processed data to local files or S3 paths
+- Automatic temporary file cleanup under all exit conditions
+- Comprehensive logging with optional S3-compatible log files
 
 Usage:
-    python3 s3_aggregator.py --s3-prefix s3://your-bucket/your-prefix --keys key1,key2 --output s3://your-output-bucket/output-prefix
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --keys key1 key2 \\
+        --output s3://output-bucket/output.txt.gz
 
 Examples:
 1. Extract specific keys:
-    python3 s3_aggregator.py --s3-prefix s3://your-bucket/your-prefix --keys id,tokens --output s3://your-output-bucket/output.jsonl
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
+        --keys id tokens --output s3://output-bucket/output.jsonl
 
 2. Apply filters:
-    python3 s3_aggregator.py --s3-prefix s3://your-bucket/your-prefix --keys id --filter type=article --output output.jsonl
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
+        --keys id --filter type=article --output output.jsonl
 
-3. Use a jq filter:
-    python3 s3_aggregator.py --s3-prefix s3://your-bucket/your-prefix --jq-filter filter.jq --output output.jsonl
+3. Use jq filter for token extraction:
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
+        --jq-filter lib/extract_tokens.jq --output output.txt.gz \\
+        --log-file s3://bucket/logs/process.log.gz
+
+4. Extract all content without key filtering:
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
+        --keys content --output output.txt.gz
 """
 
 import argparse
 import json
 import logging
+import os
 import re
 import sys
 import tempfile
@@ -172,6 +186,8 @@ def process_s3_files(
         output_path (str): Path to the output file (local or S3).
         jq_filter (Optional[jq.jq]): A compiled jq filter.
     """
+    import os
+
     s3 = get_s3_client()
     transport_params = {"client": s3}
     total_lines = 0
@@ -182,7 +198,10 @@ def process_s3_files(
         delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
     ) as tmpfile:
         tmpfile_path = tmpfile.name
-        logging.info("Temporary file created: %s", tmpfile_path)
+
+    logging.info("Temporary file created: %s", tmpfile_path)
+
+    try:
         with smart_open(tmpfile_path, "w", encoding="utf-8") as tmpfile:
             for file_key in yield_s3_objects(bucket, prefix):
                 if not file_key.endswith("jsonl.bz2"):
@@ -226,16 +245,28 @@ def process_s3_files(
                         except Exception as e:
                             logging.error("An error occurred: %s", e)
 
-    if output_path.startswith("s3://"):
-        upload_to_s3(tmpfile_path, output_path, s3)
-    else:
-        import shutil
+        if output_path.startswith("s3://"):
+            upload_to_s3(tmpfile_path, output_path, s3)
+        else:
+            import shutil
 
-        shutil.move(tmpfile_path, output_path)
-        logging.info("Moved %s to %s", tmpfile_path, output_path)
+            shutil.move(tmpfile_path, output_path)
+            tmpfile_path = None  # File moved, don't delete it
+            logging.info("Moved temporary file to %s", output_path)
 
-    logging.info("Total lines read: %d", total_lines)
-    logging.info("Total items processed and written: %d", processed_count)
+        logging.info("Total lines read: %d", total_lines)
+        logging.info("Total items processed and written: %d", processed_count)
+
+    finally:
+        # Clean up temporary file if it still exists
+        if tmpfile_path and os.path.exists(tmpfile_path):
+            try:
+                os.unlink(tmpfile_path)
+                logging.debug("Cleaned up temporary file: %s", tmpfile_path)
+            except Exception as e:
+                logging.warning(
+                    "Failed to clean up temporary file %s: %s", tmpfile_path, e
+                )
 
 
 def parse_arguments(args: Optional[Sequence[str]] = None) -> argparse.Namespace:
