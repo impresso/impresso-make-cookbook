@@ -13,6 +13,10 @@ Features:
 - Automatic temporary file cleanup under all exit conditions
 - Comprehensive logging with optional S3-compatible log files
 
+Environment Variables:
+- AWS credentials should be configured via standard AWS methods
+- .env file support is available for configuration
+
 Usage:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --keys key1 key2 \\
         --output s3://output-bucket/output.txt.gz
@@ -194,14 +198,16 @@ def process_s3_files(
     processed_count = 0
 
     suffix = output_path.split(".")[-1]
-    with tempfile.NamedTemporaryFile(
-        delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
-    ) as tmpfile:
-        tmpfile_path = tmpfile.name
-
-    logging.info("Temporary file created: %s", tmpfile_path)
+    tmpfile_path = None
 
     try:
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
+        ) as tmpfile:
+            tmpfile_path = tmpfile.name
+
+        logging.info("Temporary file created: %s", tmpfile_path)
+
         with smart_open(tmpfile_path, "w", encoding="utf-8") as tmpfile:
             for file_key in yield_s3_objects(bucket, prefix):
                 if not file_key.endswith("jsonl.bz2"):
@@ -243,20 +249,26 @@ def process_s3_files(
                                 "Could not decode JSON from line: %s", line.strip()
                             )
                         except Exception as e:
-                            logging.error("An error occurred: %s", e)
+                            logging.error("An error occurred processing line: %s", e)
 
+        # File processing completed successfully, now handle output
         if output_path.startswith("s3://"):
             upload_to_s3(tmpfile_path, output_path, s3)
+            # After successful S3 upload, we can clean up the temp file
+            logging.info("Uploaded %s to S3, cleaning up temporary file", tmpfile_path)
         else:
             import shutil
 
             shutil.move(tmpfile_path, output_path)
-            tmpfile_path = None  # File moved, don't delete it
+            tmpfile_path = None  # File moved, don't delete it in finally block
             logging.info("Moved temporary file to %s", output_path)
 
         logging.info("Total lines read: %d", total_lines)
         logging.info("Total items processed and written: %d", processed_count)
 
+    except Exception as e:
+        logging.error("Error during file processing: %s", e)
+        raise  # Re-raise the exception after logging
     finally:
         # Clean up temporary file if it still exists
         if tmpfile_path and os.path.exists(tmpfile_path):
@@ -279,7 +291,12 @@ def parse_arguments(args: Optional[Sequence[str]] = None) -> argparse.Namespace:
         argparse.Namespace: Parsed argument namespace.
     """
     parser = argparse.ArgumentParser(
-        description="Collect specified keys from JSONL.bz2 files in S3.",
+        description="Process JSONL.bz2 files from S3 with filtering and key extraction",
+        epilog=(
+            "Process JSONL.bz2 files stored in S3 buckets with advanced filtering, "
+            "key extraction, jq transformations, and automatic temporary file cleanup. "
+            "Supports both local and S3 output destinations."
+        ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
