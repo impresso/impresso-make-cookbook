@@ -70,8 +70,14 @@ load_dotenv()
 def main():
     """Main function for uploading local files to S3."""
     parser = argparse.ArgumentParser(
-        description="Upload local files to S3",
-        epilog="Utility to upload multiple local files to S3 destinations.",
+        description=(
+            "Upload local files to S3 with WIP management and concurrent processing"
+            " prevention"
+        ),
+        epilog=(
+            "Utility for uploading files to S3 with work-in-progress tracking, "
+            "timestamp management, and makefile integration support."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
