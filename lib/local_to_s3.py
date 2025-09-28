@@ -23,16 +23,19 @@ WIP Workflow:
 
 Usage Examples:
     # Check existence and create WIP (for makefile integration)
-    python local_to_s3.py --s3-file-exists s3://bucket/file.txt.gz --wip --wip-max-age 2 \\
-        --create-wip local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
+    python3 -m impresso_cookbook.local_to_s3 --s3-file-exists s3://bucket/file.txt.gz \\
+        --wip --wip-max-age 2 --create-wip \\
+        local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
 
     # Upload files and remove WIP
-    python local_to_s3.py --remove-wip --set-timestamp --keep-timestamp-only \\
+    python3 -m impresso_cookbook.local_to_s3 --remove-wip --set-timestamp \\
+        --keep-timestamp-only --ts-key __file__ \\
         local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
 
     # Simple upload without WIP management
-    python local_to_s3.py localpath1 s3path1 [localpath2 s3path2 ...] \\
-        [--force-overwrite] [--set-timestamp] [--keep-timestamp-only]
+    python3 -m impresso_cookbook.local_to_s3 \\
+        localpath1 s3path1 localpath2 s3path2 \\
+        --force-overwrite --set-timestamp --keep-timestamp-only
 """
 
 __author__ = "simon.clematide@uzh.ch"
