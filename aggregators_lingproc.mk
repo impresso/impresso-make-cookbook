@@ -1,15 +1,15 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/aggregators_lingproc.mk)
 ###############################################################################
-# LINGUISTIC PROCESSING TOKEN AGGREGATORS
-# Targets for extracting and aggregating tokens from linguistic processing data
+# LINGUISTIC PROCESSING WORD FREQUENCY AGGREGATORS
+# Targets for computing and aggregating word frequency distributions from linguistic processing data
 #
-# This module provides parallel token extraction from S3-stored linguistic
+# This module provides parallel word frequency computation from S3-stored linguistic
 # processing data, organized by newspaper and language. Supports resumable
 # processing with S3 existence checks and local-first workflow with stampification.
 # 
 # The extraction process reads linguistic processing JSON files from S3, applies
-# jq filters to extract tokens for specific languages, and stores results in a
-# component bucket with proper versioning and organization.
+# jq filters to compute word frequency distributions for specific languages, and stores 
+# results in a component bucket with proper versioning and organization.
 ###############################################################################
 
 
@@ -31,188 +31,188 @@ S3_BUCKET_LINGPROC_COMPONENT ?= 130-component-sandbox
 ALL_NEWSPAPERS := $(file < build.d/newspapers.txt)
 
 
-# VARIABLE: S3_TOKENS_BASE_PATH
-# Base S3 path for storing token files in component bucket
+# VARIABLE: S3_FREQS_BASE_PATH
+# Base S3 path for storing word frequency files in component bucket
 #
 # Constructs the S3 path using the component bucket and run ID to ensure
-# proper versioning and organization of extracted token files. The path structure
-# follows the pattern: s3://bucket/tokens/run-id/language/newspaper_tokens.txt.gz
-S3_TOKENS_BASE_PATH := s3://$(S3_BUCKET_LINGPROC_COMPONENT)/tokens/$(RUN_ID_LINGPROC)
-  $(call log.debug, S3_TOKENS_BASE_PATH)
+# proper versioning and organization of word frequency distribution files. The path structure
+# follows the pattern: s3://bucket/token-freq/run-id/language/newspaper_freqs.jsonl.bz2
+S3_FREQS_BASE_PATH := s3://$(S3_BUCKET_LINGPROC_COMPONENT)/token-freq/$(RUN_ID_LINGPROC)
+  $(call log.debug, S3_FREQS_BASE_PATH)
 
 
-# VARIABLE: LOCAL_TOKENS_BASE_PATH
-# Local path for storing token files (mirrors S3 structure)
+# VARIABLE: LOCAL_FREQS_BASE_PATH
+# Local path for storing word frequency files (mirrors S3 structure)
 #
 # Defines the local build directory path that mirrors the S3 structure
 # for temporary storage before upload and stampification. Files are processed
 # locally first for reliability and then uploaded with verification.
-LOCAL_TOKENS_BASE_PATH := $(BUILD_DIR)/$(S3_BUCKET_LINGPROC_COMPONENT)/tokens/$(RUN_ID_LINGPROC)
-  $(call log.debug, LOCAL_TOKENS_BASE_PATH)
+LOCAL_FREQS_BASE_PATH := $(BUILD_DIR)/$(S3_BUCKET_LINGPROC_COMPONENT)/token-freq/$(RUN_ID_LINGPROC)
+  $(call log.debug, LOCAL_FREQS_BASE_PATH)
 
 
-# PATTERN-RULE: extract-tokens-%-de
-#: Extract German tokens for a specific newspaper
+# PATTERN-RULE: compute-frequencies-%-de
+#: Compute German word frequency distribution for a specific newspaper
 #
-# Processes all linguistic processing files for a newspaper to extract German
-# tokens using jq filters. The process includes S3 existence checking for
+# Processes all linguistic processing files for a newspaper to compute German
+# word frequency distributions using jq filters. The process includes S3 existence checking for
 # resumability, local processing with logging, and upload with stampification.
 # Skips processing if output already exists on S3 to enable parallel execution.
-extract-tokens-%-de:
-	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)/de
-	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz --wip --wip-max-age 2 --create-wip $(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz $(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz ; then \
-		echo "File already exists or WIP in progress, skipping processing for $*_de_tokens.txt.gz"; \
+compute-frequencies-%-de:
+	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/de
+	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz ; then \
+		echo "File already exists or WIP in progress, skipping processing for $*_de_freqs.jsonl.bz2"; \
 	else \
-		LANGUAGE=de python cookbook/lib/s3_aggregator.py --jq-filter lib/extract_tokens.jq \
+		LANGUAGE=de python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
-		-o $(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz \
-		--log-file $(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz && \
+		-o $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 \
+		--log-file $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz && \
 		python3 -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
 		--remove-wip \
-		$(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.txt.gz \
-		$(LOCAL_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz $(S3_TOKENS_BASE_PATH)/de/$*_de_tokens.log.gz; \
+		$(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 \
+		$(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz; \
 	fi
 
 
-# PATTERN-RULE: extract-tokens-%-fr
-#: Extract French tokens for a specific newspaper
+# PATTERN-RULE: compute-frequencies-%-fr
+#: Compute French word frequency distribution for a specific newspaper
 #
-# Processes all linguistic processing files for a newspaper to extract French
-# tokens using jq filters. The process includes S3 existence checking for
+# Processes all linguistic processing files for a newspaper to compute French
+# word frequency distributions using jq filters. The process includes S3 existence checking for
 # resumability, local processing with logging, and upload with stampification.
 # Skips processing if output already exists on S3 to enable parallel execution.
-extract-tokens-%-fr:
-	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)/fr
-	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz --wip --wip-max-age 2 --create-wip $(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz $(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz ; then \
-		echo "File already exists or WIP in progress, skipping processing for $*_fr_tokens.txt.gz"; \
+compute-frequencies-%-fr:
+	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/fr
+	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz ; then \
+		echo "File already exists or WIP in progress, skipping processing for $*_fr_freqs.jsonl.bz2"; \
 	else \
-		LANGUAGE=fr python cookbook/lib/s3_aggregator.py --jq-filter lib/extract_tokens.jq \
+		LANGUAGE=fr python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
-		-o $(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz \
-		--log-file $(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz && \
+		-o $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 \
+		--log-file $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz && \
 		python3 -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
 		--remove-wip \
-		$(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.txt.gz \
-		$(LOCAL_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz $(S3_TOKENS_BASE_PATH)/fr/$*_fr_tokens.log.gz; \
+		$(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 \
+		$(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz; \
 	fi
 
 
-# PATTERN-RULE: extract-tokens-%-en
-#: Extract English tokens for a specific newspaper
+# PATTERN-RULE: compute-frequencies-%-en
+#: Compute English word frequency distribution for a specific newspaper
 #
-# Processes all linguistic processing files for a newspaper to extract English
-# tokens using jq filters. The process includes S3 existence checking for
+# Processes all linguistic processing files for a newspaper to compute English
+# word frequency distributions using jq filters. The process includes S3 existence checking for
 # resumability, local processing with logging, and upload with stampification.
 # Skips processing if output already exists on S3 to enable parallel execution.
-extract-tokens-%-en:
-	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)/en
-	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz --wip --wip-max-age 2 --create-wip $(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz $(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz ; then \
-		echo "File already exists or WIP in progress, skipping processing for $*_en_tokens.txt.gz"; \
+compute-frequencies-%-en:
+	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/en
+	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz ; then \
+		echo "File already exists or WIP in progress, skipping processing for $*_en_freqs.jsonl.bz2"; \
 	else \
-		LANGUAGE=en python cookbook/lib/s3_aggregator.py --jq-filter lib/extract_tokens.jq \
+		LANGUAGE=en python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
-		-o $(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz \
-		--log-file $(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz && \
+		-o $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 \
+		--log-file $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz && \
 		python3 -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
 		--remove-wip \
-		$(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.txt.gz \
-		$(LOCAL_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz $(S3_TOKENS_BASE_PATH)/en/$*_en_tokens.log.gz; \
+		$(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 \
+		$(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz; \
 	fi
 
 
-# PATTERN-RULE: aggregate-tokens-%
-#: Combine all newspaper token files for a specific language into corpus file
+# PATTERN-RULE: aggregate-frequencies-%
+#: Combine all newspaper frequency distributions for a specific language into corpus distribution
 #
-# Aggregates individual newspaper token files for a language into a single
-# consolidated file for corpus-wide analysis and distribution. Reads from S3,
-# filters by language-specific filename patterns, and creates unified output
+# Aggregates individual newspaper frequency distributions for a language into a single
+# consolidated frequency distribution for corpus-wide analysis. Reads from S3,
+# filters by language-specific filename patterns, and merges frequency counts
 # with comprehensive logging for data provenance tracking.
-aggregate-tokens-%:
-	@mkdir -p $(LOCAL_TOKENS_BASE_PATH)
-	python cookbook/lib/s3_aggregator.py --s3-prefix $(S3_TOKENS_BASE_PATH) \
-	--filter filename=*_$*_tokens.txt.gz \
+aggregate-frequencies-%:
+	@mkdir -p $(LOCAL_FREQS_BASE_PATH)
+	python cookbook/lib/s3_aggregator.py --s3-prefix $(S3_FREQS_BASE_PATH) \
+	--filter filename=*_$*_freqs.jsonl.bz2 \
+	--jq-filter lib/merge_word_frequencies.jq \
 	--keys content \
-	-o $(LOCAL_TOKENS_BASE_PATH)/ALL_$*_tokens.txt.gz \
-	--log-file $(LOCAL_TOKENS_BASE_PATH)/ALL_$*_tokens.log.gz
+	-o $(LOCAL_FREQS_BASE_PATH)/ALL_$*_freqs.jsonl.bz2 \
+	--log-file $(LOCAL_FREQS_BASE_PATH)/ALL_$*_freqs.log.gz
 	python3 -m impresso_cookbook.local_to_s3 \
 	--keep-timestamp-only \
 	--set-timestamp \
 	--ts-key __file__ \
-	$(LOCAL_TOKENS_BASE_PATH)/ALL_$*_tokens.txt.gz $(S3_TOKENS_BASE_PATH)/ALL_$*_tokens.txt.gz \
-	$(LOCAL_TOKENS_BASE_PATH)/ALL_$*_tokens.log.gz $(S3_TOKENS_BASE_PATH)/ALL_$*_tokens.log.gz
+	$(LOCAL_FREQS_BASE_PATH)/ALL_$*_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/ALL_$*_freqs.jsonl.bz2 \
+	$(LOCAL_FREQS_BASE_PATH)/ALL_$*_freqs.log.gz $(S3_FREQS_BASE_PATH)/ALL_$*_freqs.log.gz
 
 
-# TARGET: extract-tokens-de
-#: Extract German tokens for all newspapers in parallel
+# TARGET: compute-frequencies-de
+#: Compute German word frequencies for all newspapers in parallel
 #
 # Processes all newspapers concurrently using make's parallel job execution.
-# Each newspaper extraction runs independently, allowing for efficient resource
-# utilization. Use with -j flag to control parallelism: make extract-tokens-de -j4
-extract-tokens-de: $(foreach newspaper,$(ALL_NEWSPAPERS),extract-tokens-$(newspaper)-de)
+# Each newspaper frequency computation runs independently, allowing for efficient resource
+# utilization. Use with -j flag to control parallelism: make compute-frequencies-de -j4
+compute-frequencies-de: $(foreach newspaper,$(ALL_NEWSPAPERS),compute-frequencies-$(newspaper)-de)
 
 
-# TARGET: extract-tokens-fr
-#: Extract French tokens for all newspapers in parallel
+# TARGET: compute-frequencies-fr
+#: Compute French word frequencies for all newspapers in parallel
 #
 # Processes all newspapers concurrently using make's parallel job execution.
-# Each newspaper extraction runs independently, allowing for efficient resource
-# utilization. Use with -j flag to control parallelism: make extract-tokens-fr -j4
-extract-tokens-fr: $(foreach newspaper,$(ALL_NEWSPAPERS),extract-tokens-$(newspaper)-fr)
+# Each newspaper frequency computation runs independently, allowing for efficient resource
+# utilization. Use with -j flag to control parallelism: make compute-frequencies-fr -j4
+compute-frequencies-fr: $(foreach newspaper,$(ALL_NEWSPAPERS),compute-frequencies-$(newspaper)-fr)
 
 
-# TARGET: extract-tokens-en
-#: Extract English tokens for all newspapers in parallel
+# TARGET: compute-frequencies-en
+#: Compute English word frequencies for all newspapers in parallel
 #
 # Processes all newspapers concurrently using make's parallel job execution.
-# Each newspaper extraction runs independently, allowing for efficient resource
-# utilization. Use with -j flag to control parallelism: make extract-tokens-en -j4
-extract-tokens-en: $(foreach newspaper,$(ALL_NEWSPAPERS),extract-tokens-$(newspaper)-en)
+# Each newspaper frequency computation runs independently, allowing for efficient resource
+# utilization. Use with -j flag to control parallelism: make compute-frequencies-en -j4
+compute-frequencies-en: $(foreach newspaper,$(ALL_NEWSPAPERS),compute-frequencies-$(newspaper)-en)
 
 
-# TARGET: extract-all-tokens
-#: Extract tokens for all newspapers and all supported languages
+# TARGET: compute-all-frequencies
+#: Compute word frequencies for all newspapers and all supported languages
 #
-# Comprehensive token extraction across all supported languages and newspapers.
+# Comprehensive frequency computation across all supported languages and newspapers.
 # Runs sequentially by language but newspapers within each language run in parallel.
-# This is the main entry point for complete corpus token extraction workflows.
-extract-all-tokens: extract-tokens-de extract-tokens-fr extract-tokens-en
+# This is the main entry point for complete corpus frequency distribution workflows.
+compute-all-frequencies: compute-frequencies-de compute-frequencies-fr compute-frequencies-en
 
 
 # TARGET: list-newspapers
-#: Display all available newspapers for token extraction processing
+#: Display all available newspapers for frequency computation processing
 #
 # Shows the complete list of newspaper identifiers that will be processed for
-# token extraction. Useful for verification and debugging of newspaper coverage
-# before starting large-scale extraction operations.
+# word frequency computation. Useful for verification and debugging of newspaper coverage
+# before starting large-scale frequency computation operations.
 list-newspapers:
 	@echo "Available newspapers: $(ALL_NEWSPAPERS)"
 
 
-# TARGET: extract-tokens
-#: Extract German tokens for all newspapers (backward compatibility)
+# TARGET: compute-frequencies
+#: Compute German word frequencies for all newspapers (backward compatibility)
 #
-# Default target that extracts German tokens for all newspapers.
+# Default target that computes German word frequencies for all newspapers.
 # Maintains compatibility with existing workflows that expect German
-# as the default language for token extraction operations.
-extract-tokens: extract-tokens-de
+# as the default language for frequency computation operations.
+compute-frequencies: compute-frequencies-de
 
 
-.PHONY: extract-tokens-de extract-tokens-fr extract-tokens-en extract-all-tokens
-.PHONY: aggregate-tokens-de aggregate-tokens-fr aggregate-tokens-en
-.PHONY: list-newspapers extract-tokens
+.PHONY: compute-frequencies-de compute-frequencies-fr compute-frequencies-en compute-all-frequencies
+.PHONY: aggregate-frequencies-de aggregate-frequencies-fr aggregate-frequencies-en
+.PHONY: list-newspapers compute-frequencies
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
-# Default target that extracts German tokens for all newspapers.
 # Maintains compatibility with existing workflows that expect German
 # as the default language for token extraction operations.
 extract-tokens: extract-tokens-de
