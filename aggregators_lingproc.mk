@@ -223,13 +223,5 @@ extract-tokens: extract-tokens-de
 .PHONY: list-newspapers extract-tokens
 
 
-$(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
-extract-tokens: extract-tokens-de
-
-
-.PHONY: extract-tokens-de extract-tokens-fr extract-tokens-en extract-all-tokens
-.PHONY: aggregate-tokens-de aggregate-tokens-fr aggregate-tokens-en
-.PHONY: list-newspapers extract-tokens
-
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
