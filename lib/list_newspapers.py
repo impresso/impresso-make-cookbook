@@ -37,156 +37,46 @@ Examples:
 
 import argparse
 import logging
-import os
 import random
 import re
 import sys
-from typing import Dict, Iterable, List, Tuple
+import time
+from typing import Dict, Iterable, List, Optional
 
-import boto3
 from botocore.client import BaseClient
-from dotenv import load_dotenv
+
+from common import get_s3_client, setup_logging, yield_s3_objects
+
+log = logging.getLogger(__name__)
 
 DEFAULT_ENDPOINT = "https://os.zhdk.cloud.switch.ch/"
-YEAR_RE = re.compile(r".*-(\d{4})\.jsonl\.bz2$")
+# Compile regex patterns once at module level for better performance
+# Updated regex patterns to match the actual file schemas
+# Schema A: PROVIDER/NEWSPAPER/issues/NEWSPAPER-YEAR-issues.jsonl.bz2 (with provider)
+ISSUES_YEAR_RE = re.compile(r".*/([A-Za-z0-9]+)/issues/\1-(\d{4})-issues\.jsonl\.bz2$")
+# Schema B: PROVIDER/NEWSPAPER/NEWSPAPER-YEAR.jsonl.bz2 (with provider)
+DIRECT_YEAR_RE = re.compile(r".*/([A-Za-z0-9]+)/\1-(\d{4})\.jsonl\.bz2$")
+# Schema C: NEWSPAPER/NEWSPAPER-YEAR.jsonl.bz2 (no provider, direct newspaper folder)
+NO_PROVIDER_DIRECT_RE = re.compile(r"([A-Za-z0-9]+)/\1-(\d{4})\.jsonl\.bz2$")
+# Schema D: NEWSPAPER/issues/NEWSPAPER-YEAR-issues.jsonl.bz2 (no provider, with issues)
+NO_PROVIDER_ISSUES_RE = re.compile(
+    r"([A-Za-z0-9]+)/issues/\1-(\d{4})-issues\.jsonl\.bz2$"
+)
 
 
-def get_s3_client(endpoint_url: str) -> BaseClient:
-    load_dotenv()
-    secret = os.getenv("SE_SECRET_KEY")
-    access = os.getenv("SE_ACCESS_KEY")
-
-    assert (
-        secret is not None
-    ), "SE_SECRET_KEY environment variable is not set. Please FIX!"
-    assert (
-        access is not None
-    ), "SE_ACCESS_KEY environment variable is not set. Please FIX!"
-
-    return boto3.client(
-        "s3",
-        aws_secret_access_key=secret,
-        aws_access_key_id=access,
-        endpoint_url=endpoint_url,
-    )
-
-
-def list_common_prefixes(
-    client: BaseClient, bucket: str, prefix: str = "", delimiter: str = "/"
-) -> List[str]:
-    """List immediate child 'directories' (CommonPrefixes) under the given prefix."""
-    prefixes: List[str] = []
-    kwargs = {"Bucket": bucket, "Delimiter": delimiter}
-    if prefix:
-        kwargs["Prefix"] = prefix
-
-    while True:
-        resp = client.list_objects_v2(**kwargs)
-        prefixes.extend(p["Prefix"] for p in resp.get("CommonPrefixes", []))
-        if not resp.get("IsTruncated"):
-            break
-        kwargs["ContinuationToken"] = resp.get("NextContinuationToken")
-    return prefixes
-
-
-def extract_years_from_objects(objects: Iterable[str]) -> List[int]:
-    """Extract 4-digit years from a list of S3 object keys (files)."""
-    years: List[int] = []
-    for obj_key in objects:
-        m = YEAR_RE.search(obj_key)
-        if not m:
-            continue
-        y = int(m.group(1))
-        if 1600 <= y <= 2100:
-            years.append(y)
-    return years
-
-
-def count_year_files(client: BaseClient, bucket: str, newspaper_prefix: str) -> int:
-    """Count files that look like newspaper-year.jsonl.bz2 under a newspaper."""
-    objects: List[str] = []
-    kwargs = {"Bucket": bucket, "Prefix": newspaper_prefix}
-
-    while True:
-        resp = client.list_objects_v2(**kwargs)
-        objects.extend(obj["Key"] for obj in resp.get("Contents", []))
-        if not resp.get("IsTruncated"):
-            break
-        kwargs["ContinuationToken"] = resp.get("NextContinuationToken")
-
-    years = extract_years_from_objects(objects)
-    logging.debug(
-        "Newspaper %s: found %d objects, %d unique years: %s",
-        newspaper_prefix,
-        len(objects),
-        len(set(years)),
-        sorted(set(years)),
-    )
-    return len(set(years))
-
-
-def compute_group_thresholds(counts: List[int], num_groups: int) -> List[int]:
-    """
-    Compute thresholds to split counts into num_groups groups.
-    Returns num_groups-1 thresholds based on quantiles.
-    """
-    if not counts or num_groups <= 1:
-        return []
-
-    sc = sorted(counts)
-    thresholds = []
-
-    for i in range(1, num_groups):
-        quantile = i / num_groups
-        idx = max(0, int((len(sc) - 1) * quantile))
-        thresholds.append(sc[idx])
-
-    return thresholds
-
-
-def order_newspapers(
-    newspapers: List[str],
-    years_per_np: Dict[str, int],
-    large_first: bool,
-    num_groups: int,
-    rng: random.Random,
-) -> List[str]:
-    if not large_first:
-        shuffled = newspapers[:]
-        rng.shuffle(shuffled)
-        return shuffled
-
-    # Group by size using quantiles
-    counts = [years_per_np.get(n, 0) for n in newspapers]
-    thresholds = compute_group_thresholds(counts, num_groups)
-
-    # Create groups (largest to smallest)
-    groups: List[List[str]] = [[] for _ in range(num_groups)]
-
-    for n in newspapers:
-        c = years_per_np.get(n, 0)
-        group_idx = num_groups - 1  # Default to largest group
-
-        # Find which group this newspaper belongs to
-        for i, threshold in enumerate(thresholds):
-            if c <= threshold:
-                group_idx = i
-                break
-
-        groups[group_idx].append(n)
-
-    # Shuffle within each group and concatenate (largest first)
-    result = []
-    for group in reversed(groups):  # Reverse to get largest first
-        rng.shuffle(group)
-        result.extend(group)
-
-    return result
-
-
-def main():
+def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="List newspapers from S3 with optional size-aware shuffling."
+    )
+    parser.add_argument(
+        "--log-file", dest="log_file", help="Write log to FILE", metavar="FILE"
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Logging level (default: %(default)s)",
     )
     parser.add_argument(
         "--bucket", required=True, help="S3 bucket name (e.g., 22-rebuilt-final)"
@@ -213,122 +103,578 @@ def main():
         help="Number of size groups when using --large-first (default: %(default)s)",
     )
     parser.add_argument(
-        "--seed", type=int, default=None, help="Random seed for reproducibility"
+        "--has-provider",
+        action="store_true",
+        help="Newspapers are organized as PROVIDER/newspaper-year.jsonl.bz2",
     )
     parser.add_argument(
-        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO"
+        "--seed", type=int, default=None, help="Random seed for reproducibility"
     )
-    args = parser.parse_args()
+    return parser.parse_args(args)
 
-    logging.basicConfig(
-        level=getattr(logging, args.log_level), format="%(levelname)s: %(message)s"
-    )
-    rng = random.Random(args.seed)
 
-    try:
-        client = get_s3_client(args.endpoint)
-        logging.info("Connected to S3 endpoint: %s", args.endpoint)
+class NewspaperLister:
+    """
+    A processor class that lists newspapers from S3 with optional size-aware ordering.
 
-        # List top-level newspaper prefixes
-        root_prefixes = list_common_prefixes(
-            client, args.bucket, prefix=args.prefix, delimiter="/"
+    This class follows the CLI template pattern for the Impresso project, providing
+    consistent logging, S3 integration, and error handling. It discovers newspaper
+    identifiers from S3 bucket structure and optionally orders them by size.
+    """
+
+    def __init__(
+        self,
+        bucket: str,
+        prefix: str = "",
+        endpoint: str = DEFAULT_ENDPOINT,
+        large_first: bool = False,
+        num_groups: int = 3,
+        has_provider: bool = False,
+        seed: Optional[int] = None,
+        log_level: str = "INFO",
+        log_file: Optional[str] = None,
+    ) -> None:
+        """Initialize the NewspaperLister with configuration parameters."""
+        self.bucket = bucket
+        self.prefix = prefix
+        self.endpoint = endpoint
+        self.large_first = large_first
+        self.num_groups = max(1, num_groups)  # Ensure num_groups is at least 1
+        self.has_provider = has_provider
+        self.seed = seed
+        self.log_level = log_level
+        self.log_file = log_file
+
+        # Configure the module-specific logger
+        setup_logging(self.log_level, self.log_file, logger=log)
+
+        # Initialize S3 client and random number generator
+        self.s3_client = get_s3_client()
+        self.rng = random.Random(self.seed)
+
+    def extract_year_from_object(
+        self, obj_key: str, has_provider: bool = True
+    ) -> Optional[int]:
+        """Extract year from a single object key, optimized for performance."""
+        if has_provider:
+            # Try Schema A first (issues format) as it's more specific
+            m = ISSUES_YEAR_RE.search(obj_key)
+            if m:
+                year = int(m.group(2))
+                if 1500 <= year <= 2100:
+                    log.debug(
+                        "Found year %d in provider issues file: %s", year, obj_key
+                    )
+                    return year
+                return None
+
+            # Try Schema B (direct format)
+            m = DIRECT_YEAR_RE.search(obj_key)
+            if m:
+                year = int(m.group(2))
+                if 1500 <= year <= 2100:
+                    log.debug(
+                        "Found year %d in provider direct file: %s", year, obj_key
+                    )
+                    return year
+                return None
+        else:
+            # No provider patterns - try issues first as it's more specific
+            m = NO_PROVIDER_ISSUES_RE.search(obj_key)
+            if m:
+                year = int(m.group(2))
+                if 1500 <= year <= 2100:
+                    log.debug(
+                        "Found year %d in no-provider issues file: %s", year, obj_key
+                    )
+                    return year
+                return None
+
+            # Try no-provider direct format
+            m = NO_PROVIDER_DIRECT_RE.search(obj_key)
+            if m:
+                year = int(m.group(2))
+                if 1500 <= year <= 2100:
+                    log.debug(
+                        "Found year %d in no-provider direct file: %s", year, obj_key
+                    )
+                    return year
+                return None
+
+        return None
+
+    def list_common_prefixes(self, prefix: str = "", delimiter: str = "/") -> List[str]:
+        """List immediate child 'directories' (CommonPrefixes) under the given prefix."""
+        prefixes: List[str] = []
+        kwargs = {"Bucket": self.bucket, "Delimiter": delimiter}
+        if prefix:
+            kwargs["Prefix"] = prefix
+
+        while True:
+            resp = self.s3_client.list_objects_v2(**kwargs)
+            prefixes.extend(p["Prefix"] for p in resp.get("CommonPrefixes", []))
+            if not resp.get("IsTruncated"):
+                break
+            kwargs["ContinuationToken"] = resp.get("NextContinuationToken")
+        return prefixes
+
+    def extract_years_from_objects(self, objects: Iterable[str]) -> List[int]:
+        """Extract 4-digit years from a list of S3 object keys (files)."""
+        years: List[int] = []
+
+        for obj_key in objects:
+            year_found = None
+
+            # Try Schema A: issues format
+            m = ISSUES_YEAR_RE.search(obj_key)
+            if m:
+                year_found = int(m.group(2))
+                log.debug("Found year %d in issues file: %s", year_found, obj_key)
+            else:
+                # Try Schema B: direct format
+                m = DIRECT_YEAR_RE.search(obj_key)
+                if m:
+                    year_found = int(m.group(2))
+                    log.debug("Found year %d in direct file: %s", year_found, obj_key)
+
+            if year_found and 1500 <= year_found <= 2100:
+                years.append(year_found)
+            elif year_found:
+                log.debug(
+                    "Year %d outside valid range, ignoring: %s", year_found, obj_key
+                )
+
+        return years
+
+    def count_year_files(self, newspaper_prefix: str) -> int:
+        """Count files that look like newspaper-year.jsonl.bz2 under a newspaper."""
+        # Use set for O(1) lookups instead of list
+        years: set[int] = set()
+        object_count = 0
+        jsonl_bz2_count = 0
+        sample_objects: List[str] = []
+
+        # Schema detection - determine from first matching file
+        detected_schema = (
+            None  # 'issues', 'direct', 'no_provider_issues', 'no_provider_direct'
         )
-        logging.info(
-            "Found %d top-level prefixes in bucket %s", len(root_prefixes), args.bucket
+
+        log.debug("Searching for files under prefix: %s", newspaper_prefix)
+
+        try:
+            for obj_key in yield_s3_objects(self.bucket, newspaper_prefix):
+                object_count += 1
+
+                # Early filter for .jsonl.bz2 extension
+                if not obj_key.endswith(".jsonl.bz2"):
+                    continue
+
+                jsonl_bz2_count += 1
+
+                # Collect limited samples for debugging
+                if len(sample_objects) < 5:  # Reduced sample size
+                    sample_objects.append(obj_key)
+
+                # Schema detection and year extraction
+                year = None
+
+                if detected_schema is None:
+                    # Try to detect schema from first file
+                    if self.has_provider:
+                        if ISSUES_YEAR_RE.search(obj_key):
+                            detected_schema = "issues"
+                            log.debug("Detected 'issues' schema from file: %s", obj_key)
+                        elif DIRECT_YEAR_RE.search(obj_key):
+                            detected_schema = "direct"
+                            log.debug("Detected 'direct' schema from file: %s", obj_key)
+                    else:
+                        if NO_PROVIDER_ISSUES_RE.search(obj_key):
+                            detected_schema = "no_provider_issues"
+                            log.debug(
+                                "Detected 'no_provider_issues' schema from file: %s",
+                                obj_key,
+                            )
+                        elif NO_PROVIDER_DIRECT_RE.search(obj_key):
+                            detected_schema = "no_provider_direct"
+                            log.debug(
+                                "Detected 'no_provider_direct' schema from file: %s",
+                                obj_key,
+                            )
+
+                # Apply detected schema for faster processing
+                if detected_schema == "issues":
+                    m = ISSUES_YEAR_RE.search(obj_key)
+                    if m:
+                        year = int(m.group(2))
+                elif detected_schema == "direct":
+                    m = DIRECT_YEAR_RE.search(obj_key)
+                    if m:
+                        year = int(m.group(2))
+                elif detected_schema == "no_provider_issues":
+                    m = NO_PROVIDER_ISSUES_RE.search(obj_key)
+                    if m:
+                        year = int(m.group(2))
+                elif detected_schema == "no_provider_direct":
+                    m = NO_PROVIDER_DIRECT_RE.search(obj_key)
+                    if m:
+                        year = int(m.group(2))
+                else:
+                    # Fallback: try all patterns if schema not yet detected
+                    year = self.extract_year_from_object(obj_key, self.has_provider)
+
+                # Validate and add year
+                if year and 1500 <= year <= 2100:
+                    years.add(year)
+                    log.debug(
+                        "Found year %d in %s file: %s",
+                        year,
+                        detected_schema or "unknown",
+                        obj_key,
+                    )
+
+        except Exception as e:
+            log.error("Error listing objects for %s: %s", newspaper_prefix, e)
+            return 0
+
+        log.debug(
+            "Found %d total objects, %d .jsonl.bz2 objects, %d unique years"
+            " (schema: %s)",
+            object_count,
+            jsonl_bz2_count,
+            len(years),
+            detected_schema or "none",
         )
 
-        # Normalize to leaf newspaper identifiers (strip parent prefix and trailing slash)
-        newspapers: List[str] = []
-        for p in root_prefixes:
-            leaf = (
-                p[len(args.prefix) :]
-                if args.prefix and p.startswith(args.prefix)
-                else p
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug("Sample .jsonl.bz2 objects: %s", sample_objects)
+            log.debug("Years found: %s", sorted(years))
+
+        # Improved diagnostics
+        if jsonl_bz2_count == 0:
+            log.warning("No .jsonl.bz2 objects found under prefix %s", newspaper_prefix)
+        elif len(years) == 0 and jsonl_bz2_count > 0:
+            log.warning(
+                "Found %d .jsonl.bz2 objects under %s but none matched year pattern"
+                " (detected schema: %s)",
+                jsonl_bz2_count,
+                newspaper_prefix,
+                detected_schema or "none",
             )
-            leaf = leaf[:-1] if leaf.endswith("/") else leaf
-            if leaf:  # avoid empty strings
-                newspapers.append(leaf)
+            # Show pattern analysis for first few files
+            for obj in sample_objects[:3]:
+                log.warning("Pattern analysis for %s:", obj)
+                if self.has_provider:
+                    log.warning("  Issues match: %s", bool(ISSUES_YEAR_RE.search(obj)))
+                    log.warning("  Direct match: %s", bool(DIRECT_YEAR_RE.search(obj)))
+                else:
+                    log.warning(
+                        "  No-provider issues match: %s",
+                        bool(NO_PROVIDER_ISSUES_RE.search(obj)),
+                    )
+                    log.warning(
+                        "  No-provider direct match: %s",
+                        bool(NO_PROVIDER_DIRECT_RE.search(obj)),
+                    )
 
-        logging.info(
+        return len(years)
+
+    def discover_newspapers(self) -> List[str]:
+        """Discover newspaper identifiers from S3 bucket structure."""
+        log.info("Connected to S3 endpoint: %s", self.endpoint)
+
+        if self.has_provider:
+            # First, list provider prefixes
+            provider_prefixes = self.list_common_prefixes(
+                prefix=self.prefix, delimiter="/"
+            )
+            log.info(
+                "Found %d provider prefixes in bucket %s",
+                len(provider_prefixes),
+                self.bucket,
+            )
+            log.debug("Provider prefixes: %s", provider_prefixes[:10])
+
+            # Then list newspapers under each provider
+            newspapers: List[str] = []
+            for provider_prefix in provider_prefixes:
+                log.debug("Examining provider prefix: %s", provider_prefix)
+
+                newspaper_prefixes = self.list_common_prefixes(
+                    prefix=provider_prefix, delimiter="/"
+                )
+                log.debug(
+                    "Newspaper prefixes under %s: %s",
+                    provider_prefix,
+                    newspaper_prefixes,
+                )
+
+                for np_prefix in newspaper_prefixes:
+                    # Extract provider/newspaper format
+                    leaf = (
+                        np_prefix[len(self.prefix) :]
+                        if self.prefix and np_prefix.startswith(self.prefix)
+                        else np_prefix
+                    )
+                    leaf = leaf[:-1] if leaf.endswith("/") else leaf
+                    if leaf and "/" in leaf:  # Ensure we have provider/newspaper format
+                        newspapers.append(leaf)
+                        log.debug(
+                            "Added newspaper: %s (from prefix: %s)", leaf, np_prefix
+                        )
+        else:
+            # Original logic for newspapers without providers
+            root_prefixes = self.list_common_prefixes(prefix=self.prefix, delimiter="/")
+            log.info(
+                "Found %d top-level prefixes in bucket %s",
+                len(root_prefixes),
+                self.bucket,
+            )
+
+            newspapers: List[str] = []
+            for p in root_prefixes:
+                leaf = (
+                    p[len(self.prefix) :]
+                    if self.prefix and p.startswith(self.prefix)
+                    else p
+                )
+                leaf = leaf[:-1] if leaf.endswith("/") else leaf
+                if leaf:  # avoid empty strings
+                    newspapers.append(leaf)
+
+        log.info(
             "Extracted %d newspaper identifiers: %s",
             len(newspapers),
             newspapers[:10] + (["..."] if len(newspapers) > 10 else []),
         )
 
-        if not newspapers:
-            logging.warning("No newspapers found")
-            print("", end="")
-            return
+        return newspapers
 
-        # Build years-per-newspaper map
+    def count_years_per_newspaper(self, newspapers: List[str]) -> Dict[str, int]:
+        """Count years available for each newspaper with progress tracking."""
         years_per_np: Dict[str, int] = {}
-        logging.info("Counting years for each newspaper...")
-        for n in newspapers:
-            np_prefix = f"{args.prefix}{n}/" if args.prefix else f"{n}/"
+        total_newspapers = len(newspapers)
+
+        log.info("Counting years for %d newspapers...", total_newspapers)
+
+        for i, n in enumerate(newspapers, 1):
+            np_prefix = f"{self.prefix}{n}/" if self.prefix else f"{n}/"
+
+            # Progress logging for large datasets
+            if total_newspapers > 50 and i % 20 == 0:
+                log.info("Progress: %d/%d newspapers processed", i, total_newspapers)
+
+            log.debug("Processing newspaper %s with prefix %s", n, np_prefix)
+
             try:
-                year_count = count_year_files(client, args.bucket, np_prefix)
+                year_count = self.count_year_files(np_prefix)
                 years_per_np[n] = year_count
-                logging.info("Newspaper %s: %d years", n, year_count)
+
+                if year_count > 0:
+                    log.info("Newspaper %s: %d years", n, year_count)
+                else:
+                    log.warning("Newspaper %s: 0 years", n)
+
             except Exception as e:
-                logging.warning("Failed to count years for %s: %s", n, e)
+                log.error("Failed to count years for %s: %s", n, e)
                 years_per_np[n] = 0
 
-        if args.large_first:
-            counts = [years_per_np.get(n, 0) for n in newspapers]
-            thresholds = compute_group_thresholds(counts, args.num_groups)
-            logging.info(
-                "Year count distribution: min=%d, max=%d, thresholds=%s",
-                min(counts),
-                max(counts),
-                thresholds,
+        # Summary statistics
+        total_years = sum(years_per_np.values())
+        newspapers_with_data = sum(1 for count in years_per_np.values() if count > 0)
+        avg_years = (
+            total_years / newspapers_with_data if newspapers_with_data > 0 else 0
+        )
+
+        log.info(
+            "Summary: %d newspapers total, %d with data (%.1f%%), %d total years, %.1f"
+            " avg years",
+            len(newspapers),
+            newspapers_with_data,
+            100 * newspapers_with_data / len(newspapers) if newspapers else 0,
+            total_years,
+            avg_years,
+        )
+
+        if newspapers_with_data == 0:
+            log.error(
+                "No newspapers found with any year data! Check file patterns and S3"
+                " structure."
             )
 
-            # Count newspapers in each group for diagnostics
-            groups: List[List[str]] = [[] for _ in range(args.num_groups)]
-            for n in newspapers:
-                c = years_per_np.get(n, 0)
-                group_idx = args.num_groups - 1
-                for i, threshold in enumerate(thresholds):
-                    if c <= threshold:
-                        group_idx = i
-                        break
-                groups[group_idx].append(n)
+        return years_per_np
 
-            for i, group in enumerate(groups):
-                group_name = (
-                    f"Group {i+1}"
-                    if i < args.num_groups - 1
-                    else f"Group {i+1} (largest)"
-                )
-                if thresholds:
-                    if i == 0:
-                        range_desc = f"≤{thresholds[0]} years"
-                    elif i == len(thresholds):
-                        range_desc = f">{thresholds[-1]} years"
-                    else:
-                        range_desc = f"{thresholds[i-1]+1}-{thresholds[i]} years"
-                else:
-                    range_desc = "all years"
-                logging.info(
-                    "%s (%s): %d newspapers: %s",
-                    group_name,
-                    range_desc,
-                    len(group),
-                    group,
-                )
+    def compute_group_thresholds(self, counts: List[int]) -> List[int]:
+        """Compute thresholds to split counts into num_groups groups."""
+        if not counts or self.num_groups <= 1:
+            return []
 
-        ordered = order_newspapers(
-            newspapers, years_per_np, args.large_first, args.num_groups, rng
+        sc = sorted(counts)
+        thresholds = []
+
+        for i in range(1, self.num_groups):
+            quantile = i / self.num_groups
+            idx = max(0, int((len(sc) - 1) * quantile))
+            thresholds.append(sc[idx])
+
+        return thresholds
+
+    def order_newspapers(
+        self, newspapers: List[str], years_per_np: Dict[str, int]
+    ) -> List[str]:
+        """Order newspapers based on configuration (random or size-grouped)."""
+        if not self.large_first:
+            shuffled = newspapers[:]
+            self.rng.shuffle(shuffled)
+            return shuffled
+
+        # Group by size using quantiles
+        counts = [years_per_np.get(n, 0) for n in newspapers]
+        thresholds = self.compute_group_thresholds(counts)
+
+        # Create groups (largest to smallest)
+        groups: List[List[str]] = [[] for _ in range(self.num_groups)]
+
+        for n in newspapers:
+            c = years_per_np.get(n, 0)
+            group_idx = self.num_groups - 1  # Default to largest group
+
+            # Find which group this newspaper belongs to
+            for i, threshold in enumerate(thresholds):
+                if c <= threshold:
+                    group_idx = i
+                    break
+
+            groups[group_idx].append(n)
+
+        # Shuffle within each group and concatenate (largest first)
+        result = []
+        for group in reversed(groups):  # Reverse to get largest first
+            self.rng.shuffle(group)
+            result.extend(group)
+
+        return result
+
+    def log_grouping_diagnostics(
+        self, newspapers: List[str], years_per_np: Dict[str, int]
+    ) -> None:
+        """Log detailed grouping diagnostics when large_first is enabled."""
+        if not self.large_first:
+            return
+
+        counts = [years_per_np.get(n, 0) for n in newspapers]
+        thresholds = self.compute_group_thresholds(counts)
+        log.info(
+            "Year count distribution: min=%d, max=%d, thresholds=%s",
+            min(counts) if counts else 0,
+            max(counts) if counts else 0,
+            thresholds,
         )
-        logging.info("Final order: %s", ordered)
 
-        # Print space-separated, matching original Makefile behavior
-        print(*ordered)
+        # Count newspapers in each group for diagnostics
+        groups: List[List[str]] = [[] for _ in range(self.num_groups)]
+        for n in newspapers:
+            c = years_per_np.get(n, 0)
+            group_idx = self.num_groups - 1
+            for i, threshold in enumerate(thresholds):
+                if c <= threshold:
+                    group_idx = i
+                    break
+            groups[group_idx].append(n)
 
-    except Exception as e:
-        logging.error("Error: %s", e)
+        for i, group in enumerate(groups):
+            group_name = (
+                f"Group {i+1}" if i < self.num_groups - 1 else f"Group {i+1} (largest)"
+            )
+            if thresholds:
+                if i == 0:
+                    range_desc = f"≤{thresholds[0]} years"
+                elif i == len(thresholds):
+                    range_desc = f">{thresholds[-1]} years"
+                else:
+                    range_desc = f"{thresholds[i-1]+1}-{thresholds[i]} years"
+            else:
+                range_desc = "all years"
+            log.info(
+                "%s (%s): %d newspapers: %s",
+                group_name,
+                range_desc,
+                len(group),
+                group,
+            )
+
+    def run(self) -> None:
+        """Main processing logic to discover, count, and order newspapers."""
+        start_time = time.time()
+
+        try:
+            # Discover newspapers from S3 structure
+            log.info("Starting newspaper discovery...")
+            newspapers = self.discover_newspapers()
+
+            if not newspapers:
+                log.warning("No newspapers found")
+                print("", end="")
+                return
+
+            # Count years for each newspaper
+            log.info("Starting year counting for %d newspapers...", len(newspapers))
+            years_per_np = self.count_years_per_newspaper(newspapers)
+
+            # Log grouping diagnostics if enabled
+            if self.large_first:
+                log.info("Computing size-based groupings...")
+                self.log_grouping_diagnostics(newspapers, years_per_np)
+
+            # Order newspapers based on configuration
+            log.info("Ordering newspapers...")
+            ordered = self.order_newspapers(newspapers, years_per_np)
+
+            elapsed_time = time.time() - start_time
+            log.info("Processing completed in %.2f seconds", elapsed_time)
+            log.info(
+                "Final order (%d newspapers): %s",
+                len(ordered),
+                ordered if len(ordered) <= 20 else ordered[:20] + ["..."],
+            )
+
+            # Print space-separated, matching original Makefile behavior
+            print(*ordered)
+
+        except Exception as e:
+            log.error("Error during processing: %s", e, exc_info=True)
+            sys.exit(1)
+
+
+def main(args: Optional[List[str]] = None) -> None:
+    """Main function to run the Newspaper Lister."""
+    options: argparse.Namespace = parse_arguments(args)
+
+    # Validate arguments
+    if options.num_groups < 1:
+        log.error("--num-groups must be at least 1")
         sys.exit(1)
+
+    processor: NewspaperLister = NewspaperLister(
+        bucket=options.bucket,
+        prefix=options.prefix,
+        endpoint=options.endpoint,
+        large_first=options.large_first,
+        num_groups=options.num_groups,
+        has_provider=options.has_provider,
+        seed=options.seed,
+        log_level=options.log_level,
+        log_file=options.log_file,
+    )
+
+    # Log the parsed options after logger is configured
+    log.info("Configuration: %s", options)
+
+    processor.run()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        log.error("Processing error: %s", e, exc_info=True)
+        sys.exit(2)
