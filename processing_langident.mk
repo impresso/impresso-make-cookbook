@@ -49,7 +49,7 @@ processing-target :: langident-target
 
 # TARGET: langident-target
 #: Processes language identification tasks.#
-langident-target : impresso-lid-stage1a-target impresso-lid-stage1b-target  impresso-lid-stage2-target # impresso-lid-statistics impresso-lid-eval
+langident-target : impresso-lid-systems-target impresso-lid-statistics-target  impresso-lid-ensemble-target # impresso-lid-statistics impresso-lid-eval
 
 .PHONY: langident-target
 
@@ -82,48 +82,48 @@ LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION ?= models/fasttext/impresso-lid.bin
 LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION ?= models/fasttext/lid.176.bin
   $(call log.debug, LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION)
 
-# minimal text length threshold for automatic LID in stage 1 and 2
-# USER-VARIABLE: LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION
-# Option to specify the minimal text length for stage 1a language identification.
+# minimal text length threshold for automatic LID in systems and ensemble
+# USER-VARIABLE: LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify the minimal text length for systems language identification.
 # This variable sets the minimum length of text that will be considered for
-# language identification in stage 1a processing.
+# language identification in systems processing.
 # If the text length is below this threshold, the language identification will not be
 # performed.
 
-LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION ?= 100
-  $(call log.debug, LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION)
+LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION ?= 100
+  $(call log.debug, LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION)
 
-# USER-VARIABLE: LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION
-# Option to specify the minimal text length for stage 1b language identification.
+# USER-VARIABLE: LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify the minimal text length for statistics language identification.
 # This variable sets the minimum length of text that will be considered for
-# language identification in stage 1b processing.
+# language identification in statistics processing.
 # If the text length is below this threshold, the language identification will not be
 # performed.
 # This is used to filter out very short texts that may not provide enough context for
 # accurate language identification.
-LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION ?= 200
-  $(call log.debug, LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION)
+LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION ?= 200
+  $(call log.debug, LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION)
 
-# USER-VARIABLE: LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION
-# Option to specify the minimal text length for stage 2 language identification.
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify the minimal text length for ensemble language identification.
 # This variable sets the minimum length of text that will be considered for
-# language identification in stage 2 processing.
+# language identification in ensemble processing.
 # If the text length is below this threshold, the language identification will not be
 # performed.
-# This is used to ensure that only sufficiently long texts are processed in stage 2,
-LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION ?= 50
-  $(call log.debug, LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION)
+# This is used to ensure that only sufficiently long texts are processed in ensemble,
+LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION ?= 50
+  $(call log.debug, LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION)
 
-# USER-VARIABLE: LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION
-# Option to specify the threshold for the ratio of alphabetical characters in stage 1a.
+# USER-VARIABLE: LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION
+# Option to specify the threshold for the ratio of alphabetical characters in systems.
 # This variable sets the minimum ratio of alphabetical characters required for a text to
-# be considered for language identification in stage 1a processing.
+# be considered for language identification in systems processing.
 # If the ratio of alphabetical characters is below this threshold, the text will not be
 # processed for language identification.
 # This is used to filter out texts that may not be suitable for language identification
 # due to a low proportion of alphabetical content.
-LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION ?= 0.5
-  $(call log.debug, LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION)
+LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION)
 
 # hyperparameters for scoring the languages
 # USER-VARIABLE: LANGIDENT_BOOST_FACTOR_OPTION
@@ -135,25 +135,82 @@ LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION ?= 0.5
 LANGIDENT_BOOST_FACTOR_OPTION ?= 1.5
   $(call log.debug, LANGIDENT_BOOST_FACTOR_OPTION)
 
-# USER-VARIABLE: LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION
 # Option to specify the weight for the Impresso FastText model in language identification.
 # This variable sets the weight assigned to the Impresso FastText model when scoring
 # languages during the language identification process.
-LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION ?= 3
-  $(call log.debug, LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION)
+LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION ?= 3
+  $(call log.debug, LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION)
 
-# USER-VARIABLE: LANGIDENT_MINIMAL_VOTING_SCORE_OPTION
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION
 # Option to specify the minimal voting score for language identification.
 # This variable sets the minimum score required for a language to be considered as a
 # valid identification in the language identification process.
-LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 1
-  $(call log.debug, LANGIDENT_MINIMAL_VOTE_SCORE_OPTION)
+LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION)
 
 # USER-VARIABLE: LANGIDENT_OCRQA_OPTION
 # Option to enable OCR quality assessment using impresso_pipelines.ocrqa
 # Set to --ocrqa to enable OCR QA, or leave empty to disable
 LANGIDENT_OCRQA_OPTION ?= 
   $(call log.debug, LANGIDENT_OCRQA_OPTION)
+
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION
+# Confidence threshold for trusting original language metadata.
+LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION ?= 0.75
+  $(call log.debug, LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION)
+
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION
+# Dominance ratio threshold above which non-dominant languages are penalized.
+LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION ?= 0.9
+  $(call log.debug, LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION)
+
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION
+# Minimal probability for a LID decision to be considered a vote in stage 2.
+LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION)
+
+# USER-VARIABLE: LANGIDENT_ROUND_NDIGITS_OPTION
+# Option to specify the number of decimal places for probability rounding in language identification.
+# This variable sets the number of decimal places to which language identification probabilities
+# will be rounded in the output.
+LANGIDENT_ROUND_NDIGITS_OPTION ?= 3
+  $(call log.debug, LANGIDENT_ROUND_NDIGITS_OPTION)
+
+# USER-VARIABLE: LANGIDENT_DEBUG_OPTION
+# Option to enable debug mode for language identification.
+# Set to --debug to include full text content in output for debugging purposes, or leave empty to disable
+LANGIDENT_DEBUG_OPTION ?= 
+  $(call log.debug, LANGIDENT_DEBUG_OPTION)
+
+# USER-VARIABLE: LANGIDENT_VALIDATE_OPTION
+# Option to enable JSON schema validation for ensemble output.
+# Set to --validate to enable validation against impresso schema, or leave empty to disable
+LANGIDENT_VALIDATE_OPTION ?= 
+  $(call log.debug, LANGIDENT_VALIDATE_OPTION)
+
+# USER-VARIABLE: LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION
+# Option to specify admissible languages for ensemble decisions.
+# Space-separated list of language codes to restrict ensemble decisions to, or leave empty for no restrictions
+LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION ?= 
+  $(call log.debug, LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION)
+
+# USER-VARIABLE: LANGIDENT_EXCLUDE_LB_OPTION
+# Option to specify newspapers that should exclude Luxembourgish language predictions.
+# Space-separated list of newspaper acronyms, or leave empty for no exclusions
+LANGIDENT_EXCLUDE_LB_OPTION ?= 
+  $(call log.debug, LANGIDENT_EXCLUDE_LB_OPTION)
+
+# Missing variables for statistics generation that are referenced in the statistics rule
+# USER-VARIABLE: LANGIDENT_MINIMAL_VOTE_SCORE_OPTION
+# Option to specify the minimal vote score for statistics generation.
+LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_MINIMAL_VOTE_SCORE_OPTION)
+
+# USER-VARIABLE: LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION
+# Minimal probability for a LID decision to be considered in systems processing.
+LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION)
 
 # FUNCTION: LocalRebuiltToLangIdentStage1File
 # Converts a local rebuilt file name to a local langident stage1 file name
@@ -197,7 +254,7 @@ $(call log.debug, LOCAL_LANGIDENT_STAGE1B_FILES)
 # Apply language identification classification tools
 #
 # Processes initial language identification for each content item.
-impresso-lid-stage1a-target : $(LOCAL_LANGIDENT_STAGE1_FILES)
+impresso-lid-systems-target : $(LOCAL_LANGIDENT_STAGE1_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2
 #: Rule to process a single newspaper
@@ -208,7 +265,7 @@ ifeq ($(USE_CANONICAL),1)
 $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	python3 lib/language_identification.py \
+	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
 		--infile $(call LocalToS3,$(basename $<),'') \
 		--issue-file $(call LocalToS3,$(call CanonicalPagesToIssuesPath,$(basename $<)),'') \
@@ -216,12 +273,13 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
 		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
 		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
-		--minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
-		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
-		--round-ndigits 3 \
+		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
 		--logfile $@.log.gz \
 		$(LANGIDENT_OCRQA_OPTION) \
+		$(LANGIDENT_DEBUG_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
@@ -235,19 +293,20 @@ else
 $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	python3 lib/language_identification.py \
+	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
 		--infile $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
 		--outfile $@ \
 		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
 		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
 		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
-		--minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
-		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
-		--round-ndigits 3 \
+		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
 		--logfile $@.log.gz \
 		$(LANGIDENT_OCRQA_OPTION) \
+		$(LANGIDENT_DEBUG_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
@@ -257,11 +316,13 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
 		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
 		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
-		--minimal-text-length $(LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION) \
-		--alphabetical-ratio-threshold $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
-		--round-ndigits 3 \
+		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
 		--logfile $@.log.gz \
+		$(LANGIDENT_OCRQA_OPTION) \
+		$(LANGIDENT_DEBUG_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
@@ -273,20 +334,20 @@ endif
 # DOUBLE-COLON-TARGET: impresso-lid-stage1b-target
 # Collect language identification statistics
 #
-# Summarizes statistics from Stage 1a results.
-impresso-lid-stage1b-target : $(LOCAL_LANGIDENT_STAGE1B_FILES)
+# Summarizes statistics from systems results.
+impresso-lid-statistics-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 
-# FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1B)/%.stats.json
-# Rule to generate statistics for a single newspaper from stage1 results
-$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_STAGE1_FILES) 
+# FILE-RULE: $(LOCAL_PATH_LANGIDENT_STATISTICS)/%.stats.json
+# Rule to generate statistics for a single newspaper from systems results
+$(LOCAL_PATH_LANGIDENT_SYSTEMS)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
 	python3 lib/newspaper_statistics.py \
     --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
     --boosted-lids orig_lg impresso_ft \
-    --minimal-text-length $(LANGIDENT_STAGE1B_MINIMAL_TEXT_LENGTH_OPTION) \
+    --minimal-text-length $(LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION) \
     --boost-factor $(LANGIDENT_BOOST_FACTOR_OPTION) \
     --minimal-vote-score $(LANGIDENT_MINIMAL_VOTE_SCORE_OPTION) \
-    --minimal-lid-probability $(LANGIDENT_STAGE1_MINIMAL_LID_PROBABILITY_OPTION) \
+    --minimal-lid-probability $(LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION) \
     --git-describe $(GIT_VERSION) \
     --logfile $@.log.gz \
     --outfile $@ \
@@ -323,30 +384,35 @@ endif
 
   $(call log.debug, LOCAL_LANGIDENT_FILES)
 
-impresso-lid-stage2-target :: $(LOCAL_LANGIDENT_FILES)
+impresso-lid-ensemble-target :: $(LOCAL_LANGIDENT_FILES)
 
 
-# rule for building all stage 2 files
+# rule for building all ensemble files
 
 
-$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_SYSTEMS)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_SYSTEMS)/stats.json
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
   python3 lib/impresso_ensemble_lid.py \
     --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-    --weight-lb-impresso-ft $(LANGIDENT_WEIGHT_LB_IMPRESSO_OPTION) \
-    --minimal-lid-probability $(LANGIDENT_STAGE2_MINIMAL_LID_PROBABILITY_OPTION) \
-    --minimal-voting-score $(LANGIDENT_MINIMAL_VOTING_SCORE_OPTION) \
-    --minimal-text-length $(LANGIDENT_STAGE2_MINIMAL_TEXT_LENGTH_OPTION) \
+    --weight-lb-impresso-ft $(LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION) \
+    --minimal-lid-probability $(LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION) \
+    --minimal-voting-score $(LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION) \
+    --minimal-text-length $(LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION) \
+    --threshold_confidence_orig_lg $(LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION) \
     --newspaper-stats-filename $(call LocalToS3,$(word 2,$^),'') \
     --git-describe $(GIT_VERSION) \
-    --alphabetical-ratio-threshold  $(LANGIDENT_STAGE1A_ALPHABETICAL_THRESHOLD_OPTION) \
+    --alphabetical-ratio-threshold  $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
+    --dominant-language-threshold $(LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION) \
     --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
     --infile $< \
     --outfile $@ \
     --log-level $(LOGGING_LEVEL) \
     --log-file $@.log.gz \
+    $(LANGIDENT_VALIDATE_OPTION) \
+    $(if $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),--admissible-languages $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),) \
+    $(if $(LANGIDENT_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_EXCLUDE_LB_OPTION),) \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp \
@@ -355,25 +421,25 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
     || { rm -vf $@ ; exit 1 ; }
 
-# DOUBLE-COLON-TARGET: impresso-lid-stage2-target
+# DOUBLE-COLON-TARGET: impresso-lid-ensemble-target
 # Finalize language decisions and diagnostics
 #
-# Processes Stage 2 results and generates diagnostics.
-#impresso-lid-stage2-target ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-stage2-files
+# Processes ensemble results and generates diagnostics.
+#impresso-lid-ensemble-target ::
+#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-files
 
 # DOUBLE-COLON-TARGET: impresso-lid-statistics
 # Generate statistics
 #
 # Produces statistics from processed data.
 #impresso-lid-statistics ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-stage2-diagnostics-files-manifest-target
+#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-diagnostics-files-manifest-target
 
 # DOUBLE-COLON-TARGET: impresso-lid-eval
 # Evaluate against gold standard
 #
 # Compares results with a gold standard for evaluation.
 #impresso-lid-eval ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-stage2-eval
+#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-eval
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_langident.mk)
