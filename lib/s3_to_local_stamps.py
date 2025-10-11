@@ -50,7 +50,7 @@ log = logging.getLogger(__name__)
 SCHEMA_BASE_URI = "https://impresso.github.io/impresso-schemas/json/"
 
 
-def get_last_modified(response: Any) -> datetime.datetime:
+def get_last_modified(response: Any) -> datetime:
     """
     Extracts the last modified timestamp from an S3 response.
 
@@ -58,20 +58,20 @@ def get_last_modified(response: Any) -> datetime.datetime:
         response: The S3 response object.
 
     Returns:
-        datetime.datetime: The last modified timestamp.
+        datetime: The last modified timestamp.
     """
     if "Metadata" in response:
         metadata = response["Metadata"]
         if "impresso-last-ts" in metadata:
             last_ts = metadata["impresso-last-ts"]
             log.debug("Using impresso-last-ts from metadata: %s", last_ts)
-            return datetime.datetime.fromisoformat(last_ts)
+            return datetime.fromisoformat(last_ts)
     if "LastModified" in response:
         log.debug("Using LastModified from response: %s", response["LastModified"])
         return response["LastModified"]
     else:
         log.warning("No LastModified field found in the S3 response.")
-        return datetime.datetime.now()  # Fallback to current time if not found
+        return datetime.now()  # Fallback to current time if not found
 
 
 class S3Compressor:
@@ -418,7 +418,7 @@ class LocalStampCreator(object):
     def create_local_stamp_file(
         self,
         s3_key: str,
-        last_modified: datetime.datetime,
+        last_modified: datetime,
         content: Optional[str] = None,
     ) -> None:
         """Creates a local stamp file, mirroring the modification date of an S3 object.
@@ -426,7 +426,7 @@ class LocalStampCreator(object):
         Args:
             s3_key (str): The key of the S3 object.
 
-            last_modified (datetime.datetime): The last-modified timestamp of the S3
+            last_modified (datetime): The last-modified timestamp of the S3
                  object.
         """
 
