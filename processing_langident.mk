@@ -177,11 +177,11 @@ LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
 LANGIDENT_ROUND_NDIGITS_OPTION ?= 3
   $(call log.debug, LANGIDENT_ROUND_NDIGITS_OPTION)
 
-# USER-VARIABLE: LANGIDENT_DEBUG_OPTION
-# Option to enable debug mode for language identification.
-# Set to --debug to include full text content in output for debugging purposes, or leave empty to disable
-LANGIDENT_DEBUG_OPTION ?= 
-  $(call log.debug, LANGIDENT_DEBUG_OPTION)
+# USER-VARIABLE: LANGIDENT_LOGGING_LEVEL
+# Option to specify logging level for language identification.
+# Uses the global LOGGING_LEVEL as default, can be overridden for langident-specific logging
+LANGIDENT_LOGGING_LEVEL ?= $(LOGGING_LEVEL)
+  $(call log.debug, LANGIDENT_LOGGING_LEVEL)
 
 # USER-VARIABLE: LANGIDENT_VALIDATE_OPTION
 # Option to enable JSON schema validation for ensemble output.
@@ -278,8 +278,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
 		--logfile $@.log.gz \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_OCRQA_OPTION) \
-		$(LANGIDENT_DEBUG_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
@@ -305,24 +305,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
 		--logfile $@.log.gz \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_OCRQA_OPTION) \
-		$(LANGIDENT_DEBUG_OPTION) \
-	&& python3 -m impresso_cookbook.local_to_s3 \
-		--set-timestamp \
-		$@ $(call LocalToS3,$@,'') \
-		$@.log.gz $(call LocalToS3,$@,'').log.gz \
-	|| {
-		--outfile $@ \
-		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
-		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
-		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
-		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
-		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
-		--git-describe $(GIT_VERSION) \
-		--logfile $@.log.gz \
-		$(LANGIDENT_OCRQA_OPTION) \
-		$(LANGIDENT_DEBUG_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
