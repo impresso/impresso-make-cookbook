@@ -38,15 +38,15 @@ NEWSPAPER_YEAR_SORTING ?= shuf
 
 # USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
 # Enables provider-aware newspaper organization
-# - true: newspapers are organized as PROVIDER/newspaper-year.jsonl.bz2
-# - false: newspapers are organized directly as newspaper/newspaper-year.jsonl.bz2
-NEWSPAPER_HAS_PROVIDER ?= false
+# - 1: newspapers are organized as PROVIDER/newspaper-year.jsonl.bz2
+# - 0: newspapers are organized directly as newspaper/newspaper-year.jsonl.bz2
+NEWSPAPER_HAS_PROVIDER ?= 0
   $(call log.debug, NEWSPAPER_HAS_PROVIDER)
 
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET
 # S3 bucket prefix containing newspapers for processing
-S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= 22-rebuilt-final
+S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET = $(S3_BUCKET_REBUILT)
   $(call log.debug, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
 
 
@@ -64,8 +64,8 @@ newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	python cookbook/lib/list_newspapers.py \
 		--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
-		--log-level WARNING --large-first --num-groups 5\
-		$(if $(filter true,$(NEWSPAPER_HAS_PROVIDER)),--has-provider)\
+		--log-level WARNING --large-first --num-groups 5 \
+		$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
 		> $@
 
 
