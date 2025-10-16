@@ -52,7 +52,7 @@ S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= 22-rebuilt-final
 
 # TARGET: newspaper-list-target
 #: Generates a list of newspapers to process from the S3 bucket
-newspaper-list-target: $(NEWSPAPERS_TO_PROCESS_FILE)
+newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
 .PHONY: newspaper-list-target
 
 
