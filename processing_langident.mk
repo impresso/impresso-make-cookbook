@@ -24,6 +24,7 @@ LANGIDENT_FORMAT_OPTION := --format=canonical
   $(call log.debug, Using canonical format)
 
 else
+
 # DOUBLE-COLON-TARGET: sync-input
 # Synchronizes rebuilt data when using rebuilt format.
 sync-input :: sync-rebuilt
@@ -53,7 +54,34 @@ langident-target : impresso-lid-systems-target impresso-lid-statistics-target  i
 
 .PHONY: langident-target
 
-# USER-VARIABLE: LANGIDENT_LID_SYSTEMS_OPTION
+
+# === USER-VARIABLES (Common to all stages) ====================================
+
+# USER-VARIABLE: LANGIDENT_LOGGING_LEVEL
+# Option to specify logging level for language identification.
+# Uses the global LOGGING_LEVEL as default, can be overridden for langident-specific logging.
+LANGIDENT_LOGGING_LEVEL ?= $(LOGGING_LEVEL)
+  $(call log.debug, LANGIDENT_LOGGING_LEVEL)
+
+
+# USER-VARIABLE: LANGIDENT_MINIMAL_TEXT_LENGTH_OPTION
+# Option to specify a default minimal text length for all stages.
+# The different stages can override this value as needed.
+# If the text length is below this threshold, the language identification will not be
+# performed or included in statistics or ensemble predictions. The default language will
+# be used instead.
+# The following USER-VARIABLES default to this value if not set explicitly:
+# - LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION
+# - LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION
+# - LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION
+
+LANGIDENT_MINIMAL_TEXT_LENGTH_OPTION ?= 100
+  $(call log.debug, LANGIDENT_MINIMAL_TEXT_LENGTH_OPTION)
+
+
+# === USER-VARIABLES (SYSTEMS stage, excluding statistics) =====================
+
+# USER-VARIABLE: LANGIDENT_SYSTEMS_LIDS_OPTION
 # Option to specify language identification systems to use.
 ## This variable allows the user to select which language identification systems
 # will be used in the processing.
@@ -65,24 +93,24 @@ langident-target : impresso-lid-systems-target impresso-lid-statistics-target  i
 # - impresso_langident_pipeline: Impresso-specific pipeline from impresso-pipelines
 # - lingua: Lingua language detector (high accuracy, supports many languages including 'lb')
 # The user can modify this variable to include or exclude specific systems as needed.
-LANGIDENT_LID_SYSTEMS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
-  $(call log.info, LANGIDENT_LID_SYSTEMS_OPTION)
+LANGIDENT_SYSTEMS_LIDS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
+  $(call log.info, LANGIDENT_SYSTEMS_LIDS_OPTION)
 
-# USER-VARIABLE: LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION
+# USER-VARIABLE: LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION
 # Option to specify the Impresso FastText model for language identification.
 # This variable allows the user to set the path to the Impresso FastText model
 # that will be used in the language identification processing.
-LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION ?= models/fasttext/impresso-lid.bin
-  $(call log.debug, LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION)
+LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION ?= models/fasttext/impresso-lid.bin
+  $(call log.debug, LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION)
 
-# USER-VARIABLE: LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION
+# USER-VARIABLE: LANGIDENT_SYSTEMS_WP_FASTTEXT_MODEL_OPTION
 # Option to specify the Wikipedia FastText model for language identification.
 # This variable allows the user to set the path to the Wikipedia FastText model
 # that will be used in the language identification processing.
-LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION ?= models/fasttext/lid.176.bin
-  $(call log.debug, LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION)
+LANGIDENT_SYSTEMS_WP_FASTTEXT_MODEL_OPTION ?= models/fasttext/lid.176.bin
+  $(call log.debug, LANGIDENT_SYSTEMS_WP_FASTTEXT_MODEL_OPTION)
 
-# minimal text length threshold for automatic LID in systems and ensemble
+
 # USER-VARIABLE: LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION
 # Option to specify the minimal text length for systems language identification.
 # This variable sets the minimum length of text that will be considered for
@@ -90,7 +118,7 @@ LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION ?= models/fasttext/lid.176.bin
 # If the text length is below this threshold, the language identification will not be
 # performed.
 
-LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION ?= 100
+LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION ?= $(LANGIDENT_MINIMAL_TEXT_LENGTH_OPTION)
   $(call log.debug, LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION)
 
 # USER-VARIABLE: LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION
@@ -101,8 +129,12 @@ LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION ?= 100
 # performed.
 # This is used to filter out very short texts that may not provide enough context for
 # accurate language identification.
-LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION ?= 200
+LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION ?= $(LANGIDENT_MINIMAL_TEXT_LENGTH_OPTION)
   $(call log.debug, LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION)
+
+
+# === USER-VARIABLES (ENSEMBLE stage) =====================
+
 
 # USER-VARIABLE: LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION
 # Option to specify the minimal text length for ensemble language identification.
@@ -111,7 +143,7 @@ LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION ?= 200
 # If the text length is below this threshold, the language identification will not be
 # performed.
 # This is used to ensure that only sufficiently long texts are processed in ensemble,
-LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION ?= 50
+LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION ?= $(LANGIDENT_MINIMAL_TEXT_LENGTH_OPTION)
   $(call log.debug, LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION)
 
 # USER-VARIABLE: LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION
@@ -125,16 +157,21 @@ LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION ?= 50
 LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION ?= 0.5
   $(call log.debug, LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION)
 
-# hyperparameters for scoring the languages
-# USER-VARIABLE: LANGIDENT_BOOST_FACTOR_OPTION
+# USER-VARIABLE: LANGIDENT_STATISTICS_BOOST_FACTOR_OPTION
 # Option to specify the boost factor for language identification scoring.
 # This variable sets the factor by which the scores of certain languages are boosted
 # during the language identification process.
 # It is used to adjust the influence of specific languages in the scoring mechanism,
 # allowing for more flexibility in how languages are prioritized based on their scores.
-LANGIDENT_BOOST_FACTOR_OPTION ?= 1.5
-  $(call log.debug, LANGIDENT_BOOST_FACTOR_OPTION)
+LANGIDENT_STATISTICS_BOOST_FACTOR_OPTION ?= 1.5
+  $(call log.debug, LANGIDENT_STATISTICS_BOOST_FACTOR_OPTION)
 
+# USER-VARIABLE: LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION
+# Option to specify the minimal vote score for statistics generation.
+LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION)
+
+# === USER-VARIABLES (ENSEMBLE stage) ==========================================
 # USER-VARIABLE: LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION
 # Option to specify the weight for the Impresso FastText model in language identification.
 # This variable sets the weight assigned to the Impresso FastText model when scoring
@@ -195,17 +232,18 @@ LANGIDENT_VALIDATE_OPTION ?=
 LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION ?= 
   $(call log.debug, LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION)
 
-# USER-VARIABLE: LANGIDENT_EXCLUDE_LB_OPTION
-# Option to specify newspapers that should exclude Luxembourgish language predictions.
-# Space-separated list of newspaper acronyms, or leave empty for no exclusions
-LANGIDENT_EXCLUDE_LB_OPTION ?= 
-  $(call log.debug, LANGIDENT_EXCLUDE_LB_OPTION)
+
+# USER-VARIABLE: LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION
+# Option to specify newspapers that should exclude Luxembourgish language predictions in the ensemble stage.
+# Space-separated list of newspaper acronym prefixes, or leave empty for no exclusions
+LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION ?= 
+  $(call log.debug, LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION)
 
 # Missing variables for statistics generation that are referenced in the statistics rule
-# USER-VARIABLE: LANGIDENT_MINIMAL_VOTE_SCORE_OPTION
+# USER-VARIABLE: LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION
 # Option to specify the minimal vote score for statistics generation.
-LANGIDENT_MINIMAL_VOTE_SCORE_OPTION ?= 0.5
-  $(call log.debug, LANGIDENT_MINIMAL_VOTE_SCORE_OPTION)
+LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION ?= 0.5
+  $(call log.debug, LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION)
 
 # USER-VARIABLE: LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION
 # Minimal probability for a LID decision to be considered in systems processing.
@@ -270,14 +308,15 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--infile $(call LocalToS3,$(basename $<),'') \
 		--issue-file $(call LocalToS3,$(call CanonicalPagesToIssuesPath,$(basename $<)),'') \
 		--outfile $@ \
-		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
-		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
+		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
+) \
+		--impresso-ft $(LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
+		--wp-ft $(LANGIDENT_SYSTEMS_WP_FASTTEXT_MODEL_OPTION) \
 		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
 		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
 		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
-		--logfile $@.log.gz \
+		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_OCRQA_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
@@ -297,14 +336,14 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		$(LANGIDENT_FORMAT_OPTION) \
 		--infile $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
 		--outfile $@ \
-		--lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
-		--impresso-ft $(LANGIDENT_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
-		--wp-ft $(LANGIDENT_WIKIPEDIA_FASTTEXT_MODEL_OPTION) \
+		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
+		--impresso-ft $(LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
+		--wp-ft $(LANGIDENT_SYSTEMS_WP_FASTTEXT_MODEL_OPTION) \
 		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
 		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
 		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
 		--git-describe $(GIT_VERSION) \
-		--logfile $@.log.gz \
+		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_OCRQA_OPTION) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
@@ -326,14 +365,15 @@ impresso-lid-statistics-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 $(LOCAL_PATH_LANGIDENT_SYSTEMS)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
 	python3 lib/newspaper_statistics.py \
-    --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+    --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
     --boosted-lids orig_lg impresso_ft \
     --minimal-text-length $(LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION) \
-    --boost-factor $(LANGIDENT_BOOST_FACTOR_OPTION) \
-    --minimal-vote-score $(LANGIDENT_MINIMAL_VOTE_SCORE_OPTION) \
+    --boost-factor $(LANGIDENT_STATISTICS_BOOST_FACTOR_OPTION) \
+    --minimal-vote-score $(LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION) \
     --minimal-lid-probability $(LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION) \
     --git-describe $(GIT_VERSION) \
-    --logfile $@.log.gz \
+    --log-level $(LANGIDENT_LOGGING_LEVEL) \
+    --log-file $@.log.gz \
     --outfile $@ \
     $(call LocalToS3,$(dir $<),'') \
   && \
@@ -379,7 +419,8 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
 	mkdir -p $(@D) \
   && \
   python3 lib/impresso_ensemble_lid.py \
-    --lids $(LANGIDENT_LID_SYSTEMS_OPTION) \
+    --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION ?= langid impresso_ft wp_ft impresso_langident_pipeline lingua
+) \
     --weight-lb-impresso-ft $(LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION) \
     --minimal-lid-probability $(LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION) \
     --minimal-voting-score $(LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION) \
@@ -392,11 +433,11 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
     --infile $< \
     --outfile $@ \
-    --log-level $(LOGGING_LEVEL) \
+    --log-level $(LANGIDENT_LOGGING_LEVEL) \
     --log-file $@.log.gz \
     $(LANGIDENT_VALIDATE_OPTION) \
     $(if $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),--admissible-languages $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),) \
-    $(if $(LANGIDENT_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_EXCLUDE_LB_OPTION),) \
+    $(if $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),) \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp \
