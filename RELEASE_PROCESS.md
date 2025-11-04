@@ -305,7 +305,7 @@ For critical bug fixes:
 3. Create a patch release:
    ```bash
    git tag -a v1.1.1 -m "Hotfix: Description of critical fix"
-   git push origin v1.1.0
+   git push origin v1.1.1
    ```
 
 4. Create release with focused release notes on the fix
