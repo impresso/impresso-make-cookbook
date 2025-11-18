@@ -39,9 +39,10 @@ test-aws: | .aws/credentials .aws/config
 #
 # This target ensures that the necessary AWS configuration and credentials files
 # are generated from the environment variables defined in `.env`.
-create-aws-config: .aws/credentials .aws/config
+create-aws-config: .aws .aws/credentials .aws/config
 
-
+.aws:
+	mkdir -p .aws
 # TARGET: install-aws
 #: Installs AWS CLI via pipenv
 #
