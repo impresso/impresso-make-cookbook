@@ -192,6 +192,18 @@ LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION ?= 0.5
 LANGIDENT_OCRQA_OPTION ?= 
   $(call log.debug, LANGIDENT_OCRQA_OPTION)
 
+# USER-VARIABLE: LANGIDENT_OCRQA_REPO_OPTION
+# Option to specify the Hugging Face repository for OCR QA models
+# Example: impresso-project/OCR-quality-assessment-unigram
+LANGIDENT_OCRQA_REPO_OPTION ?= 
+  $(call log.debug, LANGIDENT_OCRQA_REPO_OPTION)
+
+# USER-VARIABLE: LANGIDENT_OCRQA_VERSION_OPTION
+# Option to specify the version/revision of OCR QA models (branch, tag, or commit hash)
+# Example: main, v2.0.0, or a commit hash
+LANGIDENT_OCRQA_VERSION_OPTION ?= 
+  $(call log.debug, LANGIDENT_OCRQA_VERSION_OPTION)
+
 # USER-VARIABLE: LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION
 # Confidence threshold for trusting original language metadata.
 LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION ?= 0.75
@@ -256,23 +268,30 @@ define LocalRebuiltToLangIdentStage1File
 $(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
 endef
 
-# FUNCTION: LocalCanonicalToLangIdentStage1File
+# FUNCTION: LocalCanonicalToLangIdentSystemsFile
 # Converts a canonical stamp file name to a local langident stage1 file name
-define LocalCanonicalToLangIdentStage1File
+define LocalCanonicalToLangIdentSystemsFile
 $(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
 endef
 
-# VARIABLE: LOCAL_LANGIDENT_STAGE1_FILES
+# FUNCTION: CanonicalPagesToIssuesPath
+# Converts a canonical pages path to the corresponding issues metadata path
+# Example: build.d/112-canonical-final/BL/AATA/pages/AATA-1846 -> build.d/112-canonical-final/BL/AATA/issues/AATA-1846-issues.jsonl.bz2
+define CanonicalPagesToIssuesPath
+$(subst /pages/,/issues/,$(1))-issues.jsonl.bz2
+endef
+
+# VARIABLE: LOCAL_LANGIDENT_SYSTEMS_FILES
 # Stores the list of language identification stage1 files based on rebuilt or canonical stamp files
 ifeq ($(USE_CANONICAL),1)
-LOCAL_LANGIDENT_STAGE1_FILES := \
-    $(call LocalCanonicalToLangIdentStage1File,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
+LOCAL_LANGIDENT_SYSTEMS_FILES := \
+    $(call LocalCanonicalToLangIdentSystemsFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST))
 else
-LOCAL_LANGIDENT_STAGE1_FILES := \
+LOCAL_LANGIDENT_SYSTEMS_FILES := \
     $(call LocalRebuiltToLangIdentStage1File,$(LOCAL_REBUILT_STAMP_FILES))
 endif
 
-  $(call log.debug, LOCAL_LANGIDENT_STAGE1_FILES)
+  $(call log.debug,LOCAL_LANGIDENT_SYSTEMS_FILES)
 
 
 # FUNCTION: LocalLangIdentStage1ToStage1bFile
@@ -281,18 +300,34 @@ define LocalLangIdentStage1ToStage1bFile
 $(1:$(LOCAL_PATH_LANGIDENT_STAGE1)/$(NEWSPAPER)-%.jsonl.bz2=$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json)
 endef
 
-# VARIABLE: LOCAL_LANGIDENT_STAGE1B_FILES
+# VARIABLE: LOCAL_LANGIDENT_STATISTICS_FILES
 # Stores the list of langident stage1b statistics files based on stage1 files
-LOCAL_LANGIDENT_STAGE1B_FILES := \
-    $(sort $(call LocalLangIdentStage1ToStage1bFile,$(LOCAL_LANGIDENT_STAGE1_FILES)))
+LOCAL_LANGIDENT_STATISTICS_FILES := \
+    $(sort $(call LocalLangIdentStage1ToStage1bFile,$(LOCAL_LANGIDENT_SYSTEMS_FILES)))
 
-$(call log.debug, LOCAL_LANGIDENT_STAGE1B_FILES)
+$(call log.debug, LOCAL_LANGIDENT_STATISTICS_FILES)
 
-# TARGET: impresso-lid-stage1a-target
+# TARGET: impresso-lid-systems-target
 # Apply language identification classification tools
 #
 # Processes initial language identification for each content item.
-impresso-lid-systems-target : $(LOCAL_LANGIDENT_STAGE1_FILES)
+# Uses recursive make to ensure stamp files are synced before computing file lists
+ifeq ($(USE_CANONICAL),1)
+impresso-lid-systems-target : $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-systems-files-target
+else
+impresso-lid-systems-target : $(LOCAL_REBUILT_SYNC_STAMP_FILE)
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-systems-files-target
+endif
+
+.PHONY: impresso-lid-systems-target
+
+# TARGET: impresso-lid-systems-files-target
+# Internal target that builds the actual language identification system files
+# This is called recursively after sync to ensure stamp files are available
+impresso-lid-systems-files-target : $(LOCAL_LANGIDENT_SYSTEMS_FILES)
+
+.PHONY: impresso-lid-systems-files-target
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2
 #: Rule to process a single newspaper
@@ -318,6 +353,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_OCRQA_OPTION) \
+		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
+		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
@@ -345,6 +382,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_OCRQA_OPTION) \
+		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
+		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp \
 		$@ $(call LocalToS3,$@,'') \
@@ -361,7 +400,7 @@ impresso-lid-statistics-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STATISTICS)/%.stats.json
 # Rule to generate statistics for a single newspaper from systems results
-$(LOCAL_PATH_LANGIDENT_SYSTEMS)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
+$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
 	python3 lib/newspaper_statistics.py \
     --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
@@ -399,7 +438,7 @@ endef
 # Stores the list of final langident files based on rebuilt or canonical stamp files
 ifeq ($(USE_CANONICAL),1)
 LOCAL_LANGIDENT_FILES := \
-    $(call LocalCanonicalToLangIdentFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
+    $(call LocalCanonicalToLangIdentFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST))
 else
 LOCAL_LANGIDENT_FILES := \
     $(call LocalRebuiltToLangIdentFile,$(LOCAL_REBUILT_STAMP_FILES))
@@ -413,7 +452,7 @@ impresso-lid-ensemble-target :: $(LOCAL_LANGIDENT_FILES)
 # rule for building all ensemble files
 
 
-$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_SYSTEMS)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_SYSTEMS)/stats.json
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
