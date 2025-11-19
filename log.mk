@@ -2,6 +2,12 @@
 # Set the default logging level to INFO
 LOGGING_LEVEL ?= INFO
 
+# Check GNU Make version - require at least 4.0 for modern features
+MAKE_MAJOR_VERSION := $(word 1,$(subst ., ,$(MAKE_VERSION)))
+ifneq ($(shell test $(MAKE_MAJOR_VERSION) -ge 4 && echo ok),ok)
+$(error ERROR: GNU Make 4.0 or later is required. Current version: $(MAKE_VERSION). Currently running: $(MAKE). Please upgrade your Make.)
+endif
+
 # Define the logging functions
 # log.debug: Prints a debug message if the debug level is set to DEBUG
 # Usage: $(call log.debug, VAR_OR_STRING)
