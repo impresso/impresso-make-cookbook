@@ -9,6 +9,7 @@ from .common import (
     download_with_retries,
     upload_with_retries,
     parse_s3_path,
+    s3_file_exists,
     # File and data handling
     read_json,
     get_transport_params,
@@ -34,6 +35,7 @@ __all__ = [
     "download_with_retries",
     "upload_with_retries",
     "parse_s3_path",
+    "s3_file_exists",
     # File and data handling
     "read_json",
     "get_transport_params",
