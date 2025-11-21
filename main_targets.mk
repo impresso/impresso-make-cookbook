@@ -53,6 +53,7 @@ PARALLEL_DELAY ?= 3
 # Steps:
 # 1. Resync data (serial)
 # 2. Process data (parallel)
+# Note: The two Make invocations are separate to ensure sync completes before processing starts
 all:
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -j 1 sync-input resync-output
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target

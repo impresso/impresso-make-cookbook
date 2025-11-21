@@ -4,6 +4,57 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 # Makefile for processing impresso language identification
 #
 # This file defines the processing rules for language identification tasks.
+#
+# === Work-In-Progress (WIP) File Management ===
+#
+# This processing pipeline implements WIP file management to prevent concurrent
+# processing of the same data across distributed machines. The system uses marker
+# files (.wip) on S3 to coordinate work and ensure only one process works on a
+# given dataset at a time.
+#
+# Exit Code Convention:
+#   0 - Success or skip (file exists, or WIP created successfully)
+#   1 - Error condition (processing failed)
+#   2 - WIP exists, skip processing (used to signal concurrent work in progress)
+#
+# Makefile Pattern for WIP Handling:
+#   python3 -m impresso_cookbook.local_to_s3 \
+#       --s3-file-exists $(call LocalToS3,$@,'') \
+#       --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
+#       --log-level $(LANGIDENT_LOGGING_LEVEL) \
+#       $@ $(call LocalToS3,$@,'') \
+#   || { test $$? -eq 2 && exit 0; exit 1; } \
+#   && ,
+#
+# The pattern above:
+#   - Checks if output file already exists on S3 (skip if present)
+#   - Checks if a WIP file exists (exit 2 if fresh WIP found)
+#   - Creates a new WIP file if none exists or if stale
+#   - The || { test $$? -eq 2 && exit 0; exit 1; } converts exit code 2 to 0
+#     for Make, allowing the target to be skipped without error
+#   - The && , ensures the command sequence continues only on success
+#
+# WIP File Contents (JSON on S3):
+#   - hostname: Machine running the process
+#   - ip_address: IP address of the machine
+#   - username: User running the process
+#   - pid: Process ID
+#   - start_time: ISO timestamp when processing started
+#   - files: List of files being processed
+#
+# Configuration Variables:
+#   LANGIDENT_WIP_ENABLED: Set to 1 to enable WIP management (default: 1)
+#   LANGIDENT_WIP_MAX_AGE: Max age in hours for WIP files (default: 3)
+#
+# Stale WIP Handling:
+#   If a WIP file is older than LANGIDENT_WIP_MAX_AGE, it's considered stale
+#   and will be removed automatically, allowing processing to proceed. This
+#   handles cases where processes crash or machines fail.
+#
+# WIP Removal:
+#   The final ensemble stage uses --remove-wip to clean up the WIP file after
+#   successful completion of all processing stages.
+#
 ###############################################################################
 
 # USER-VARIABLE: USE_CANONICAL
@@ -49,8 +100,51 @@ sync-output :: sync-langident
 processing-target :: langident-target
 
 # TARGET: langident-target
-#: Processes language identification tasks.#
-langident-target : impresso-lid-systems-target impresso-lid-statistics-target impresso-lid-ensemble-target # impresso-lid-statistics impresso-lid-eval
+#: Processes language identification tasks in three sequential stages.
+#
+# === Language Identification Processing Pipeline ===
+#
+# The language identification pipeline consists of three stages that must execute
+# in strict sequence to ensure data dependencies are satisfied:
+#
+# Stage 1 (Systems): impresso-lid-systems-target
+#   - Applies multiple LID systems (langid, impresso_ft, wp_ft, etc.) to each content item
+#   - Generates stage1 files: $(LOCAL_PATH_LANGIDENT_STAGE1)/NEWSPAPER-YEAR.jsonl.bz2
+#   - Each file contains predictions from all configured LID systems
+#
+# Stage 2 (Statistics): impresso-lid-statistics-target  
+#   - Aggregates statistics across all stage1 files for a newspaper
+#   - Generates: $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
+#   - Contains dominant language, language distributions, and confidence metrics
+#   - **Depends on Stage 1**: Requires all stage1 files to compute statistics
+#
+# Stage 3 (Ensemble): impresso-lid-ensemble-target
+#   - Makes final language decisions using ensemble voting across LID systems
+#   - Generates final output: $(LOCAL_PATH_LANGIDENT)/NEWSPAPER-YEAR.jsonl.bz2
+#   - **Depends on Stages 1 & 2**: Each ensemble file requires both:
+#     * Its corresponding stage1 file (NEWSPAPER-YEAR.jsonl.bz2)
+#     * The newspaper statistics file (stats.json)
+#
+# === Parallel Processing and Sequential Dependencies ===
+#
+# When running with parallel jobs (e.g., make -j 8), Make will attempt to build
+# all targets concurrently unless explicit dependencies prevent it. The phony
+# targets (impresso-lid-*-target) enforce sequential execution:
+#
+#   impresso-lid-ensemble-target depends on impresso-lid-statistics-target
+#   impresso-lid-statistics-target depends on impresso-lid-systems-target
+#
+# This ensures that even with parallel execution at the file level (processing
+# multiple newspapers simultaneously), the three stages complete in order:
+#   1. All stage1 files are created
+#   2. Statistics file is generated from stage1 files  
+#   3. Ensemble files are created from stage1 files + statistics
+#
+# File-level dependencies (e.g., ensemble file depends on stage1 file) ensure
+# correct ordering within each stage, while phony target dependencies ensure
+# correct ordering between stages.
+#
+langident-target : impresso-lid-ensemble-target
 
 .PHONY: langident-target
 
@@ -363,6 +457,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+	|| { test $$? -eq 2 && exit 0; exit 1; } \
 	&& , ) \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
@@ -401,6 +496,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+	|| { test $$? -eq 2 && exit 0; exit 1; } \
 	&& , ) \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
@@ -427,11 +523,23 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 
 endif
 
-# DOUBLE-COLON-TARGET: impresso-lid-stage1b-target
-# Collect language identification statistics
+# TARGET: impresso-lid-statistics-target
+# Collect language identification statistics from all stage1 files.
 #
-# Summarizes statistics from systems results.
-impresso-lid-statistics-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
+# This target generates newspaper-level statistics (dominant language, language
+# distributions, confidence metrics) by aggregating data from all stage1 files
+# for the current newspaper.
+#
+# Dependencies:
+#   - impresso-lid-systems-target: Ensures all stage1 files are created first
+#   - $(LOCAL_LANGIDENT_STATISTICS_FILES): The actual stats.json file to generate
+#
+# Output:
+#   - $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: Newspaper statistics file
+#
+impresso-lid-statistics-target : impresso-lid-systems-target $(LOCAL_LANGIDENT_STATISTICS_FILES)
+
+.PHONY: impresso-lid-statistics-target
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STATISTICS)/%.stats.json
 # Rule to generate statistics for a single newspaper from systems results
@@ -444,6 +552,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@ $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
+  || { test $$? -eq 2 && exit 0; exit 1; } \
   && , ) \
 	python3 lib/newspaper_statistics.py \
     --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
@@ -489,7 +598,28 @@ endif
 
   $(call log.debug, LOCAL_LANGIDENT_FILES)
 
-impresso-lid-ensemble-target :: $(LOCAL_LANGIDENT_FILES)
+# TARGET: impresso-lid-ensemble-target
+# Generate final language identification decisions using ensemble voting.
+#
+# This target creates the final output files by combining predictions from
+# multiple LID systems using ensemble decision-making algorithms.
+#
+# Dependencies:
+#   - impresso-lid-statistics-target: Ensures statistics are computed first
+#   - $(LOCAL_LANGIDENT_FILES): All final ensemble output files
+#
+# Each ensemble file depends on (via file-level rule below):
+#   - $(LOCAL_PATH_LANGIDENT_STAGE1)/NEWSPAPER-YEAR.jsonl.bz2: Stage1 predictions
+#   - $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: Newspaper statistics
+#
+# The explicit dependency on impresso-lid-statistics-target ensures that when
+# running with parallel jobs, the statistics stage completes before any ensemble
+# processing begins, preventing race conditions where ensemble would try to read
+# stage1 files that don't exist yet.
+#
+impresso-lid-ensemble-target :: impresso-lid-statistics-target $(LOCAL_LANGIDENT_FILES)
+
+.PHONY: impresso-lid-ensemble-target
 
 
 # rule for building all ensemble files
@@ -507,6 +637,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     $@ $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
     $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
+  || { test $$? -eq 2 && exit 0; exit 1; } \
   && , ) \
   python3 lib/impresso_ensemble_lid.py \
     --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
