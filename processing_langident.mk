@@ -479,6 +479,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
+		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
 	|| { rm -vf $@ ; exit 1 ; }
@@ -518,6 +519,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
     --keep-timestamp-only \
+		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
 	|| { rm -vf $@ ; exit 1 ; }
@@ -570,6 +572,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
   && \
   python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
+    $(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
     $@ $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
   || { rm -vf $@ ; exit 1 ; }
