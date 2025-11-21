@@ -424,7 +424,7 @@ $(call log.debug, LOCAL_LANGIDENT_STATISTICS_FILES)
 # Apply language identification classification tools
 #
 # Processes initial language identification for each content item.
-# Uses recursive make to ensure stamp files are synced before computing file lists
+# Uses recursive make to recompute file lists after sync creates new stamp files.
 ifeq ($(USE_CANONICAL),1)
 impresso-lid-systems-target : $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-systems-files-target
@@ -453,7 +453,6 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 	mkdir -p $(@D) && \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
-		--s3-file-exists $(call LocalToS3,$@,'') \
 		--wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
@@ -493,7 +492,6 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 	mkdir -p $(@D) && \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
-		--s3-file-exists $(call LocalToS3,$@,'') \
 		--wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
@@ -518,7 +516,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    --keep-timestamp-only \
+		--keep-timestamp-only \
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
@@ -535,14 +533,23 @@ endif
 #
 # Dependencies:
 #   - impresso-lid-systems-target: Ensures all stage1 files are created first
-#   - $(LOCAL_LANGIDENT_STATISTICS_FILES): The actual stats.json file to generate
+#
+# Uses recursive make to ensure stage1 output exists before building statistics.
 #
 # Output:
 #   - $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: Newspaper statistics file
 #
-impresso-lid-statistics-target : impresso-lid-systems-target $(LOCAL_LANGIDENT_STATISTICS_FILES)
+impresso-lid-statistics-target : impresso-lid-systems-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-statistics-files-target
 
 .PHONY: impresso-lid-statistics-target
+
+# TARGET: impresso-lid-statistics-files-target
+# Internal target that builds the actual statistics file
+# This is called recursively after systems stage to ensure files are available
+impresso-lid-statistics-files-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
+
+.PHONY: impresso-lid-statistics-files-target
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STATISTICS)/%.stats.json
 # Rule to generate statistics for a single newspaper from systems results
@@ -550,7 +557,6 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 	$(MAKE_SILENCE_RECIPE) \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
-    --s3-file-exists $(call LocalToS3,$@,'') \
     --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@ $(call LocalToS3,$@,'') \
@@ -618,8 +624,7 @@ endif
 #
 # The explicit dependency on impresso-lid-statistics-target ensures that when
 # running with parallel jobs, the statistics stage completes before any ensemble
-# processing begins, preventing race conditions where ensemble would try to read
-# stage1 files that don't exist yet.
+# processing begins, preventing race conditions.
 #
 impresso-lid-ensemble-target :: impresso-lid-statistics-target $(LOCAL_LANGIDENT_FILES)
 
@@ -635,7 +640,6 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
   && \
   $(if $(LANGIDENT_WIP_ENABLED), \
   python3 -m impresso_cookbook.local_to_s3 \
-    --s3-file-exists $(call LocalToS3,$@,'') \
     --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@ $(call LocalToS3,$@,'') \
