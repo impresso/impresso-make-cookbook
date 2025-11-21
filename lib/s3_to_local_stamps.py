@@ -213,7 +213,10 @@ class LocalStampCreator(object):
 
         self.args = args
         self.s3_resource = get_s3_resource()
-        self.stats = {"files_created": 0}  # Initialize the statistics dictionary
+        self.stats = {
+            "files_created": 0,
+            "files_removed": 0,
+        }  # Initialize the statistics dictionary
         # Splitting the s3-path into bucket name and prefix
         self.bucket_name, self.prefix = parse_s3_path(self.args.s3_path)
 
@@ -251,8 +254,9 @@ class LocalStampCreator(object):
                 log.info("Using S3 client API v2 for stamp file creation.")
                 self.create_stamp_files_v2(self.bucket_name, self.prefix)
             log.info(
-                "Stamp file creation completed. Files created: %d",
+                "Stamp file creation completed. Files created: %d, Files removed: %d",
                 self.stats["files_created"],
+                self.stats["files_removed"],
             )
         else:
             log.error(
@@ -269,6 +273,7 @@ class LocalStampCreator(object):
             prefix (str): The file prefix to match in the S3 bucket.
         """
         bucket = self.s3_resource.Bucket(bucket_name)
+        expected_stamp_files = set()  # Track expected stamp files from S3
 
         for s3_object in bucket.objects.filter(Prefix=prefix):
             s3_key = s3_object.key
@@ -303,10 +308,17 @@ class LocalStampCreator(object):
             last_modified = get_last_modified(response)
 
             # Create a local stamp file
-            self.create_local_stamp_file(s3_key, last_modified, content)
+            local_path = self.create_local_stamp_file(s3_key, last_modified, content)
+            expected_stamp_files.add(local_path)
+
+        # Remove dangling local stamp files if requested
+        if self.args.remove_dangling_stamps:
+            self.remove_dangling_stamps(expected_stamp_files)
 
     def create_stamp_files_v2(self, bucket_name: str, prefix: str) -> None:
-        """Creates local stamp files using the S3 client API, supporting directory prefixes.
+        """Creates local stamp files using the S3 client API.
+
+        Supports directory prefixes.
 
         Args:
             bucket_name (str): The name of the S3 bucket.
@@ -314,6 +326,7 @@ class LocalStampCreator(object):
         """
         # Initialize the S3 client
         s3_client = get_s3_client()
+        expected_stamp_files = set()  # Track expected stamp files from S3
 
         # Helper function to list object keys in S3
         def list_keys(bucket: str, prefix: str) -> list[str]:
@@ -395,6 +408,11 @@ class LocalStampCreator(object):
                 local_stamp_path,
                 latest_ts.isoformat(),
             )
+            expected_stamp_files.add(local_stamp_path)
+
+        # Remove dangling local stamp files if requested
+        if self.args.remove_dangling_stamps:
+            self.remove_dangling_stamps(expected_stamp_files)
 
     def get_s3_object_content(self, s3_key: str) -> str:
         """Get the content of an S3 object.
@@ -420,7 +438,7 @@ class LocalStampCreator(object):
         s3_key: str,
         last_modified: datetime,
         content: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         """Creates a local stamp file, mirroring the modification date of an S3 object.
 
         Args:
@@ -428,6 +446,9 @@ class LocalStampCreator(object):
 
             last_modified (datetime): The last-modified timestamp of the S3
                  object.
+
+        Returns:
+            str: The local file path of the created stamp file.
         """
 
         local_file_path = s3_key.replace("/", os.sep)
@@ -451,6 +472,91 @@ class LocalStampCreator(object):
 
         self.stats["files_created"] += 1
         log.info(f"'{local_file_path}' created. Last modification: {last_modified}")
+        return local_file_path
+
+    def remove_dangling_stamps(self, expected_stamp_files: set[str]) -> None:
+        """Removes local stamp files that no longer exist in S3.
+
+        Args:
+            expected_stamp_files: Set of local stamp file paths that should exist
+                based on current S3 objects.
+        """
+        log.info(
+            "Checking for dangling stamp files. Expected files from S3: %d",
+            len(expected_stamp_files),
+        )
+        # Determine the base directory to scan
+        if not self.args.no_bucket:
+            base_dir = os.path.join(self.args.local_dir, self.bucket_name, self.prefix)
+        else:
+            base_dir = os.path.join(self.args.local_dir, self.prefix)
+
+        log.info("Scanning base directory: '%s'", base_dir)
+
+        if not os.path.exists(base_dir):
+            log.debug(
+                "Base directory '%s' does not exist, nothing to clean up.", base_dir
+            )
+            return
+
+        # Walk through the local directory and find all stamp files
+        for root, dirs, files in os.walk(base_dir):
+            for filename in files:
+                file_path = os.path.join(root, filename)
+
+                # Determine base filename based on stamp extension
+                if self.args.stamp_extension:
+                    # Check if it's a stamp file (has stamp extension)
+                    if not filename.endswith(self.args.stamp_extension):
+                        continue
+                    # Remove the stamp extension to get the base filename
+                    base_filename = filename[: -len(self.args.stamp_extension)]
+                else:
+                    # When stamp extension is empty, the file itself is the stamp
+                    base_filename = filename
+
+                # Check if base filename matches any of the configured extensions
+                matches_extension = any(
+                    base_filename.endswith(ext) for ext in self.args.file_extensions
+                )
+                if not matches_extension:
+                    log.debug(
+                        "Skipping '%s' - base name doesn't match file extensions: %s",
+                        file_path,
+                        self.args.file_extensions,
+                    )
+                    continue
+
+                # Check if file is truly a stamp (empty, size = 0 bytes)
+                try:
+                    file_size = os.path.getsize(file_path)
+                    if file_size != 0:
+                        log.debug(
+                            "Skipping '%s' - not a stamp file (size: %d bytes, "
+                            "expected 0)",
+                            file_path,
+                            file_size,
+                        )
+                        continue
+                except OSError as e:
+                    log.warning("Error checking file size for '%s': %s", file_path, e)
+                    continue
+
+                # If this stamp file is not in the expected set, remove it
+                if file_path not in expected_stamp_files:
+                    try:
+                        os.remove(file_path)
+                        self.stats["files_removed"] += 1
+                        log.info(
+                            "Removed dangling stamp file: '%s' (no longer in S3)",
+                            file_path,
+                        )
+                    except OSError as e:
+                        log.error(
+                            "Failed to remove dangling stamp file '%s': %s",
+                            file_path,
+                            e,
+                        )
 
 
 def check_wip_file(s3_client, s3_path, max_age_hours):
@@ -713,6 +819,15 @@ if __name__ == "__main__":
             "File extensions to consider for stamp creation. Multiple extensions "
             "can be specified. Default: %(default)s. "
             "Example: --file-extensions jsonl.bz2 json txt"
+        ),
+    )
+    parser.add_argument(
+        "--remove-dangling-stamps",
+        action="store_true",
+        help=(
+            "Remove local stamp files that no longer have corresponding objects "
+            "in S3. Only removes empty (0 bytes) stamp files matching configured "
+            "file extensions."
         ),
     )
     arguments = parser.parse_args()
