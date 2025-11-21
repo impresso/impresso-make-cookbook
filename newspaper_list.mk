@@ -19,7 +19,7 @@ sync:: newspaper-list-target
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
 NEWSPAPER ?= actionfem
-  $(call log.debug, NEWSPAPER)
+  $(call log.info, NEWSPAPER)
 
 
 # USER-VARIABLE: NEWSPAPERS_TO_PROCESS_FILE
@@ -41,7 +41,17 @@ NEWSPAPER_YEAR_SORTING ?= shuf
 # - 1: newspapers are organized as PROVIDER/newspaper-year.jsonl.bz2
 # - 0: newspapers are organized directly as newspaper/newspaper-year.jsonl.bz2
 NEWSPAPER_HAS_PROVIDER ?= 0
-  $(call log.debug, NEWSPAPER_HAS_PROVIDER)
+  $(call log.info, NEWSPAPER_HAS_PROVIDER)
+
+# USER-VARIABLE: NEWSPAPER_PREFIX
+# Additional prefix for newspaper paths to filter specific subsets (e.g. BL/ for processing only BL newspapers)
+NEWSPAPER_PREFIX ?= $(EMPTY)
+  $(call log.debug, NEWSPAPER_PREFIX)
+
+# USER-VARIABLE: NEWSPAPER_FNMATCH
+# Additional pattern for newspaper paths to filter specific subsets (e.g. BL/ for processing only BL newspapers)
+NEWSPAPER_FNMATCH ?= $(EMPTY)
+  $(call log.info, NEWSPAPER_FNMATCH)
 
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET
@@ -64,16 +74,18 @@ newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	python cookbook/lib/list_newspapers.py \
 		--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
-		--log-level WARNING --large-first --num-groups 5 \
+		--prefix "$(NEWSPAPER_PREFIX)" \
+		--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
 		$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
+		$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
 		> $@
 
 
 # VARIABLE: ALL_NEWSPAPERS
 # List all available newspapers for parallel processing using newspaper list definitions
 #
-# Reads the canonical list of newspaper identifiers using make's file function
-# and newspaper_list.mk definitions to determine which newspapers should be processed.
+# Reads the canonical list of newspaper identifiers from the newspapers file.
+# Uses Make's file function to read the contents without spawning a shell.
 ALL_NEWSPAPERS := $(file < $(NEWSPAPERS_TO_PROCESS_FILE))
   $(call log.info, ALL_NEWSPAPERS)
 

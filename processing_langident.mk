@@ -50,7 +50,7 @@ processing-target :: langident-target
 
 # TARGET: langident-target
 #: Processes language identification tasks.#
-langident-target : impresso-lid-systems-target impresso-lid-statistics-target  impresso-lid-ensemble-target # impresso-lid-statistics impresso-lid-eval
+langident-target : impresso-lid-systems-target impresso-lid-statistics-target impresso-lid-ensemble-target # impresso-lid-statistics impresso-lid-eval
 
 .PHONY: langident-target
 
@@ -356,7 +356,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
-		--set-timestamp \
+		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
 	|| { rm -vf $@ ; exit 1 ; }
@@ -385,7 +385,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
-		--set-timestamp \
+		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
 	|| { rm -vf $@ ; exit 1 ; }
@@ -416,7 +416,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
     $(call LocalToS3,$(dir $<),'') \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp \
+    --set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@ $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
   || { rm -vf $@ ; exit 1 ; }
@@ -477,7 +477,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     $(if $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),) \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp \
+    --set-timestamp  --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@    $(call LocalToS3,$@,'') \
     $@.log.gz    $(call LocalToS3,$@,'').log.gz \
     $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \

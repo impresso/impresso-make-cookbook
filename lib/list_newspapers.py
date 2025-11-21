@@ -12,6 +12,7 @@ Features:
 - Counts years per newspaper by scanning for files matching pattern: NEWSPAPER-YYYY.jsonl.bz2
 - Optional size-aware grouping with configurable number of groups
 - Randomization within groups for load balancing
+- Pattern filtering: --prefix is stripped before --fnmatch is applied to newspaper names
 
 Grouping behavior (--large-first):
 - Newspapers are grouped by number of available years using quantile-based thresholds
@@ -33,9 +34,20 @@ Examples:
   # Debug mode with detailed grouping information
   python list_newspapers.py --bucket 22-rebuilt-final --large-first \\
     --log-level DEBUG --num-groups 4
+
+  # Filter newspapers matching a pattern (matches newspaper name only)
+  python list_newspapers.py --bucket 22-rebuilt-final --fnmatch 'GDL*'
+
+  # Filter with wildcards (e.g., all newspapers starting with 'luxwort')
+  python list_newspapers.py --bucket 22-rebuilt-final --fnmatch 'luxwort*'
+
+  # With --has-provider, fnmatch matches 'provider/newspaper' format (prefix excluded)
+  python list_newspapers.py --bucket 22-rebuilt-final --has-provider \\
+    --prefix 'data/' --fnmatch 'NZZ/*'
 """
 
 import argparse
+import fnmatch
 import logging
 import random
 import re
@@ -84,7 +96,10 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--prefix",
         default="",
-        help="Optional root prefix under the bucket (default: empty)",
+        help=(
+            "Optional root prefix under the bucket, stripped before matching (default:"
+            " empty)"
+        ),
     )
     parser.add_argument(
         "--endpoint",
@@ -110,6 +125,14 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--seed", type=int, default=None, help="Random seed for reproducibility"
     )
+    parser.add_argument(
+        "--fnmatch",
+        default=None,
+        help=(
+            "Pattern to filter newspaper names only, excluding prefix (e.g., 'GDL*',"
+            " '*wort*')"
+        ),
+    )
     return parser.parse_args(args)
 
 
@@ -133,6 +156,7 @@ class NewspaperLister:
         seed: Optional[int] = None,
         log_level: str = "INFO",
         log_file: Optional[str] = None,
+        fnmatch_pattern: Optional[str] = None,
     ) -> None:
         """Initialize the NewspaperLister with configuration parameters."""
         self.bucket = bucket
@@ -144,6 +168,7 @@ class NewspaperLister:
         self.seed = seed
         self.log_level = log_level
         self.log_file = log_file
+        self.fnmatch_pattern = fnmatch_pattern
 
         # Configure the module-specific logger
         setup_logging(self.log_level, self.log_file, logger=log)
@@ -447,6 +472,21 @@ class NewspaperLister:
             newspapers[:10] + (["..."] if len(newspapers) > 10 else []),
         )
 
+        # Apply fnmatch filtering if pattern is provided
+        # Note: newspapers list contains names with prefix already stripped,
+        # so fnmatch matches against newspaper names only (e.g., 'GDL' or 'NZZ/newspaper')
+        if self.fnmatch_pattern:
+            original_count = len(newspapers)
+            newspapers = [
+                n for n in newspapers if fnmatch.fnmatch(n, self.fnmatch_pattern)
+            ]
+            log.info(
+                "Applied fnmatch pattern '%s': %d/%d newspapers match",
+                self.fnmatch_pattern,
+                len(newspapers),
+                original_count,
+            )
+
         return newspapers
 
     def count_years_per_newspaper(self, newspapers: List[str]) -> Dict[str, int]:
@@ -637,7 +677,6 @@ class NewspaperLister:
                 ordered if len(ordered) <= 20 else ordered[:20] + ["..."],
             )
 
-            # Print space-separated, matching original Makefile behavior
             print(*ordered)
 
         except Exception as e:
@@ -649,7 +688,6 @@ def main(args: Optional[List[str]] = None) -> None:
     """Main function to run the Newspaper Lister."""
     options: argparse.Namespace = parse_arguments(args)
 
-    # Validate arguments
     if options.num_groups < 1:
         log.error("--num-groups must be at least 1")
         sys.exit(1)
@@ -664,9 +702,9 @@ def main(args: Optional[List[str]] = None) -> None:
         seed=options.seed,
         log_level=options.log_level,
         log_file=options.log_file,
+        fnmatch_pattern=options.fnmatch,
     )
 
-    # Log the parsed options after logger is configured
     log.info("Configuration: %s", options)
 
     processor.run()

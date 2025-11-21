@@ -71,7 +71,7 @@ collection-xargs: newspaper-list-target
 
 check-parallel:
 	@parallel --version | grep -q 'GNU parallel' || \
-	( echo "ERROR: GNU parallel not installed or wrong version"; exit 1 )
+	( echo "ERROR: GNU parallel not installed or a wrong variant"; exit 1 )
 .PHONY: check-parallel
 
 # TARGET: collection
