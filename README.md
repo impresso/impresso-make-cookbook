@@ -143,6 +143,33 @@ By leveraging S3 and stamp files, machines with limited storage (e.g., 100GB) ca
 - **Stateless Processing**: Scripts rely only on S3 and local configurations, avoiding shared state.
 - **Custom Configurations**: Each machine uses local configuration files or environment variables to tailor processing behavior.
 
+#### Work-In-Progress (WIP) File Management
+
+The cookbook supports optional **WIP file management** to prevent concurrent processing of the same files across multiple machines:
+
+- **WIP Files**: Temporary marker files (`.wip`) created on S3 when processing begins
+- **Concurrent Processing Prevention**: Before starting work, the system checks for existing WIP files to avoid duplicate processing
+- **Stale Lock Cleanup**: WIP files older than a configurable age (default: 2 hours) are automatically removed, preventing orphaned locks from crashed processes
+- **Process Visibility**: WIP files contain metadata about the processing machine (hostname, IP address, username, PID, start time)
+- **Automatic Cleanup**: WIP files are automatically removed after successful completion
+
+**When to Use WIP Management:**
+
+- Enable WIP for language identification when multiple machines might process overlapping datasets
+- Particularly useful in distributed environments where coordination is difficult
+- Can be disabled (default) for faster processing when coordination is managed externally
+
+**Configuration:**
+
+```bash
+# Enable WIP management for language identification
+make langident-target LANGIDENT_WIP_ENABLED=1 LANGIDENT_WIP_MAX_AGE=2
+
+# Or set in your config file
+LANGIDENT_WIP_ENABLED := 1
+LANGIDENT_WIP_MAX_AGE := 2
+```
+
 ## Setup Guide
 
 ### Dependencies
@@ -406,6 +433,12 @@ make topics-target \
 make lingproc-target \
   LINGPROC_VALIDATE_OPTION=--validate \
   LOGGING_LEVEL=DEBUG
+
+# Language identification with WIP file management
+make langident-target \
+  LANGIDENT_WIP_ENABLED=1 \
+  LANGIDENT_WIP_MAX_AGE=2 \
+  NEWSPAPER=actionfem
 ```
 
 ### Debugging and Monitoring
@@ -495,6 +528,8 @@ Key user-configurable variables (can be overridden):
 - `LANGIDENT_LID_SYSTEMS_OPTION`: LID systems to use (e.g., `langid impresso_ft wp_ft`)
 - `LANGIDENT_STAGE1A_MINIMAL_TEXT_LENGTH_OPTION`: Minimum text length for stage 1a
 - `LANGIDENT_BOOST_FACTOR_OPTION`: Boost factor for language scoring
+- `LANGIDENT_WIP_ENABLED`: Enable work-in-progress file management (set to `1` to enable)
+- `LANGIDENT_WIP_MAX_AGE`: Maximum age in hours for WIP files before considering them stale (default: `24`)
 
 #### OCR Quality Assessment
 
@@ -525,16 +560,16 @@ Different processing stages use different S3 buckets:
 - `S3_BUCKET_LINGPROC`: Linguistic processing outputs (e.g., `40-processed-data-sandbox`)
 - `S3_BUCKET_TOPICS`: Topic modeling results (e.g., `41-processed-data-staging`)
 
-
 ## FAQ
 
 ### How to debug build process if a target can not be built?
- - enable DEBUG mode: `export LOGGING_LEVEL=DEBUG`
- - use the remake debugger to show the instantiated build rules:
-   ```
-   remake -x --debugger
-   remake<0> info rules
-   ```
+
+- enable DEBUG mode: `export LOGGING_LEVEL=DEBUG`
+- use the remake debugger to show the instantiated build rules:
+  ```
+  remake -x --debugger
+  remake<0> info rules
+  ```
 
 ## About Impresso
 
