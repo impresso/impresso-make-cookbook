@@ -359,8 +359,9 @@ LANGIDENT_WIP_ENABLED ?= 1
 # USER-VARIABLE: LANGIDENT_WIP_MAX_AGE
 # Maximum age in hours for WIP files before considering them stale.
 # If a WIP file is older than this value, it will be removed and processing can proceed.
+# Can be fractional (e.g., 0.1 for 6 minutes, useful for testing).
 # Default: 3 hours
-LANGIDENT_WIP_MAX_AGE ?= 3
+LANGIDENT_WIP_MAX_AGE ?= 0.1
   $(call log.debug, LANGIDENT_WIP_MAX_AGE)
 
 # Missing variables for statistics generation that are referenced in the statistics rule

@@ -100,9 +100,12 @@ def main():
     )
     parser.add_argument(
         "--wip-max-age",
-        type=int,
+        type=float,
         default=24,
-        help="Maximum age in hours for WIP files (default: %(default)s).",
+        help=(
+            "Maximum age in hours for WIP files (default: %(default)s). "
+            "Can be fractional (e.g., 0.1 for 6 minutes)."
+        ),
     )
     parser.add_argument(
         "--force-overwrite",
