@@ -30,6 +30,7 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_STAMP_SUFFIX) \
+	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& \
@@ -61,6 +62,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 		--local-dir $(BUILD_DIR) \
 		--stamp-extension $(LOCAL_STAMP_SUFFIX) \
 		--file-extensions jsonl.bz2 stats.json \
+		--remove-dangling-stamps \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \
 	&& touch $@

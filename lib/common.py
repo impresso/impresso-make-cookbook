@@ -15,6 +15,8 @@ import traceback
 from typing import Optional, List, Generator, Tuple, Any, Dict
 
 import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from botocore.config import Config
 
 import smart_open
 
@@ -145,6 +147,9 @@ def upload_file_to_s3(
 ) -> bool:
     """Uploads a local file to an S3 bucket and verifies the upload.
 
+    Uses the same reliable upload pattern as s3_to_local_stamps.py with
+    s3_client.upload_file() for compatibility with OpenStack Swift S3 endpoints.
+
     Args:
         s3_client: The boto3 S3 client.
         local_file_path (str): The path to the local file to upload.
@@ -154,12 +159,23 @@ def upload_file_to_s3(
     Returns:
         bool: True if the file was actually uploaded, False if skipped or failed.
     """
+    log.debug(
+        f"upload_file_to_s3 called with local_file_path={local_file_path},"
+        f" s3_path={s3_path}, force_overwrite={force_overwrite}"
+    )
     if not s3_path.startswith("s3://"):
-        log.error("The s3_path must start with 's3://'.")
+        log.error(f"The s3_path must start with 's3://': {s3_path}")
         sys.exit(1)
     bucket, key = parse_s3_path(s3_path)
+    log.debug(f"Parsed S3 path: bucket={bucket}, key={key}")
+
     if not force_overwrite and s3_file_exists(s3_client, bucket, key):
         log.warning(f"The file s3://{bucket}/{key} already exists. Skipping upload.")
+        return False
+
+    # File diagnostics
+    if not os.path.exists(local_file_path):
+        log.error(f"The file {local_file_path} was not found.")
         return False
 
     try:
@@ -167,7 +183,7 @@ def upload_file_to_s3(
         local_md5 = calculate_md5(local_file_path)
         log.info(f"MD5 checksum of local file {local_file_path}: {local_md5}")
 
-        # Upload the file to S3
+        # Upload the file to S3 (same as upload_with_retries)
         log.info(f"Uploading {local_file_path} to s3://{bucket}/{key}")
         s3_client.upload_file(local_file_path, bucket, key)
         log.info(f"Successfully uploaded {local_file_path} to s3://{bucket}/{key}")
@@ -183,19 +199,32 @@ def upload_file_to_s3(
             log.error(
                 f"MD5 checksum mismatch: local file {local_md5} != s3 file {s3_md5}"
             )
-            raise ValueError("MD5 checksum mismatch after upload.")
+            return False
 
     except FileNotFoundError:
         log.error(f"The file {local_file_path} was not found.")
         return False
-    except s3_client.exceptions.NoCredentialsError:
+    except NoCredentialsError:
         log.error("Credentials not available.")
         return False
-    except s3_client.exceptions.PartialCredentialsError:
+    except PartialCredentialsError:
         log.error("Incomplete credentials provided.")
         return False
     except Exception as e:
-        log.error(f"An error occurred: {e}")
+        log.error(
+            f"An error occurred during upload of {local_file_path} to"
+            f" s3://{bucket}/{key}: {e}"
+        )
+        if hasattr(e, "response"):
+            log.error(f"Exception response: {getattr(e, 'response', None)}")
+        log.error(traceback.format_exc())
+        return False
+        log.error(
+            f"An error occurred during upload of {local_file_path} to"
+            f" s3://{bucket}/{key}: {e}"
+        )
+        if hasattr(e, "response"):
+            log.error(f"Exception response: {getattr(e, 'response', None)}")
         log.error(traceback.format_exc())
         return False
 

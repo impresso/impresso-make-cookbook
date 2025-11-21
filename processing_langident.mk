@@ -386,6 +386,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
+    --keep-timestamp-only \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
 	|| { rm -vf $@ ; exit 1 ; }
