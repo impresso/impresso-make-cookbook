@@ -664,7 +664,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     $(if $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),) \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp  --log-level $(LANGIDENT_LOGGING_LEVEL) \
+    --set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
     $@    $(call LocalToS3,$@,'') \
     $@.log.gz    $(call LocalToS3,$@,'').log.gz \
