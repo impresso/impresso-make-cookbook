@@ -210,10 +210,24 @@ def main():
                             )
                         except Exception as e:
                             log.debug("Could not read WIP file content: %s", e)
-                        sys.exit(0)
+                        # Exit 2 to signal WIP exists - Make should skip processing
+                        sys.exit(2)
+                except s3_client.exceptions.NoSuchKey:
+                    # No WIP file exists - this is normal, continue
+                    log.debug(
+                        "No WIP file found at %s, processing can proceed", wip_path
+                    )
                 except Exception as e:
-                    log.warning("Could not check WIP file: %s", e)
-            # If --create-wip is used during file existence check, create WIP and exit 1 to proceed
+                    # Only log warning for unexpected errors (not 404/NoSuchKey)
+                    if "404" not in str(e) and "NoSuchKey" not in str(e):
+                        log.warning("Error checking WIP file %s: %s", wip_path, e)
+                    else:
+                        log.debug(
+                            "No WIP file found at %s (404), processing can proceed",
+                            wip_path,
+                        )
+            # If --create-wip is used during file existence check, create WIP
+            # and exit 1 to proceed
             if args.create_wip and args.files:
                 hostname = socket.gethostname()
                 try:
@@ -257,6 +271,12 @@ def main():
                             )
                         except Exception as e:
                             log.error("Failed to create WIP file %s: %s", wip_path, e)
+                # When WIP is created successfully, exit 0 to allow make to continue
+                log.info(
+                    "S3 file does not exist: %s, WIP created, continuing",
+                    args.s3_file_exists,
+                )
+                sys.exit(0)
             log.info("S3 file does not exist: %s", args.s3_file_exists)
             sys.exit(1)
         except Exception as e:
