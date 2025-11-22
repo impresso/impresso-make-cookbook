@@ -1,9 +1,8 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 ###############################################################################
-# Processing Language Identification
+# Orchestrating Language Identification
 # Makefile for processing impresso language identification
 #
-# This file defines the processing rules for language identification tasks.
 #
 # === Work-In-Progress (WIP) File Management ===
 #
@@ -69,11 +68,12 @@ ifeq ($(USE_CANONICAL),1)
 # Synchronizes canonical data when using canonical format.
 sync-input :: sync-canonical
 
-# USER-VARIABLE: LANGIDENT_FORMAT_OPTION  
+# VARIABLE: LANGIDENT_FORMAT_OPTION  
 # Format option for language identification processing
 LANGIDENT_FORMAT_OPTION := --format=canonical
   $(call log.debug, Using canonical format)
 
+##### Use rebuilt format #####
 else
 
 # DOUBLE-COLON-TARGET: sync-input
@@ -96,7 +96,6 @@ sync-output :: sync-langident
 
 # DOUBLE-COLON-TARGET: langident-target
 # Processing target for language identification.
-#
 processing-target :: langident-target
 
 # TARGET: langident-target
@@ -143,10 +142,34 @@ processing-target :: langident-target
 # File-level dependencies (e.g., ensemble file depends on stage1 file) ensure
 # correct ordering within each stage, while phony target dependencies ensure
 # correct ordering between stages.
-#
+
+# TARGET: langident-target
+# Overall processing target for language identification.
 langident-target : impresso-lid-ensemble-target
 
 .PHONY: langident-target
+
+
+
+# TARGET: impresso-lid-statistics-target
+# Collect language identification statistics from all stage1 files.
+#
+# This target generates newspaper-level statistics (dominant language, language
+# distributions, confidence metrics) by aggregating data from all stage1 files
+# for the current newspaper.
+#
+# Dependencies:
+#   - impresso-lid-systems-target: Ensures all stage1 files are created first
+#
+# Uses recursive make to ensure stage1 output exists before building statistics.
+#
+# Output:
+#   - $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: Newspaper statistics file
+#
+impresso-lid-statistics-target : impresso-lid-systems-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-statistics-files-target
+
+.PHONY: impresso-lid-statistics-target
 
 
 # === USER-VARIABLES (Common to all stages) ====================================
@@ -426,11 +449,15 @@ $(call log.debug, LOCAL_LANGIDENT_STATISTICS_FILES)
 # Processes initial language identification for each content item.
 # Uses recursive make to recompute file lists after sync creates new stamp files.
 ifeq ($(USE_CANONICAL),1)
+
 impresso-lid-systems-target : $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-systems-files-target
+
 else
+
 impresso-lid-systems-target : $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-systems-files-target
+
 endif
 
 .PHONY: impresso-lid-systems-target
@@ -448,11 +475,12 @@ ifeq ($(USE_CANONICAL),1)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 (canonical version)
 #: Rule to process a single newspaper from canonical format
-$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
+$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
+		--s3-file-exists $(call LocalToS3,$@,'') \
 		--wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
@@ -481,7 +509,13 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
-	|| { rm -vf $@ ; exit 1 ; }
+	|| { rm -vf $@ ; \
+	     $(if $(LANGIDENT_WIP_ENABLED), \
+	     python3 -m impresso_cookbook.local_to_s3 --remove-wip \
+	         --log-level $(LANGIDENT_LOGGING_LEVEL) \
+	         $@ $(call LocalToS3,$@,'') \
+	         $@.log.gz $(call LocalToS3,$@,'').log.gz || true ; , ) \
+	     exit 1 ; }
 
 else
 
@@ -492,6 +526,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 	mkdir -p $(@D) && \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
+		--s3-file-exists $(call LocalToS3,$@,'') \
 		--wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
@@ -520,29 +555,16 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
-	|| { rm -vf $@ ; exit 1 ; }
+	|| { rm -vf $@ ; \
+	     $(if $(LANGIDENT_WIP_ENABLED), \
+	     python3 -m impresso_cookbook.local_to_s3 --remove-wip \
+	         --log-level $(LANGIDENT_LOGGING_LEVEL) \
+	         $@ $(call LocalToS3,$@,'') \
+	         $@.log.gz $(call LocalToS3,$@,'').log.gz || true ; , ) \
+	     exit 1 ; }
 
 endif
 
-# TARGET: impresso-lid-statistics-target
-# Collect language identification statistics from all stage1 files.
-#
-# This target generates newspaper-level statistics (dominant language, language
-# distributions, confidence metrics) by aggregating data from all stage1 files
-# for the current newspaper.
-#
-# Dependencies:
-#   - impresso-lid-systems-target: Ensures all stage1 files are created first
-#
-# Uses recursive make to ensure stage1 output exists before building statistics.
-#
-# Output:
-#   - $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: Newspaper statistics file
-#
-impresso-lid-statistics-target : impresso-lid-systems-target
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-statistics-files-target
-
-.PHONY: impresso-lid-statistics-target
 
 # TARGET: impresso-lid-statistics-files-target
 # Internal target that builds the actual statistics file
@@ -553,16 +575,9 @@ impresso-lid-statistics-files-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STATISTICS)/%.stats.json
 # Rule to generate statistics for a single newspaper from systems results
+# No WIP as this a efficient aggregation step that should be quick
 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
-	$(if $(LANGIDENT_WIP_ENABLED), \
-	python3 -m impresso_cookbook.local_to_s3 \
-    --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
-    --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    $@ $(call LocalToS3,$@,'') \
-    $@.log.gz $(call LocalToS3,$@,'').log.gz \
-  || { test $$? -eq 2 && exit 0; exit 1; } \
-  && , ) \
 	python3 lib/newspaper_statistics.py \
     --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
     --boosted-lids orig_lg impresso_ft \
@@ -578,7 +593,6 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
   && \
   python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    $(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
     $@ $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
   || { rm -vf $@ ; exit 1 ; }
@@ -593,7 +607,7 @@ endef
 # FUNCTION: LocalCanonicalToLangIdentFile
 # Converts a canonical stamp file name to a local langident file name
 define LocalCanonicalToLangIdentFile
-$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
 endef
 
 # VARIABLE: LOCAL_LANGIDENT_FILES
@@ -640,6 +654,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
   && \
   $(if $(LANGIDENT_WIP_ENABLED), \
   python3 -m impresso_cookbook.local_to_s3 \
+    --s3-file-exists $(call LocalToS3,$@,'') \
     --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@ $(call LocalToS3,$@,'') \
@@ -659,7 +674,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     --alphabetical-ratio-threshold  $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
     --dominant-language-threshold $(LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION) \
     --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
-    --infile $< \
+    --infile $(call LocalToS3,$<,'') \
     --outfile $@ \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     --log-file $@.log.gz \
@@ -673,7 +688,14 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     $@    $(call LocalToS3,$@,'') \
     $@.log.gz    $(call LocalToS3,$@,'').log.gz \
     $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
-    || { rm -vf $@ ; exit 1 ; }
+  || { rm -vf $@ $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) ; \
+       $(if $(LANGIDENT_WIP_ENABLED), \
+       python3 -m impresso_cookbook.local_to_s3 --remove-wip \
+           --log-level $(LANGIDENT_LOGGING_LEVEL) \
+           $@ $(call LocalToS3,$@,'') \
+           $@.log.gz $(call LocalToS3,$@,'').log.gz \
+           $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') || true ; , ) \
+       exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-ensemble-target
 # Finalize language decisions and diagnostics

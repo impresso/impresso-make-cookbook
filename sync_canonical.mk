@@ -83,6 +83,7 @@ $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-extension $(LOCAL_CANONICAL_STAMP_SUFFIX) \
 	   --stamp-api v2 \
+	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& \

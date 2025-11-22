@@ -161,6 +161,15 @@ def main():
         action="store_true",
         help="Remove WIP files after successful upload.",
     )
+    parser.add_argument(
+        "--forbid-extensions",
+        nargs="+",
+        default=[".stamp", ".last_synced"],
+        help=(
+            "File extensions that should never be uploaded to S3 "
+            "(default: %(default)s). Prevents accidental stamp file uploads."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -280,13 +289,16 @@ def main():
                     args.s3_file_exists,
                 )
                 sys.exit(0)
+            # S3 file doesn't exist and no WIP was created
+            # Exit to let processing proceed
             log.info("S3 file does not exist: %s", args.s3_file_exists)
             sys.exit(1)
         except Exception as e:
             log.error("Error checking S3 file existence: %s", e)
             sys.exit(1)
 
-    # Validate that we have pairs of arguments (only if not doing existence check)
+    # When --s3-file-exists is not provided, we proceed to upload files
+    # Validate that we have pairs of arguments
     if not args.files:
         log.error("No file pairs provided for upload")
         sys.exit(1)
@@ -349,13 +361,32 @@ def main():
         ]
         log.info("Uploading %d file pair(s) to S3", len(file_pairs))
         for local_path, s3_path in file_pairs:
+            # Check for forbidden file extensions (stamp files, sync markers)
+            if any(local_path.endswith(ext) for ext in args.forbid_extensions):
+                log.error(
+                    "FATAL: Attempted to upload forbidden file type: %s "
+                    "(matches forbidden extensions: %s). "
+                    "Stamp files and sync markers should never be uploaded to S3.",
+                    local_path,
+                    args.forbid_extensions,
+                )
+                sys.exit(1)
+
             # Check file existence and size before upload
             if not os.path.exists(local_path):
-                log.error(f"The file {local_path} was not found. Skipping upload.")
-                continue
+                log.error(
+                    "FATAL: File not found: %s. Cannot proceed with upload.",
+                    local_path,
+                )
+                sys.exit(1)
             if os.path.getsize(local_path) == 0:
-                log.error(f"The file {local_path} is empty. Skipping upload.")
-                continue
+                log.error(
+                    "FATAL: File is empty (0 bytes): %s. "
+                    "Empty files indicate a processing failure and should not be "
+                    "uploaded.",
+                    local_path,
+                )
+                sys.exit(1)
             log.info("Uploading file: %s to %s", local_path, s3_path)
 
             # Check if file exists if not force_overwrite

@@ -133,6 +133,40 @@ Processed files are validated locally and uploaded to S3 with integrity checks (
 
 By leveraging S3 and stamp files, machines with limited storage (e.g., 100GB) can process large datasets efficiently without downloading entire files.
 
+#### Local vs. S3 File Separation
+
+The build system maintains a critical separation between **local stamp files** (used by Make for dependency tracking) and **actual data files** (stored on S3):
+
+- **Local Stamp Files**: Zero-byte timestamp files created on the local filesystem that mirror the S3 object structure. These files serve ONLY as Make dependency markers and never contain actual data.
+- **S3 Data Files**: All actual input and output data is ultimately stored on S3. Python processing scripts read input from S3 and write output to local files, which are then uploaded to S3.
+- **Path Conversion**: When a Make recipe needs to pass an input file path to a Python script, it uses `$(call LocalToS3,...)` to convert the local prerequisite path (which may be a stamp file) to an S3 URL for reading.
+- **Processing Flow**:
+  1. Input is read from S3 (using `LocalToS3` conversion)
+  2. Output is written to local filesystem (processing can take hours; writing directly to S3 during long-running processes is unreliable)
+  3. Local output is uploaded to S3 after processing completes
+  4. Local output file is truncated to zero bytes with `--keep-timestamp-only`, preserving only its timestamp for Make's dependency tracking
+
+**Why This Matters:**
+
+This design ensures that:
+
+1. Make can track dependencies efficiently using local filesystem timestamps
+2. Machines don't need to store full copies of large datasets locally (only timestamp-only files)
+3. Input is always read from authoritative S3 data, preventing stale reads from local stamp files
+4. Output is validated locally before upload, then replaced with timestamp markers
+5. Distributed processing works correctly even when local files are just timestamp markers
+
+**Example Pattern:**
+
+```make
+# Correct: Convert local input prerequisite to S3 URL, write output locally
+$(OUTPUT_FILE): $(INPUT_FILE)
+    python3 -m some_processor --infile $(call LocalToS3,$<,'') --outfile $@
+    python3 -m impresso_cookbook.local_to_s3 --upload $(call LocalToS3,$@,'') --keep-timestamp-only
+```
+
+**Never** pass input prerequisite `$<` or `$^` directly to Python scripts for reading data - these may be zero-byte stamp files. Always use `$(call LocalToS3,...)` to read from S3. Output files `$@` can be written directly to local paths, then uploaded.
+
 #### Parallelization
 
 - **Local Parallelization**: Each machine uses Make's parallel build feature to maximize CPU utilization.
