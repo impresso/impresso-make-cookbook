@@ -66,7 +66,7 @@ EMPTY :=
 
 # Keep make output concise for longish recipes
 ifneq ($(findstring DEBUG,$(LOGGING_LEVEL)),)
-  MAKE_SILENCE_RECIPE ?= "$(EMPTY)""
+  MAKE_SILENCE_RECIPE ?= $(EMPTY)
 else
   MAKE_SILENCE_RECIPE ?= @
 endif
