@@ -173,6 +173,10 @@ def main():
 
     args = parser.parse_args()
 
+    # If --create-wip is set, automatically enable --wip
+    if args.create_wip:
+        args.wip = True
+
     # Set up logging using common.py
     setup_logging(args.log_level, args.log_file, logger=log)
 

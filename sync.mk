@@ -102,7 +102,8 @@ help::
 #
 # This variable can be overridden to provide a specific suffix
 # for local stamp files to differentiate sync operations.
-LOCAL_STAMP_SUFFIX ?= ''
+# Default is empty (no suffix). Set to .stamp to use .stamp suffix.
+LOCAL_STAMP_SUFFIX ?=
   $(call log.debug, LOCAL_STAMP_SUFFIX)
 
 

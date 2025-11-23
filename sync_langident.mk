@@ -29,7 +29,7 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_STAMP_SUFFIX) \
+	   --stamp-extension '$(LOCAL_STAMP_SUFFIX)' \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
@@ -51,6 +51,10 @@ LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT_STAGE1).last_sy
 #
 # The script `s3_to_local_stamps.py` is used to transfer data
 # from the specified S3 path to the local directory.
+#
+# Uses v1 API to create file-level stamps for both .jsonl.bz2 and .json files.
+# This allows stats.json stamps to coexist with newspaper file stamps in the
+# same directory structure.
 $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	# Syncing the processed data from $(S3_PATH_LANGIDENT_STAGE1)
 	#
@@ -60,8 +64,9 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 		$(S3_PATH_LANGIDENT_STAGE1) \
 		--local-dir $(BUILD_DIR) \
-		--stamp-extension $(LOCAL_STAMP_SUFFIX) \
-		--file-extensions jsonl.bz2 stats.json \
+		--stamp-extension '$(LOCAL_STAMP_SUFFIX)' \
+		--file-extensions jsonl.bz2 json \
+		--stamp-api v1 \
 		--remove-dangling-stamps \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \

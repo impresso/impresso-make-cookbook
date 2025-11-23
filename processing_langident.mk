@@ -19,7 +19,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 # Makefile Pattern for WIP Handling:
 #   python3 -m impresso_cookbook.local_to_s3 \
 #       --s3-file-exists $(call LocalToS3,$@,'') \
-#       --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
+#       --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 #       --log-level $(LANGIDENT_LOGGING_LEVEL) \
 #       $@ $(call LocalToS3,$@,'') \
 #   || { test $$? -eq 2 && exit 0; exit 1; } \
@@ -27,6 +27,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 #
 # The pattern above:
 #   - Checks if output file already exists on S3 (skip if present)
+#   - --create-wip automatically enables WIP checking (no need for separate --wip flag)
 #   - Checks if a WIP file exists (exit 2 if fresh WIP found)
 #   - Creates a new WIP file if none exists or if stale
 #   - The || { test $$? -eq 2 && exit 0; exit 1; } converts exit code 2 to 0
@@ -431,9 +432,10 @@ endif
 
 
 # FUNCTION: LocalLangIdentStage1ToStage1bFile
-# Converts a local langident stage1 file name to a local langident stage1b stats file name
+# Converts a local langident stage1 file name to a local langident stage1b stats file name with stamp suffix
+# Takes any stage1 .jsonl.bz2 file and maps it to the stats.json file in the same directory
 define LocalLangIdentStage1ToStage1bFile
-$(1:$(LOCAL_PATH_LANGIDENT_STAGE1)/$(NEWSPAPER)-%.jsonl.bz2=$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json)
+$(dir $(1))stats.json$(LOCAL_STAMP_SUFFIX)
 endef
 
 # VARIABLE: LOCAL_LANGIDENT_STATISTICS_FILES
@@ -481,7 +483,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOC
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
 		--s3-file-exists $(call LocalToS3,$@,'') \
-		--wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
+		--create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
@@ -527,7 +529,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
 		--s3-file-exists $(call LocalToS3,$@,'') \
-		--wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
+		--create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@ $(call LocalToS3,$@,'') \
 		$@.log.gz $(call LocalToS3,$@,'').log.gz \
@@ -575,27 +577,39 @@ impresso-lid-statistics-files-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STATISTICS)/%.stats.json
 # Rule to generate statistics for a single newspaper from systems results
-# No WIP as this a efficient aggregation step that should be quick
-$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
+# If stats.json stamp already exists (from sync), this rule won't run
+# Otherwise generates new statistics from systems files
+# Uses stamp file for stats.json to track S3 synchronization state
+$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json$(LOCAL_STAMP_SUFFIX): $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(dir $@) && \
 	python3 lib/newspaper_statistics.py \
-    --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
-    --boosted-lids orig_lg impresso_ft \
-    --minimal-text-length $(LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION) \
-    --boost-factor $(LANGIDENT_STATISTICS_BOOST_FACTOR_OPTION) \
-    --minimal-vote-score $(LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION) \
-    --minimal-lid-probability $(LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION) \
-    --git-describe $(GIT_VERSION) \
-    --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    --log-file $@.log.gz \
-    --outfile $@ \
-    $(call LocalToS3,$(dir $<),'') \
-  && \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    $@ $(call LocalToS3,$@,'') \
-    $@.log.gz $(call LocalToS3,$@,'').log.gz \
-  || { rm -vf $@ ; exit 1 ; }
+		--newspaper $(notdir $(NEWSPAPER)) \
+		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
+		--boosted-lids orig_lg impresso_ft \
+		--minimal-text-length $(LANGIDENT_STATISTICS_MINIMAL_TEXT_LENGTH_OPTION) \
+		--boost-factor $(LANGIDENT_STATISTICS_BOOST_FACTOR_OPTION) \
+		--minimal-vote-score $(LANGIDENT_STATISTICS_MINIMAL_VOTE_SCORE_OPTION) \
+		--minimal-lid-probability $(LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION) \
+		--git-describe $(GIT_VERSION) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--log-file $(dir $@)stats.json.log.gz \
+		--outfile $(dir $@)stats.json \
+		$(call LocalToS3,$(dir $<),'') \
+	&& \
+	python3 -m impresso_cookbook.local_to_s3 \
+		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--keep-timestamp-only \
+		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
+		$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json,'') \
+		$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz,'') \
+	|| { rm -vf $(dir $@)stats.json $@ ; \
+		$(if $(LANGIDENT_WIP_ENABLED), \
+		python3 -m impresso_cookbook.local_to_s3 --remove-wip \
+			--log-level $(LANGIDENT_LOGGING_LEVEL) \
+			$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json,'') \
+			$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz,'') || true ; , ) \
+		exit 1 ; }
 
 
 # FUNCTION: LocalRebuiltToLangIdentFile
@@ -648,14 +662,14 @@ impresso-lid-ensemble-target :: impresso-lid-statistics-target $(LOCAL_LANGIDENT
 # rule for building all ensemble files
 
 
-$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json$(LOCAL_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
   $(if $(LANGIDENT_WIP_ENABLED), \
   python3 -m impresso_cookbook.local_to_s3 \
     --s3-file-exists $(call LocalToS3,$@,'') \
-    --wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) --create-wip \
+    --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     $@ $(call LocalToS3,$@,'') \
     $@.log.gz $(call LocalToS3,$@,'').log.gz \
@@ -669,7 +683,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     --minimal-voting-score $(LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION) \
     --minimal-text-length $(LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION) \
     --threshold_confidence_orig_lg $(LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION) \
-    --newspaper-stats-filename $(call LocalToS3,$(word 2,$^),'') \
+    --newspaper-stats-filename $(call LocalToS3,$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json,'') \
     --git-describe $(GIT_VERSION) \
     --alphabetical-ratio-threshold  $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
     --dominant-language-threshold $(LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION) \
