@@ -16,9 +16,16 @@ help::
 
 sync:: newspaper-list-target
 
+# USER-VARIABLE: PROVIDER
+# Data provider organization (e.g., BL, SWA, NZZ)
+# Required for canonical data which is organized as PROVIDER/NEWSPAPER/
+PROVIDER ?= BL
+  $(call log.info, PROVIDER)
+
+
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
-NEWSPAPER ?= actionfem
+NEWSPAPER ?= WTCH
   $(call log.info, NEWSPAPER)
 
 
@@ -37,10 +44,9 @@ NEWSPAPER_YEAR_SORTING ?= shuf
 
 
 # USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
-# Enables provider-aware newspaper organization
-# - 1: newspapers are organized as PROVIDER/newspaper-year.jsonl.bz2
-# - 0: newspapers are organized directly as newspaper/newspaper-year.jsonl.bz2
-NEWSPAPER_HAS_PROVIDER ?= 0
+# Flag to indicate if newspapers are organized with PROVIDER level in S3
+# Set to 1 for PROVIDER/NEWSPAPER structure, 0 for NEWSPAPER only
+NEWSPAPER_HAS_PROVIDER ?= 1
   $(call log.info, NEWSPAPER_HAS_PROVIDER)
 
 # USER-VARIABLE: NEWSPAPER_PREFIX
@@ -56,7 +62,8 @@ NEWSPAPER_FNMATCH ?= $(EMPTY)
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET
 # S3 bucket prefix containing newspapers for processing
-S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(S3_BUCKET_REBUILT)
+# For consolidated canonical processing, use the canonical bucket
+S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(S3_BUCKET_CANONICAL)
   $(call log.debug, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
 
 

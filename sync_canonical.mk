@@ -9,9 +9,15 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_canonical.mk)
 # storage to local directories using stamp files to track synchronization
 # status. Subsumes all sync-input targets from the necessary inputs.
 #
+# CONFIGURATION FLAGS:
+# ====================
+# USE_CANONICAL: Set to 1 to use canonical format (default: 1)
+# NEWSPAPER_HAS_PROVIDER: Set to 1 if newspapers organized with PROVIDER level (default: 1)
+# NEWSPAPER_FNMATCH: Pattern to filter newspapers (e.g., BL/*, SWA/*, */WTCH)
+#
 # S3 STRUCTURE AND LOCAL STAMP MAPPING:
 # =====================================
-# S3 data is organized hierarchically by issue, with pages and issues metadata:
+# S3 data is organized hierarchically by provider, then newspaper, with pages and issues:
 # In this example, the newspaper "AATA" from the "BL" data provider library is used:
 #
 #   s3://112-canonical-final/BL/AATA/
@@ -40,12 +46,32 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_canonical.mk)
 #
 ###############################################################################
 
+# USER-VARIABLE: USE_CANONICAL
+# Flag to indicate using canonical format instead of rebuilt format
+# Set to 1 to enable canonical format processing
+USE_CANONICAL ?= 1
+  $(call log.debug, USE_CANONICAL)
+
+# USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
+# Flag to indicate if newspapers are organized with PROVIDER level in S3
+# Set to 1 if structure is PROVIDER/NEWSPAPER, 0 if just NEWSPAPER
+NEWSPAPER_HAS_PROVIDER ?= 1
+  $(call log.debug, NEWSPAPER_HAS_PROVIDER)
+
+# USER-VARIABLE: NEWSPAPER_FNMATCH
+# Pattern to filter newspapers for processing
+# Examples: BL/*, SWA/*, */WTCH, BL/AATA
+# Leave empty to process all newspapers
+NEWSPAPER_FNMATCH ?=
+  $(call log.debug, NEWSPAPER_FNMATCH)
+
 # USER-VARIABLE: LOCAL_CANONICAL_STAMP_SUFFIX
 # The suffix for the local stamp files (added to the input paths from S3)
 #
 # This suffix is appended to local stamp files to track synchronization
 # status and avoid unnecessary re-downloads of unchanged data.
-LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
+# Legacy variable - kept for compatibility but set to empty string
+LOCAL_CANONICAL_STAMP_SUFFIX ?= 
   $(call log.debug, LOCAL_CANONICAL_STAMP_SUFFIX)
 
 
@@ -79,9 +105,9 @@ $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
 	mkdir -p $(@D) \
 	&& \
 	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CANONICAL_PAGES)/$(notdir $(NEWSPAPER)) \
+	   $(S3_PATH_CANONICAL_PAGES) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_CANONICAL_STAMP_SUFFIX) \
+	   --stamp-extension '$(LOCAL_CANONICAL_STAMP_SUFFIX)' \
 	   --stamp-api v2 \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
