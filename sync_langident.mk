@@ -66,11 +66,12 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 		--local-dir $(BUILD_DIR) \
 		--stamp-extension '$(LOCAL_STAMP_SUFFIX)' \
 		--file-extensions jsonl.bz2 json \
-		--stamp-api v1 \
+		--stamp-api v2 \
 		--remove-dangling-stamps \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \
 	&& touch $@
+
 
 
 # TARGET: sync-langident
@@ -78,7 +79,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 #
 # This target ensures that the latest processed language identification
 # data from S3 is made available in the local environment.
-sync-langident: $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+sync-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 .PHONY: sync-langident
 
 

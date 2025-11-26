@@ -143,8 +143,9 @@ S3_PATH_consolidatedcanonical := $(S3_PATH_consolidatedcanonical_ISSUES)
 # Local path for storing consolidated canonical issues
 #
 # Defines the local storage path for consolidatedcanonical processing data within BUILD_DIR.
-# Mirrors the S3 structure: BUILD_DIR/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/issues/
-LOCAL_PATH_consolidatedcanonical := $(BUILD_DIR)/$(PATH_consolidatedcanonical)/issues
+# Mirrors the S3 structure: BUILD_DIR/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/
+# Note: Does not include /issues suffix - that's part of the file pattern
+LOCAL_PATH_consolidatedcanonical := $(BUILD_DIR)/$(PATH_consolidatedcanonical)
   $(call log.debug, LOCAL_PATH_consolidatedcanonical)
 
 

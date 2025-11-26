@@ -4,10 +4,13 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_consolidatedcanonical.mk
 # SYNC consolidatedcanonical processing TARGETS
 # Targets for synchronizing data for consolidatedcanonical processing
 #
-# This module synchronizes three types of data:
+# This module synchronizes two types of data:
 # 1. Canonical input data (pages) from s3://112-canonical-final/CANONICAL_PATH_SEGMENT/pages/
+#    (synced via sync-canonical target from sync_canonical.mk)
 # 2. Langident/OCRQA enrichment data from s3://115-canonical-processed-final/langident/RUN_ID/CANONICAL_PATH_SEGMENT/
+#    (synced via sync-langident target from sync_langident.mk)
 # 3. Consolidated output data from s3://118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/issues/
+#    (synced via sync-consolidatedcanonical target below)
 #
 # PATH STRUCTURE:
 # ==============
@@ -23,12 +26,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_consolidatedcanonical.mk
 ###############################################################################
 
 
-# VARIABLE: LOCAL_LANGIDENT_ENRICHMENT_SYNC_STAMP_FILE
-# Stamp file indicating last successful synchronization of langident enrichment data
-LOCAL_LANGIDENT_ENRICHMENT_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT_ENRICHMENT).last_synced
-  $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_SYNC_STAMP_FILE)
-
-
 # VARIABLE: LOCAL_consolidatedcanonical_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed consolidatedcanonical processing data
 LOCAL_consolidatedcanonical_SYNC_STAMP_FILE := $(LOCAL_PATH_consolidatedcanonical).last_synced
@@ -36,34 +33,14 @@ LOCAL_consolidatedcanonical_SYNC_STAMP_FILE := $(LOCAL_PATH_consolidatedcanonica
 
 # USER-VARIABLE: LOCAL_consolidatedcanonical_STAMP_SUFFIX
 # Suffix for local stamp files (used to track S3 synchronization status)
-LOCAL_consolidatedcanonical_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
+# Uses .stamp extension to avoid conflicts with actual directories
+LOCAL_consolidatedcanonical_STAMP_SUFFIX ?= .stamp
   $(call log.debug, LOCAL_consolidatedcanonical_STAMP_SUFFIX)
-
-
-# USER-VARIABLE: LOCAL_LANGIDENT_ENRICHMENT_STAMP_SUFFIX
-# Suffix for langident enrichment stamp files
-LOCAL_LANGIDENT_ENRICHMENT_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
-  $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_STAMP_SUFFIX)
-
-
-# STAMPED-FILE-RULE: $(LOCAL_PATH_LANGIDENT_ENRICHMENT).last_synced
-#: Synchronizes langident enrichment data from S3 to the local directory
-$(LOCAL_LANGIDENT_ENRICHMENT_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_LANGIDENT_ENRICHMENT) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension '$(LOCAL_LANGIDENT_ENRICHMENT_STAMP_SUFFIX)' \
-	   --stamp-api v2 \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
 
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_consolidatedcanonical).last_synced
 #: Synchronizes consolidated output data from S3 to the local directory (for resume scenarios)
+#: Creates stamp files with .stamp extension for directories to avoid conflicts with mkdir
 $(LOCAL_consolidatedcanonical_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
 	python -m impresso_cookbook.s3_to_local_stamps  \
@@ -80,7 +57,7 @@ $(LOCAL_consolidatedcanonical_SYNC_STAMP_FILE):
 
 # TARGET: sync-consolidatedcanonical-input
 #: Synchronizes input data (canonical + langident enrichments) required for consolidation
-sync-consolidatedcanonical-input: sync-canonical $(LOCAL_LANGIDENT_ENRICHMENT_SYNC_STAMP_FILE)
+sync-consolidatedcanonical-input: sync-canonical sync-langident
 
 .PHONY: sync-consolidatedcanonical-input
 
@@ -97,9 +74,9 @@ clean-sync:: clean-sync-consolidatedcanonical
 
 # TARGET: clean-sync-consolidatedcanonical
 #: Removes local synchronization stamp files for consolidatedcanonical processing
+#: Note: Enrichment data cleanup is handled by sync_langident.mk
 clean-sync-consolidatedcanonical:
-	rm -vrf $(LOCAL_consolidatedcanonical_SYNC_STAMP_FILE) $(LOCAL_PATH_consolidatedcanonical) \
-	        $(LOCAL_LANGIDENT_ENRICHMENT_SYNC_STAMP_FILE) $(LOCAL_PATH_LANGIDENT_ENRICHMENT) || true
+	rm -vrf $(LOCAL_consolidatedcanonical_SYNC_STAMP_FILE) $(LOCAL_PATH_consolidatedcanonical) || true
 
 .PHONY: clean-sync-consolidatedcanonical
 

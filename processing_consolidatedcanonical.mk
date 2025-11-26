@@ -50,7 +50,7 @@ LOCAL_CANONICAL_ISSUES_STAMP_FILES := \
 # Stores all locally available langident enrichment stamp files for dependency tracking
 # Looks for .jsonl.bz2 files (actual enrichment stamp files from langident sync)
 LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_LANGIDENT_ENRICHMENT)/*.jsonl.bz2 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_LANGIDENT)/*.jsonl.bz2 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES)
 
@@ -61,7 +61,7 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
 # Output: build.d/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
 # Note: Handles .stamp suffix in input files (legacy from sync) but removes it in output
 define LocalCanonicalToConsolidatedFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_consolidatedcanonical)/%-issues.jsonl.bz2,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2,$(1))
 endef
 
 
@@ -71,7 +71,7 @@ endef
 # Output: build.d/115-canonical-processed-final/langident/RUN_ID/CANONICAL_PATH_SEGMENT/NEWSPAPER-YEAR.jsonl.bz2
 # Note: Input has .stamp, output is .jsonl.bz2 (the actual enrichment file)
 define LocalCanonicalToEnrichmentFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_LANGIDENT_ENRICHMENT)/%.jsonl.bz2,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(1))
 endef
 
 
@@ -89,7 +89,7 @@ LOCAL_consolidatedcanonical_FILES := \
 # Uses recursive make to ensure input data is synced before building file list.
 # Depends on:
 #   - sync-canonical: Syncs canonical pages data
-#   - sync-langident: Syncs langident enrichment data
+#   - sync-langident: Syncs langident enrichment data for consolidation
 consolidatedcanonical-target: sync-canonical sync-langident
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) consolidatedcanonical-files-target
 
@@ -102,7 +102,7 @@ consolidatedcanonical-files-target: $(LOCAL_consolidatedcanonical_FILES)
 
 .PHONY: consolidatedcanonical-files-target
 
-# FILE-RULE: $(LOCAL_PATH_consolidatedcanonical)/%-issues.jsonl.bz2
+# FILE-RULE: $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2
 #: Rule to process a single newspaper year
 #
 # Pattern matches consolidated canonical output files for the current newspaper.
@@ -117,9 +117,9 @@ consolidatedcanonical-files-target: $(LOCAL_consolidatedcanonical_FILES)
 # - Merges data with strict matching
 # - Writes consolidated canonical output
 # - Uploads to S3
-$(LOCAL_PATH_consolidatedcanonical)/%-issues.jsonl.bz2: \
+$(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp \
-    $(LOCAL_PATH_LANGIDENT_ENRICHMENT)/%.jsonl.bz2
+    $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
     python3 lib/cli_consolidatedcanonical.py \
@@ -133,7 +133,7 @@ $(LOCAL_PATH_consolidatedcanonical)/%-issues.jsonl.bz2: \
     python3 -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@,'') \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
-    || { rm -vf $@ ; exit 1 ; }
+    || { rm -vf $@ ; exit 1; }
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_consolidatedcanonical.mk)

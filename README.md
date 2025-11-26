@@ -117,6 +117,16 @@ All input and output data reside on S3, allowing multiple machines to access sha
 
 Local **stamp files** mirror S3 metadata, enabling machines to independently track and manage processing tasks without downloading full datasets. This prevents interference between machines, as builds are verified against S3 before processing starts, ensuring no overwrites or duplicate results.
 
+**Stamp File Naming Convention:**
+
+- **Files on S3**: Stamp files have the **same name** as the S3 object they represent
+  - Example: `build.d/115-canonical-processed-final/langident/RUN_ID/BL/WTCH/WTCH-1828.jsonl.bz2` (stamp for S3 file)
+- **Directories on S3**: Stamp files must have a `.stamp` extension to avoid conflicts with actual directories
+  - Example: `build.d/112-canonical-final/BL/WTCH/pages.stamp` (stamp representing the `pages/` directory on S3)
+  - Without `.stamp` extension, `mkdir` would fail when trying to create the directory
+
+This convention prevents file/directory conflicts: when Make needs to create a directory (e.g., `issues/`), there's no conflict because the stamp file is named `issues.stamp`, not `issues`.
+
 #### Makefile and Build Dependencies
 
 The Makefile orchestrates the pipeline by defining independent targets and dependencies based on stamp files. Each machine maintains its local state, ensuring stateless and conflict-free builds.
