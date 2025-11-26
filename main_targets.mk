@@ -4,6 +4,15 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 # Core targets for newspaper processing pipeline
 ###############################################################################
 
+# If set to 1, GNU parallel stops on the first error
+HALT_ON_ERROR ?= 0
+
+# Internal option passed to GNU parallel
+ifeq ($(HALT_ON_ERROR),1)
+PARALLEL_HALT := --halt now,fail=1
+else
+PARALLEL_HALT :=
+endif
 
 
 # TARGET: newspaper
@@ -86,6 +95,7 @@ collection: check-parallel newspaper-list-target
 	parallel  --tag -v --progress --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay $(PARALLEL_DELAY) --memfree 1G --load $(MAX_LOAD) \
+	   $(PARALLEL_HALT) \
 		"NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all"
 
 help::
