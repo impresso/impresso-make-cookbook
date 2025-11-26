@@ -79,14 +79,24 @@ newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
 # This rule retrieves the list of available newspapers from an S3 bucket,
 # shuffles them to distribute processing evenly, and writes them to a file.
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
-	python cookbook/lib/list_newspapers.py \
-		--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
-		--prefix "$(NEWSPAPER_PREFIX)" \
-		--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
-		$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
-		$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
-		> $@
+	@if [ ! -e $@ ]; then \
+		python cookbook/lib/list_newspapers.py \
+			--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
+			--prefix "$(NEWSPAPER_PREFIX)" \
+			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
+			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
+			$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
+			> $@; \
+	else \
+		echo "$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call `make clean-newspaper-list-target to remove it` "; \
+	fi
 
+# TARGET: clean-newspaper-list-target
+#: Cleans the generated newspaper list file
+clean-newspaper-list-target:
+	rm -fv $(NEWSPAPERS_TO_PROCESS_FILE)
+
+.PHONY: clean-newspaper-list-target
 
 # VARIABLE: ALL_NEWSPAPERS
 # List all available newspapers for parallel processing using newspaper list definitions
