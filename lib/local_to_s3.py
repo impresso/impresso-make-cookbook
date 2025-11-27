@@ -364,7 +364,14 @@ def main():
             (args.files[i], args.files[i + 1]) for i in range(0, len(args.files), 2)
         ]
         log.info("Uploading %d file pair(s) to S3", len(file_pairs))
-        for local_path, s3_path in file_pairs:
+
+        # Track which pairs had their first file uploaded
+        first_file_uploaded = {}
+
+        for pair_index, (local_path, s3_path) in enumerate(file_pairs):
+            is_second_in_pair = pair_index % 2 == 1
+            first_pair_index = pair_index - 1 if is_second_in_pair else pair_index
+
             # Check for forbidden file extensions (stamp files, sync markers)
             if any(local_path.endswith(ext) for ext in args.forbid_extensions):
                 log.error(
@@ -393,8 +400,19 @@ def main():
                 sys.exit(1)
             log.info("Uploading file: %s to %s", local_path, s3_path)
 
+            # Determine if we should force overwrite for this file
+            # For second file in pair: force if first was uploaded
+            # For first file in pair: respect global setting
+            should_force_overwrite = args.force_overwrite
+            if is_second_in_pair and first_file_uploaded.get(first_pair_index, False):
+                should_force_overwrite = True
+                log.info(
+                    "Second file in pair (log file): forcing upload since first file "
+                    "was uploaded"
+                )
+
             # Check if file exists if not force_overwrite
-            if not args.force_overwrite:
+            if not should_force_overwrite:
                 bucket, key = parse_s3_path(s3_path)
                 if s3_file_exists(s3_client, bucket, key):
                     log.warning(
@@ -402,6 +420,9 @@ def main():
                         " Skipping.",
                         s3_path,
                     )
+                    # Track that first file was NOT uploaded (skipped)
+                    if not is_second_in_pair:
+                        first_file_uploaded[pair_index] = False
                     continue
 
             # Use upload_with_retries for robust uploads (same as s3_to_local_stamps.py)
@@ -415,7 +436,15 @@ def main():
                     f"Upload failed for {local_path} to {s3_path}. Skipping further"
                     " actions for this file."
                 )
+                # Track that first file was NOT uploaded (failed)
+                if not is_second_in_pair:
+                    first_file_uploaded[pair_index] = False
                 continue
+
+            # Track successful upload of first file in pair
+            if not is_second_in_pair:
+                first_file_uploaded[pair_index] = True
+
             if args.keep_timestamp_only and local_path.endswith(".jsonl.bz2"):
                 log.info(
                     "Truncating %s and keeping only timestamp after successful upload",

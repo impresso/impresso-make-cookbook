@@ -91,7 +91,7 @@ check-parallel:
 # Dependencies: newspaper-list-target
 collection: check-parallel newspaper-list-target
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
-	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v --progress --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay $(PARALLEL_DELAY) --memfree 1G --load $(MAX_LOAD) \
