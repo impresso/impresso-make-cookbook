@@ -130,6 +130,15 @@ S3_PATH_consolidatedcanonical_ISSUES := s3://$(PATH_consolidatedcanonical)/issue
   $(call log.debug, S3_PATH_consolidatedcanonical_ISSUES)
 
 
+# VARIABLE: S3_PATH_consolidatedcanonical_PAGES
+# S3 path for consolidated canonical pages
+#
+# Mirrors the canonical pages structure with VERSION prefix:
+# s3://118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/
+S3_PATH_consolidatedcanonical_PAGES := s3://$(PATH_consolidatedcanonical)/pages
+  $(call log.debug, S3_PATH_consolidatedcanonical_PAGES)
+
+
 # VARIABLE: S3_PATH_consolidatedcanonical
 # S3 path for consolidated canonical output (alias for issues path)
 #
@@ -147,6 +156,15 @@ S3_PATH_consolidatedcanonical := $(S3_PATH_consolidatedcanonical_ISSUES)
 # Note: Does not include /issues suffix - that's part of the file pattern
 LOCAL_PATH_consolidatedcanonical := $(BUILD_DIR)/$(PATH_consolidatedcanonical)
   $(call log.debug, LOCAL_PATH_consolidatedcanonical)
+
+
+# VARIABLE: LOCAL_PATH_consolidatedcanonical_PAGES
+# Local path for storing consolidated canonical pages
+#
+# Defines the local storage path for consolidated pages within BUILD_DIR.
+# Mirrors the S3 structure: BUILD_DIR/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/
+LOCAL_PATH_consolidatedcanonical_PAGES := $(LOCAL_PATH_consolidatedcanonical)/pages
+  $(call log.debug, LOCAL_PATH_consolidatedcanonical_PAGES)
 
 
 # VARIABLE: PATH_LANGIDENT_ENRICHMENT
