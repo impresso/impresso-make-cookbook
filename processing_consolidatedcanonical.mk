@@ -24,6 +24,15 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_consolidatedcanoni
 # - Consolidated canonical pages (JSONL format, copied)
 ###############################################################################
 
+# USER-VARIABLE: CONSOLIDATEDCANONICAL_VALIDATE_OPTION
+# Option to enable schema validation of the consolidated canonical output
+#
+# Set to --validate to enable JSON schema validation against issue.schema.json
+# Set to empty value or $(EMPTY) to disable validation
+CONSOLIDATEDCANONICAL_VALIDATE_OPTION ?= --validate
+  $(call log.debug, CONSOLIDATEDCANONICAL_VALIDATE_OPTION)
+
+
 # DOUBLE-COLON-TARGET: sync-output
 # Synchronizes consolidatedcanonical processing output data from S3 to local
 # Downloads existing consolidated canonical files for resume/inspection
@@ -157,6 +166,7 @@ $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
       --enrichment-input $(call LocalToS3,$(word 2,$^),'') \
       --output $@ \
       --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
+      $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
       --log-level $(LOGGING_LEVEL) \
       --log-file $@.log.gz \
     && \
