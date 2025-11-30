@@ -70,8 +70,8 @@ NEWSPAPER_FNMATCH ?=
 #
 # This suffix is appended to local stamp files to track synchronization
 # status and avoid unnecessary re-downloads of unchanged data.
-# Legacy variable - kept for compatibility but set to empty string
-LOCAL_CANONICAL_STAMP_SUFFIX ?= 
+# Legacy variable - kept for compatibility; default is '.stamp' to avoid file/directory conflicts
+LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
   $(call log.debug, LOCAL_CANONICAL_STAMP_SUFFIX)
 
 
