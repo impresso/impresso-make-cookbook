@@ -31,7 +31,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_consolidatedcanonical.m
 #
 # Defines the S3 bucket where language identification and OCR quality
 # assessment results are stored.
-S3_BUCKET_LANGIDENT_ENRICHMENT ?= 115-canonical-processed-final
+# Example: 113-canonical-processed-sandbox
+S3_BUCKET_LANGIDENT_ENRICHMENT ?= 113-canonical-processed-sandbox
   $(call log.debug, S3_BUCKET_LANGIDENT_ENRICHMENT)
 
 
@@ -39,7 +40,8 @@ S3_BUCKET_LANGIDENT_ENRICHMENT ?= 115-canonical-processed-final
 # The output bucket for consolidatedcanonical processing
 #
 # Defines the S3 bucket where the consolidated canonical data is stored.
-# Structure: s3://118-canonical-consolidated-final/VERSION/PROVIDER/NEWSPAPER/
+# Structure: s3://<your-bucket-name>/VERSION/PROVIDER/NEWSPAPER/
+# Example: 116-canonical-consolidated-sandbox
 S3_BUCKET_consolidatedcanonical ?= 116-canonical-consolidated-sandbox
   $(call log.debug, S3_BUCKET_consolidatedcanonical)
 
@@ -125,7 +127,7 @@ PATH_consolidatedcanonical := $(S3_BUCKET_consolidatedcanonical)/$(RUN_VERSION_c
 # S3 path for consolidated canonical issues
 #
 # Mirrors the canonical issues structure with VERSION prefix:
-# s3://118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/issues/
+# s3://<your-bucket-name>/VERSION/CANONICAL_PATH_SEGMENT/issues/
 S3_PATH_consolidatedcanonical_ISSUES := s3://$(PATH_consolidatedcanonical)/issues
   $(call log.debug, S3_PATH_consolidatedcanonical_ISSUES)
 
@@ -134,7 +136,7 @@ S3_PATH_consolidatedcanonical_ISSUES := s3://$(PATH_consolidatedcanonical)/issue
 # S3 path for consolidated canonical pages
 #
 # Mirrors the canonical pages structure with VERSION prefix:
-# s3://118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/
+# s3://<your-bucket-name>/VERSION/CANONICAL_PATH_SEGMENT/pages/
 S3_PATH_consolidatedcanonical_PAGES := s3://$(PATH_consolidatedcanonical)/pages
   $(call log.debug, S3_PATH_consolidatedcanonical_PAGES)
 
@@ -152,7 +154,7 @@ S3_PATH_consolidatedcanonical := $(S3_PATH_consolidatedcanonical_ISSUES)
 # Local path for storing consolidated canonical issues
 #
 # Defines the local storage path for consolidatedcanonical processing data within BUILD_DIR.
-# Mirrors the S3 structure: BUILD_DIR/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/
+# Mirrors the S3 structure: BUILD_DIR/<your-bucket-name>/VERSION/CANONICAL_PATH_SEGMENT/
 # Note: Does not include /issues suffix - that's part of the file pattern
 LOCAL_PATH_consolidatedcanonical := $(BUILD_DIR)/$(PATH_consolidatedcanonical)
   $(call log.debug, LOCAL_PATH_consolidatedcanonical)
@@ -162,7 +164,7 @@ LOCAL_PATH_consolidatedcanonical := $(BUILD_DIR)/$(PATH_consolidatedcanonical)
 # Local path for storing consolidated canonical pages
 #
 # Defines the local storage path for consolidated pages within BUILD_DIR.
-# Mirrors the S3 structure: BUILD_DIR/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/
+# Mirrors the S3 structure: BUILD_DIR/<your-bucket-name>/VERSION/CANONICAL_PATH_SEGMENT/pages/
 LOCAL_PATH_consolidatedcanonical_PAGES := $(LOCAL_PATH_consolidatedcanonical)/pages
   $(call log.debug, LOCAL_PATH_consolidatedcanonical_PAGES)
 
@@ -171,8 +173,8 @@ LOCAL_PATH_consolidatedcanonical_PAGES := $(LOCAL_PATH_consolidatedcanonical)/pa
 # Path for langident enrichment data
 #
 # Defines the path for langident/OCRQA enrichment data.
-# Structure: 115-canonical-processed-final/langident/RUN_ID/PROVIDER/NEWSPAPER/ (with provider)
-#        or: 115-canonical-processed-final/langident/RUN_ID/NEWSPAPER/ (without provider)
+# Structure: <your-bucket-name>/langident/RUN_ID/PROVIDER/NEWSPAPER/ (with provider)
+#        or: <your-bucket-name>/langident/RUN_ID/NEWSPAPER/ (without provider)
 # Uses CANONICAL_PATH_SEGMENT from paths_canonical.mk for consistency
 PATH_LANGIDENT_ENRICHMENT := $(S3_BUCKET_LANGIDENT_ENRICHMENT)/$(LANGIDENT_ENRICHMENT_PROCESS_LABEL)/$(LANGIDENT_ENRICHMENT_RUN_ID)/$(CANONICAL_PATH_SEGMENT)
   $(call log.debug, PATH_LANGIDENT_ENRICHMENT)
