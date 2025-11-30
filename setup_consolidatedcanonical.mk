@@ -9,9 +9,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_consolidatedcanonical.m
 setup:: check-consolidatedcanonical-dummy
 
 
-# TARGET: check-template-dummy
+# TARGET: check-consolidatedcanonical-dummy
 check-consolidatedcanonical-dummy:
 	@echo "consolidatedcanonical setup done"
-.PHONY: check-template-dummy
+.PHONY: check-consolidatedcanonical-dummy
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_consolidatedcanonical.mk)
