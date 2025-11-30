@@ -76,9 +76,9 @@ LOCAL_PATH_CANONICAL_ISSUES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_P
   $(call log.debug, LOCAL_PATH_CANONICAL_ISSUES)
 
 # USER-VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_SUFFIX
-# The suffix for local stamp files
-# Legacy variable - kept for compatibility but set to empty string
-LOCAL_CANONICAL_PAGES_STAMP_SUFFIX ?= 
+# The suffix for local stamp files (should be ".stamp" to avoid file/directory conflicts)
+# This must match the documented convention for stamp file naming.
+LOCAL_CANONICAL_PAGES_STAMP_SUFFIX ?= .stamp
   $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_SUFFIX)
 
 # VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST
