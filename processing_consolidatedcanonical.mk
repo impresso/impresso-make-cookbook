@@ -172,7 +172,7 @@ $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
     && \
     python3 -m impresso_cookbook.local_to_s3 \
     		--set-timestamp --log-level $(LOGGING_LEVEL) \
-        --keep-timestamp-only \
+	--keep-timestamp-only \
       $@        $(call LocalToS3,$@,'') \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1; }
