@@ -88,7 +88,7 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 			$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
 			> $@; \
 	else \
-		echo "$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call `make clean-newspaper-list-target to remove it` "; \
+		echo "$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call `make clean-newspaper-list-target` to remove it."; \
 	fi
 
 # TARGET: clean-newspaper-list-target
