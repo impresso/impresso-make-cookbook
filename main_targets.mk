@@ -46,6 +46,16 @@ help-orchestration:
 	@echo ""
 
 .PHONY: help-orchestration
+# If set to 1, GNU parallel stops on the first error
+HALT_ON_ERROR ?= 0
+
+# Internal option passed to GNU parallel
+ifeq ($(HALT_ON_ERROR),1)
+PARALLEL_HALT := --halt now,fail=1
+else
+PARALLEL_HALT :=
+endif
+
 
 # TARGET: newspaper
 #: Process a single newspaper run by the processing pipeline
@@ -123,10 +133,11 @@ check-parallel:
 # Dependencies: newspaper-list-target
 collection: check-parallel newspaper-list-target
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
-	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v --progress --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay $(PARALLEL_DELAY) --memfree 1G --load $(MAX_LOAD) \
+	   $(PARALLEL_HALT) \
 		"NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all"
 
 help::
