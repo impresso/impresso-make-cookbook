@@ -79,7 +79,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 #
 # This target ensures that the latest processed language identification
 # data from S3 is made available in the local environment.
-sync-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+sync-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
 .PHONY: sync-langident
 
 
