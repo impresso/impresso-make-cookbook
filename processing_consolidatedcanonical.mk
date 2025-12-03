@@ -52,7 +52,7 @@ processing-target :: consolidatedcanonical-target
 # Note: We sync canonical pages which include yearly stamps, but we need issue files
 # Looks for stamp files matching the LOCAL_CANONICAL_STAMP_SUFFIX pattern
 LOCAL_CANONICAL_ISSUES_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*$(LOCAL_CANONICAL_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_CANONICAL_ISSUES)/*$(LOCAL_CANONICAL_STAMP_SUFFIX) 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_CANONICAL_ISSUES_STAMP_FILES)
 
