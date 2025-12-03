@@ -78,7 +78,7 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
 # FUNCTION: LocalCanonicalToConsolidatedFile
 # Converts a local canonical stamp file to a consolidated output file name
 # Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
-# Output: build.d/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
+# Output: $(LOCAL_PATH_consolidatedcanonical)/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
 # Note: Handles stamps with or without extension based on LOCAL_CANONICAL_STAMP_SUFFIX
 define LocalCanonicalToConsolidatedFile
 $(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2,$(1))
