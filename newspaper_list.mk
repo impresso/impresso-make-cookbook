@@ -16,9 +16,16 @@ help::
 
 sync:: newspaper-list-target
 
+# USER-VARIABLE: PROVIDER
+# Data provider organization (e.g., BL, SWA, NZZ)
+# Required for canonical data which is organized as PROVIDER/NEWSPAPER/
+PROVIDER ?= BL
+  $(call log.info, PROVIDER)
+
+
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
-NEWSPAPER ?= actionfem
+NEWSPAPER ?= WTCH
   $(call log.info, NEWSPAPER)
 
 
@@ -37,10 +44,9 @@ NEWSPAPER_YEAR_SORTING ?= shuf
 
 
 # USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
-# Enables provider-aware newspaper organization
-# - 1: newspapers are organized as PROVIDER/newspaper-year.jsonl.bz2
-# - 0: newspapers are organized directly as newspaper/newspaper-year.jsonl.bz2
-NEWSPAPER_HAS_PROVIDER ?= 0
+# Flag to indicate if newspapers are organized with PROVIDER level in S3
+# Set to 1 for PROVIDER/NEWSPAPER structure, 0 for NEWSPAPER only
+NEWSPAPER_HAS_PROVIDER ?= 1
   $(call log.info, NEWSPAPER_HAS_PROVIDER)
 
 # USER-VARIABLE: NEWSPAPER_PREFIX
@@ -56,7 +62,8 @@ NEWSPAPER_FNMATCH ?= $(EMPTY)
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET
 # S3 bucket prefix containing newspapers for processing
-S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(S3_BUCKET_REBUILT)
+# For consolidated canonical processing, use the canonical bucket
+S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(S3_BUCKET_CANONICAL)
   $(call log.debug, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
 
 
@@ -72,14 +79,24 @@ newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
 # This rule retrieves the list of available newspapers from an S3 bucket,
 # shuffles them to distribute processing evenly, and writes them to a file.
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
-	python cookbook/lib/list_newspapers.py \
-		--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
-		--prefix "$(NEWSPAPER_PREFIX)" \
-		--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
-		$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
-		$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
-		> $@
+	@if [ ! -e $@ ]; then \
+		python cookbook/lib/list_newspapers.py \
+			--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
+			--prefix "$(NEWSPAPER_PREFIX)" \
+			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
+			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
+			$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
+			> $@; \
+	else \
+		echo "$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call `make clean-newspaper-list-target` to remove it."; \
+	fi
 
+# TARGET: clean-newspaper-list-target
+#: Cleans the generated newspaper list file
+clean-newspaper-list-target:
+	rm -fv $(NEWSPAPERS_TO_PROCESS_FILE)
+
+.PHONY: clean-newspaper-list-target
 
 # VARIABLE: ALL_NEWSPAPERS
 # List all available newspapers for parallel processing using newspaper list definitions

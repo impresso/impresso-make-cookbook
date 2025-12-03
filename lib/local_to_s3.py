@@ -364,13 +364,21 @@ def main():
             (args.files[i], args.files[i + 1]) for i in range(0, len(args.files), 2)
         ]
         log.info("Uploading %d file pair(s) to S3", len(file_pairs))
+        # Track successfully uploaded files for timestamp setting
+        uploaded_files = []
 
-        # Track which pairs had their first file uploaded
-        first_file_uploaded = {}
+        # Process files in pairs: content file and its log file
+        # If content file is skipped/fails, log file is also skipped
+        pair_idx = 0
+        while pair_idx < len(file_pairs):
+            local_path, s3_path = file_pairs[pair_idx]
 
-        for pair_index, (local_path, s3_path) in enumerate(file_pairs):
-            is_second_in_pair = pair_index % 2 == 1
-            first_pair_index = pair_index - 1 if is_second_in_pair else pair_index
+            # Determine if this is a content file (should have a log pair after it)
+            is_content_file = (
+                pair_idx + 1 < len(file_pairs)
+                and file_pairs[pair_idx + 1][0].startswith(local_path)
+                and file_pairs[pair_idx + 1][0].endswith(".log.gz")
+            )
 
             # Check for forbidden file extensions (stamp files, sync markers)
             if any(local_path.endswith(ext) for ext in args.forbid_extensions):
@@ -412,7 +420,8 @@ def main():
                 )
 
             # Check if file exists if not force_overwrite
-            if not should_force_overwrite:
+            skip_this_pair = False
+            if not args.force_overwrite:
                 bucket, key = parse_s3_path(s3_path)
                 if s3_file_exists(s3_client, bucket, key):
                     log.warning(
@@ -420,12 +429,19 @@ def main():
                         " Skipping.",
                         s3_path,
                     )
-                    # Track that first file was NOT uploaded (skipped)
-                    if not is_second_in_pair:
-                        first_file_uploaded[pair_index] = False
-                    continue
+                    skip_this_pair = True
 
-            # Use upload_with_retries for robust uploads (same as s3_to_local_stamps.py)
+            if skip_this_pair:
+                # If content file is skipped, also skip its log file
+                if is_content_file:
+                    log_local, log_s3 = file_pairs[pair_idx + 1]
+                    log.info("Skipping log file %s (content file was skipped)", log_s3)
+                    pair_idx += 2  # Skip both content and log
+                else:
+                    pair_idx += 1
+                continue
+
+            # Use upload_with_retries for robust uploads
             uploaded = upload_with_retries(
                 s3_client,
                 local_path,
@@ -433,28 +449,34 @@ def main():
             )
             if not uploaded:
                 log.error(
-                    f"Upload failed for {local_path} to {s3_path}. Skipping further"
-                    " actions for this file."
+                    f"Upload failed for {local_path} to {s3_path}. Skipping"
+                    " further actions for this file."
                 )
-                # Track that first file was NOT uploaded (failed)
-                if not is_second_in_pair:
-                    first_file_uploaded[pair_index] = False
+                # If content file upload fails, skip its log file too
+                if is_content_file:
+                    log_local, log_s3 = file_pairs[pair_idx + 1]
+                    log.info(
+                        "Skipping log file %s (content file upload failed)", log_s3
+                    )
+                    pair_idx += 2
+                else:
+                    pair_idx += 1
                 continue
 
-            # Track successful upload of first file in pair
-            if not is_second_in_pair:
-                first_file_uploaded[pair_index] = True
-
+            # Track successfully uploaded file
+            uploaded_files.append((local_path, s3_path))
             if args.keep_timestamp_only and local_path.endswith(".jsonl.bz2"):
                 log.info(
-                    "Truncating %s and keeping only timestamp after successful upload",
+                    "Truncating %s and keeping only timestamp after upload",
                     local_path,
                 )
                 keep_timestamp_only(local_path)
+
+            pair_idx += 1
         log.info("All uploads completed successfully")
         # Clean up WIP files after successful upload
         if args.remove_wip:
-            for local_path, s3_path in file_pairs:
+            for local_path, s3_path in uploaded_files:
                 if local_path.endswith((".txt.gz", ".jsonl.bz2")):
                     wip_path = s3_path + ".wip"
                     bucket, key = parse_s3_path(wip_path)
@@ -465,81 +487,91 @@ def main():
                         log.warning("Failed to remove WIP file %s: %s", wip_path, e)
         # Set timestamps on S3 files if requested
         if args.set_timestamp:
-            log.info("Setting timestamps on S3 files")
-            file_mtimes = {}
-            for local_path, s3_path in file_pairs:
-                if os.path.exists(local_path):
-                    file_mtimes[local_path] = os.path.getmtime(local_path)
-            for local_path, s3_path in file_pairs:
-                log.info("Processing timestamp for: %s", s3_path)
-                try:
-                    if (
-                        local_path.endswith((".jsonl.bz2", ".json"))
-                        and args.ts_key != "__file__"
-                    ):
-                        timestamp_processor = S3TimestampProcessor(
-                            s3_file=s3_path,
-                            metadata_key=args.metadata_key,
-                            ts_key=args.ts_key,
-                            all_lines=False,
-                            force=True,
-                            log_level=args.log_level,
-                            log_file=args.log_file,
-                        )
-                        timestamp_processor.update_metadata_for_file()
-                        log.info("Successfully set timestamp for %s", s3_path)
-                    else:
-                        if local_path in file_mtimes:
-                            file_mtime = file_mtimes[local_path]
-                        else:
-                            file_mtime = time.time()
-                        file_timestamp = datetime.fromtimestamp(file_mtime).strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        )
-                        log.info(
-                            "Using file modification date %s for %s",
-                            file_timestamp,
-                            s3_path,
-                        )
-                        bucket, key = parse_s3_path(s3_path)
-                        try:
-                            existing_obj = s3_client.head_object(Bucket=bucket, Key=key)
-                            existing_metadata = existing_obj.get("Metadata", {})
-                        except Exception:
-                            existing_metadata = {}
-                        new_metadata = existing_metadata.copy()
-                        new_metadata[args.metadata_key] = file_timestamp
-                        s3_client.copy_object(
-                            Bucket=bucket,
-                            Key=key,
-                            CopySource={"Bucket": bucket, "Key": key},
-                            Metadata=new_metadata,
-                            MetadataDirective="REPLACE",
-                        )
-                        try:
-                            updated_obj = s3_client.head_object(Bucket=bucket, Key=key)
-                            updated_metadata = updated_obj.get("Metadata", {})
-                            if args.metadata_key in updated_metadata:
-                                log.info(
-                                    "Successfully set file timestamp metadata for %s:"
-                                    " %s = %s",
-                                    s3_path,
-                                    args.metadata_key,
-                                    updated_metadata[args.metadata_key],
-                                )
-                            else:
-                                log.error(
-                                    "Metadata key %s not found after setting for %s",
-                                    args.metadata_key,
-                                    s3_path,
-                                )
-                        except Exception as e:
-                            log.error(
-                                "Could not verify metadata for %s: %s", s3_path, e
+            if uploaded_files:
+                log.info(
+                    "Setting timestamps on %d uploaded file(s)", len(uploaded_files)
+                )
+                file_mtimes = {}
+                for local_path, s3_path in uploaded_files:
+                    if os.path.exists(local_path):
+                        file_mtimes[local_path] = os.path.getmtime(local_path)
+                for local_path, s3_path in uploaded_files:
+                    log.info("Processing timestamp for: %s", s3_path)
+                    try:
+                        if (
+                            local_path.endswith((".jsonl.bz2", ".json"))
+                            and args.ts_key != "__file__"
+                        ):
+                            timestamp_processor = S3TimestampProcessor(
+                                s3_file=s3_path,
+                                metadata_key=args.metadata_key,
+                                ts_key=args.ts_key,
+                                all_lines=False,
+                                force=True,
+                                log_level=args.log_level,
+                                log_file=args.log_file,
                             )
-                except Exception as e:
-                    log.error("Failed to set timestamp for %s: %s", s3_path, e)
-            log.info("Timestamp setting completed")
+                            timestamp_processor.update_metadata_for_file()
+                            log.info("Successfully set timestamp for %s", s3_path)
+                        else:
+                            if local_path in file_mtimes:
+                                file_mtime = file_mtimes[local_path]
+                            else:
+                                file_mtime = time.time()
+                            file_timestamp = datetime.fromtimestamp(
+                                file_mtime
+                            ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                            log.info(
+                                "Using file modification date %s for %s",
+                                file_timestamp,
+                                s3_path,
+                            )
+                            bucket, key = parse_s3_path(s3_path)
+                            try:
+                                existing_obj = s3_client.head_object(
+                                    Bucket=bucket, Key=key
+                                )
+                                existing_metadata = existing_obj.get("Metadata", {})
+                            except Exception:
+                                existing_metadata = {}
+                            new_metadata = existing_metadata.copy()
+                            new_metadata[args.metadata_key] = file_timestamp
+                            s3_client.copy_object(
+                                Bucket=bucket,
+                                Key=key,
+                                CopySource={"Bucket": bucket, "Key": key},
+                                Metadata=new_metadata,
+                                MetadataDirective="REPLACE",
+                            )
+                            try:
+                                updated_obj = s3_client.head_object(
+                                    Bucket=bucket, Key=key
+                                )
+                                updated_metadata = updated_obj.get("Metadata", {})
+                                if args.metadata_key in updated_metadata:
+                                    log.info(
+                                        "Successfully set file timestamp metadata for"
+                                        " %s: %s = %s",
+                                        s3_path,
+                                        args.metadata_key,
+                                        updated_metadata[args.metadata_key],
+                                    )
+                                else:
+                                    log.error(
+                                        "Metadata key %s not found after setting"
+                                        " for %s",
+                                        args.metadata_key,
+                                        s3_path,
+                                    )
+                            except Exception as e:
+                                log.error(
+                                    "Could not verify metadata for %s: %s", s3_path, e
+                                )
+                    except Exception as e:
+                        log.error("Failed to set timestamp for %s: %s", s3_path, e)
+                log.info("Timestamp setting completed")
+            else:
+                log.info("No files were uploaded, skipping timestamp setting")
     except Exception as e:
         log.error("An error occurred: %s", e)
         log.error("Traceback: %s", traceback.format_exc())

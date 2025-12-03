@@ -5,28 +5,79 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_canonical.mk)
 #
 # Defines paths and variables for accessing newspaper files on S3 in the impresso
 # canonical format that are used for local synchronization and processing.
+#
+# PROVIDER HANDLING:
+# ==================
+# If NEWSPAPER_HAS_PROVIDER is set to 1, paths include PROVIDER level:
+#   - PROVIDER must be set explicitly, or
+#   - NEWSPAPER should be in PROVIDER/NEWSPAPER format (e.g., BL/WTCH)
+#
+# If NEWSPAPER_HAS_PROVIDER is 0, paths use NEWSPAPER directly without PROVIDER.
 ###############################################################################
 
 # USER-VARIABLE: S3_BUCKET_CANONICAL
 # The bucket for canonical content.
 # This variable specifies the S3 bucket where the canonical newspaper files is stored.
-S3_BUCKET_CANONICAL ?= 12-canonical-final
+S3_BUCKET_CANONICAL ?= 112-canonical-final
   $(call log.debug, S3_BUCKET_CANONICAL)
+
+# USER-VARIABLE: PROVIDER
+# The data provider organization (e.g., BL, SWA, NZZ, etc.)
+# Required when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER doesn't contain provider prefix
+# If NEWSPAPER is in PROVIDER/NEWSPAPER format, PROVIDER is extracted automatically
+PROVIDER ?=
+  $(call log.debug, PROVIDER)
+
+# VARIABLE: CANONICAL_PATH_SEGMENT
+# Constructs the path segment based on NEWSPAPER_HAS_PROVIDER flag
+# If NEWSPAPER_HAS_PROVIDER=1: Uses PROVIDER/NEWSPAPER or just NEWSPAPER if it contains /
+# If NEWSPAPER_HAS_PROVIDER=0: Uses NEWSPAPER directly
+ifeq ($(NEWSPAPER_HAS_PROVIDER),1)
+  # Check if NEWSPAPER already contains provider (has /)
+  ifneq (,$(findstring /,$(NEWSPAPER)))
+    CANONICAL_PATH_SEGMENT := $(NEWSPAPER)
+  else
+    ifneq ($(PROVIDER),)
+      CANONICAL_PATH_SEGMENT := $(PROVIDER)/$(NEWSPAPER)
+    else
+      $(error PROVIDER must be set when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER does not contain provider prefix)
+    endif
+  endif
+else
+  CANONICAL_PATH_SEGMENT := $(NEWSPAPER)
+endif
+  $(call log.debug, CANONICAL_PATH_SEGMENT)
 
 # VARIABLE: S3_PATH_CANONICAL_PAGES
 # The full S3 path for the canonical pages files of a specific newspaper.
+# Structure: s3://112-canonical-final/PROVIDER/NEWSPAPER/pages (with provider)
+#        or: s3://112-canonical-final/NEWSPAPER/pages (without provider)
 
-S3_PATH_CANONICAL_PAGES := s3://$(S3_BUCKET_CANONICAL)/$(NEWSPAPER)/pages
+S3_PATH_CANONICAL_PAGES := s3://$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/pages
   $(call log.debug, S3_PATH_CANONICAL_PAGES)
+
+# VARIABLE: S3_PATH_CANONICAL_ISSUES
+# The full S3 path for the canonical issues files of a specific newspaper.
+# Structure: s3://112-canonical-final/PROVIDER/NEWSPAPER/issues (with provider)
+#        or: s3://112-canonical-final/NEWSPAPER/issues (without provider)
+
+S3_PATH_CANONICAL_ISSUES := s3://$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/issues
+  $(call log.debug, S3_PATH_CANONICAL_ISSUES)
 
 # VARIABLE: LOCAL_PATH_CANONICAL_PAGES
 # The corresponding local path for canonical newspaper pages files.
 # This local directory mirrors the S3 path structure for local builds and processing.
-LOCAL_PATH_CANONICAL_PAGES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(NEWSPAPER)/pages
+LOCAL_PATH_CANONICAL_PAGES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/pages
   $(call log.debug, LOCAL_PATH_CANONICAL_PAGES)
 
+# VARIABLE: LOCAL_PATH_CANONICAL_ISSUES
+# The corresponding local path for canonical newspaper issues files.
+LOCAL_PATH_CANONICAL_ISSUES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/issues
+  $(call log.debug, LOCAL_PATH_CANONICAL_ISSUES)
+
 # USER-VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_SUFFIX
-# The suffix (typically $(EMPTY) or .stamp) of the local stamp files.
+# The suffix for local stamp files (should be ".stamp" to avoid file/directory conflicts)
+# This must match the documented convention for stamp file naming.
 LOCAL_CANONICAL_PAGES_STAMP_SUFFIX ?= .stamp
   $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_SUFFIX)
 
