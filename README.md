@@ -452,7 +452,7 @@ make check-spacy-pipelines
 make check-python-installation
 
 # Configure custom paths
-make newspaper S3_BUCKET_CANONICAL=12-canonical-test BUILD_DIR=test.d
+make newspaper S3_BUCKET_CANONICAL=112-canonical-test BUILD_DIR=test.d
 ```
 
 ### Advanced Processing Options
@@ -599,7 +599,7 @@ The cookbook uses a sophisticated path management system:
 
 Different processing stages use different S3 buckets:
 
-- `S3_BUCKET_CANONICAL`: Canonical newspaper content (e.g., `12-canonical-final`)
+- `S3_BUCKET_CANONICAL`: Canonical newspaper content (e.g., `112-canonical-final`)
 - `S3_BUCKET_REBUILT`: Rebuilt newspaper data (e.g., `22-rebuilt-final`)
 - `S3_BUCKET_LINGPROC`: Linguistic processing outputs (e.g., `40-processed-data-sandbox`)
 - `S3_BUCKET_TOPICS`: Topic modeling results (e.g., `41-processed-data-staging`)
