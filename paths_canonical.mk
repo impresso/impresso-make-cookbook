@@ -1,92 +1,148 @@
-$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_canonical.mk)
-
+$(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_canonical.mk)
 ###############################################################################
-# INPUT PATHS FOR CANONICAL FILES FOR PAGES OF A SPECIFIC NEWSPAPER
+# Sync Canonical Pages Data
+# Targets for synchronizing canonical pages data from S3 to local storage
 #
-# Defines paths and variables for accessing newspaper files on S3 in the impresso
-# canonical format that are used for local synchronization and processing.
 #
-# PROVIDER HANDLING:
-# ==================
-# If NEWSPAPER_HAS_PROVIDER is set to 1, paths include PROVIDER level:
-#   - PROVIDER must be set explicitly, or
-#   - NEWSPAPER should be in PROVIDER/NEWSPAPER format (e.g., BL/WTCH)
 #
-# If NEWSPAPER_HAS_PROVIDER is 0, paths use NEWSPAPER directly without PROVIDER.
+# This module provides functionality to sync canonical pages data from S3
+# storage to local directories using stamp files to track synchronization
+# status. Subsumes all sync-input targets from the necessary inputs.
+#
+# CONFIGURATION FLAGS:
+# ====================
+# USE_CANONICAL: Set to 1 to use canonical format (default: 1)
+# NEWSPAPER_HAS_PROVIDER: Set to 1 if newspapers organized with PROVIDER level (default: 1)
+# NEWSPAPER_FNMATCH: Pattern to filter newspapers (e.g., BL/*, SWA/*, */WTCH)
+#
+# CONFIGURATION FLAGS:
+# ====================
+# USE_CANONICAL: Set to 1 to use canonical format (default: 1)
+# NEWSPAPER_HAS_PROVIDER: Set to 1 if newspapers organized with PROVIDER level (default: 1)
+# NEWSPAPER_FNMATCH: Pattern to filter newspapers (e.g., BL/*, SWA/*, */WTCH)
+#
+# S3 STRUCTURE AND LOCAL STAMP MAPPING:
+# =====================================
+# S3 data is organized hierarchically by provider, then newspaper, with pages and issues:
+# S3 data is organized hierarchically by provider, then newspaper, with pages and issues:
+# In this example, the newspaper "AATA" from the "BL" data provider library is used:
+#
+#   s3://112-canonical-final/BL/AATA/
+#   ├── pages/
+#   │   ├── AATA-1846/
+#   │   │   ├── AATA-1846-02-07-a-pages.jsonl.bz2
+#   │   │   ├── AATA-1846-02-14-a-pages.jsonl.bz2
+#   │   │   └── ...
+#   │   ├── AATA-1847/
+#   │   │   └── ...
+#   │   └── ...
+#   └── issues/
+#       ├── AATA-1846-issues.jsonl.bz2
+#       ├── AATA-1847-issues.jsonl.bz2
+#       └── ...
+#
+# Local pages stamps are created at the yearly level (same level as issues metadata),
+# not at the indivual pages per issues level:
+#
+#   build.d/112-canonical-final/BL/AATA/
+#   └── pages/
+#       ├── AATA-1846.stamp          <- Tracks sync status for all AATA-1846 pages
+#       ├── AATA-1847.stamp          <- Tracks sync status for all AATA-1847 pages
+#       ├── ...
+#       └── pages.last_synced        <- Master sync stamp file for all pages per year data
+#
 ###############################################################################
 
-# USER-VARIABLE: S3_BUCKET_CANONICAL
-# The bucket for canonical content.
-# This variable specifies the S3 bucket where the canonical newspaper files is stored.
-S3_BUCKET_CANONICAL ?= 112-canonical-final
-  $(call log.debug, S3_BUCKET_CANONICAL)
+# USER-VARIABLE: USE_CANONICAL
+# Flag to indicate using canonical format instead of rebuilt format
+# Set to 1 to enable canonical format processing
+USE_CANONICAL ?= 1
+  $(call log.debug, USE_CANONICAL)
 
-# USER-VARIABLE: PROVIDER
-# The data provider organization (e.g., BL, SWA, NZZ, etc.)
-# Required when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER doesn't contain provider prefix
-# If NEWSPAPER is in PROVIDER/NEWSPAPER format, PROVIDER is extracted automatically
-PROVIDER ?=
-  $(call log.debug, PROVIDER)
+# USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
+# Flag to indicate if newspapers are organized with PROVIDER level in S3
+# Set to 1 if structure is PROVIDER/NEWSPAPER, 0 if just NEWSPAPER
+NEWSPAPER_HAS_PROVIDER ?= 1
+  $(call log.debug, NEWSPAPER_HAS_PROVIDER)
 
-# VARIABLE: CANONICAL_PATH_SEGMENT
-# Constructs the path segment based on NEWSPAPER_HAS_PROVIDER flag
-# If NEWSPAPER_HAS_PROVIDER=1: Uses PROVIDER/NEWSPAPER or just NEWSPAPER if it contains /
-# If NEWSPAPER_HAS_PROVIDER=0: Uses NEWSPAPER directly
-ifeq ($(NEWSPAPER_HAS_PROVIDER),1)
-  # Check if NEWSPAPER already contains provider (has /)
-  ifneq (,$(findstring /,$(NEWSPAPER)))
-    CANONICAL_PATH_SEGMENT := $(NEWSPAPER)
-  else
-    ifneq ($(PROVIDER),)
-      CANONICAL_PATH_SEGMENT := $(PROVIDER)/$(NEWSPAPER)
-    else
-      $(error PROVIDER must be set when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER does not contain provider prefix)
-    endif
-  endif
-else
-  CANONICAL_PATH_SEGMENT := $(NEWSPAPER)
-endif
-  $(call log.debug, CANONICAL_PATH_SEGMENT)
+# USER-VARIABLE: NEWSPAPER_FNMATCH
+# Pattern to filter newspapers for processing
+# Examples: BL/*, SWA/*, */WTCH, BL/AATA
+# Leave empty to process all newspapers
+NEWSPAPER_FNMATCH ?=
+  $(call log.debug, NEWSPAPER_FNMATCH)
 
-# VARIABLE: S3_PATH_CANONICAL_PAGES
-# The full S3 path for the canonical pages files of a specific newspaper.
-# Structure: s3://112-canonical-final/PROVIDER/NEWSPAPER/pages (with provider)
-#        or: s3://112-canonical-final/NEWSPAPER/pages (without provider)
+# USER-VARIABLE: USE_CANONICAL
+# Flag to indicate using canonical format instead of rebuilt format
+# Set to 1 to enable canonical format processing
+USE_CANONICAL ?= 1
+  $(call log.debug, USE_CANONICAL)
 
-S3_PATH_CANONICAL_PAGES := s3://$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/pages
-  $(call log.debug, S3_PATH_CANONICAL_PAGES)
+# USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
+# Flag to indicate if newspapers are organized with PROVIDER level in S3
+# Set to 1 if structure is PROVIDER/NEWSPAPER, 0 if just NEWSPAPER
+NEWSPAPER_HAS_PROVIDER ?= 1
+  $(call log.debug, NEWSPAPER_HAS_PROVIDER)
 
-# VARIABLE: S3_PATH_CANONICAL_ISSUES
-# The full S3 path for the canonical issues files of a specific newspaper.
-# Structure: s3://112-canonical-final/PROVIDER/NEWSPAPER/issues (with provider)
-#        or: s3://112-canonical-final/NEWSPAPER/issues (without provider)
+# USER-VARIABLE: NEWSPAPER_FNMATCH
+# Pattern to filter newspapers for processing
+# Examples: BL/*, SWA/*, */WTCH, BL/AATA
+# Leave empty to process all newspapers
+NEWSPAPER_FNMATCH ?=
+  $(call log.debug, NEWSPAPER_FNMATCH)
 
-S3_PATH_CANONICAL_ISSUES := s3://$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/issues
-  $(call log.debug, S3_PATH_CANONICAL_ISSUES)
+# USER-VARIABLE: LOCAL_CANONICAL_STAMP_SUFFIX
+# The suffix for the local stamp files (added to the input paths from S3)
+#
+# This suffix is appended to local stamp files to track synchronization
+# status and avoid unnecessary re-downloads of unchanged data.
+# Legacy variable - kept for compatibility; default is '.stamp' to avoid file/directory conflicts
+LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
+  $(call log.debug, LOCAL_CANONICAL_STAMP_SUFFIX)
 
-# VARIABLE: LOCAL_PATH_CANONICAL_PAGES
-# The corresponding local path for canonical newspaper pages files.
-# This local directory mirrors the S3 path structure for local builds and processing.
-LOCAL_PATH_CANONICAL_PAGES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/pages
-  $(call log.debug, LOCAL_PATH_CANONICAL_PAGES)
 
-# VARIABLE: LOCAL_PATH_CANONICAL_ISSUES
-# The corresponding local path for canonical newspaper issues files.
-LOCAL_PATH_CANONICAL_ISSUES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/issues
-  $(call log.debug, LOCAL_PATH_CANONICAL_ISSUES)
+# VARIABLE: LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE
+# Local synchronization stamp file for canonical pages input data
+#
+# This file serves as a timestamp marker indicating when the canonical
+# pages data was last successfully synchronized from S3 storage.
+LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_synced
+  $(call log.debug, LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
-# USER-VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_SUFFIX
-# The suffix for local stamp files (should be ".stamp" to avoid file/directory conflicts)
-# This must match the documented convention for stamp file naming.
-LOCAL_CANONICAL_PAGES_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_SUFFIX)
 
-# VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST
-# Stores all locally available canonical pages stamp files for dependency tracking
-# Note: Canonical pages use yearly issue-level stamps (e.g., AATA-1846.stamp), not pages-level stamps
-LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*$(LOCAL_CANONICAL_PAGES_STAMP_SUFFIX) 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
-  $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST)
+# TARGET: sync-canonical
+#: Synchronize canonical pages input data from S3 to local storage
+#
+# This target ensures that the canonical pages data is available locally
+# by triggering the synchronization process if needed. It depends on the
+# stamp file to determine if synchronization is required.
+sync-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
-$(call log.debug, COOKBOOK END INCLUDE: cookbook/paths_canonical.mk)
+.PHONY: sync-canonical
+
+# STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
+#: Sync canonical pages data from S3 and create synchronization stamp
+#
+# Downloads canonical pages data from the S3 bucket to the local directory
+# using the impresso_cookbook.s3_to_local_stamps module. Creates stamp files
+# to track individual file synchronization and a master stamp file upon completion.
+$(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
+	# creating $@ 
+	mkdir -p $(@D) \
+	&& \
+	python -m impresso_cookbook.s3_to_local_stamps  \
+	   $(S3_PATH_CANONICAL_PAGES) \
+	   $(S3_PATH_CANONICAL_PAGES) \
+	   --local-dir $(BUILD_DIR) \
+	   --stamp-extension '$(LOCAL_CANONICAL_STAMP_SUFFIX)' \
+	   --stamp-extension '$(LOCAL_CANONICAL_STAMP_SUFFIX)' \
+	   --stamp-api v2 \
+	   --remove-dangling-stamps \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& \
+	touch $@
+
+  $(call log.debug,LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+
+$(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_canonical.mk)
