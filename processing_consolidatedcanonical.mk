@@ -32,7 +32,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_consolidatedcanoni
 CONSOLIDATEDCANONICAL_VALIDATE_OPTION ?= --validate
   $(call log.debug, CONSOLIDATEDCANONICAL_VALIDATE_OPTION)
 
-
 # DOUBLE-COLON-TARGET: sync-output
 # Synchronizes consolidatedcanonical processing output data from S3 to local
 # Downloads existing consolidated canonical files for resume/inspection
@@ -46,7 +45,6 @@ sync-input :: sync-consolidatedcanonical-input
 # Main processing target for consolidatedcanonical
 processing-target :: consolidatedcanonical-target
 
-
 # VARIABLE: LOCAL_CANONICAL_ISSUES_STAMP_FILES
 # Stores all locally available canonical issue stamp files for dependency tracking
 # Note: We sync canonical pages which include yearly stamps, but we need issue files
@@ -56,7 +54,6 @@ LOCAL_CANONICAL_ISSUES_STAMP_FILES := \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_CANONICAL_ISSUES_STAMP_FILES)
 
-
 # VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_FILES
 # Stores all locally available canonical pages stamp files for dependency tracking
 # These are yearly stamps (e.g., NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp) that track page sync status
@@ -65,7 +62,6 @@ LOCAL_CANONICAL_PAGES_STAMP_FILES := \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_FILES)
 
-
 # VARIABLE: LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES
 # Stores all locally available langident enrichment stamp files for dependency tracking
 # Looks for .jsonl.bz2 files (actual enrichment stamp files from langident sync)
@@ -73,7 +69,6 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
     $(shell ls -r $(LOCAL_PATH_LANGIDENT)/*.jsonl.bz2 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES)
-
 
 # FUNCTION: LocalCanonicalToConsolidatedFile
 # Converts a local canonical stamp file to a consolidated output file name
@@ -84,7 +79,6 @@ define LocalCanonicalToConsolidatedFile
 $(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2,$(1))
 endef
 
-
 # FUNCTION: LocalCanonicalToEnrichmentFile
 # Converts a local canonical stamp file to the corresponding enrichment file
 # Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
@@ -93,7 +87,6 @@ endef
 define LocalCanonicalToEnrichmentFile
 $(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(1))
 endef
-
 
 # FUNCTION: LocalCanonicalPagesToConsolidatedStamp
 # Converts a local canonical pages stamp file to a consolidated pages stamp file
@@ -104,21 +97,17 @@ define LocalCanonicalPagesToConsolidatedStamp
 $(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp,$(1))
 endef
 
-
 # VARIABLE: LOCAL_consolidatedcanonical_FILES
 # Stores the list of consolidated canonical issues files based on canonical stamp files
 LOCAL_consolidatedcanonical_FILES := \
     $(call LocalCanonicalToConsolidatedFile,$(LOCAL_CANONICAL_ISSUES_STAMP_FILES))
-
   $(call log.info, LOCAL_consolidatedcanonical_FILES)
-
 
 # VARIABLE: LOCAL_consolidatedcanonical_PAGES_STAMPS
 # Stores the list of consolidated pages stamp files based on canonical pages stamps
 # These track the copy/processing status of pages data
 LOCAL_consolidatedcanonical_PAGES_STAMPS := \
     $(call LocalCanonicalPagesToConsolidatedStamp,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
-
   $(call log.info, LOCAL_consolidatedcanonical_PAGES_STAMPS)
 
 # TARGET: consolidatedcanonical-target
@@ -177,7 +166,6 @@ $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1; }
 
-
 # FILE-RULE: $(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp
 #: Rule to process/copy pages data from canonical to consolidated bucket
 #
@@ -202,6 +190,5 @@ $(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp: \
 		$(S3_PATH_CANONICAL_PAGES)/$*/ \
 		$(S3_PATH_consolidatedcanonical_PAGES)/$*/ \
 	&& touch $@
-
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_consolidatedcanonical.mk)
