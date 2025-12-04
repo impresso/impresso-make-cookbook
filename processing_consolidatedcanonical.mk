@@ -73,10 +73,10 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
 # FUNCTION: LocalCanonicalToConsolidatedFile
 # Converts a local canonical stamp file to a consolidated output file name
 # Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
-# Output: $(LOCAL_PATH_consolidatedcanonical)/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
+# Output: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
 # Note: Handles stamps with or without extension based on LOCAL_CANONICAL_STAMP_SUFFIX
 define LocalCanonicalToConsolidatedFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(1))
 endef
 
 # FUNCTION: LocalCanonicalToEnrichmentFile
@@ -94,21 +94,21 @@ endef
 # Output: build.d/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
 # Note: Output always uses .stamp extension for tracking consolidated pages sync status
 define LocalCanonicalPagesToConsolidatedStamp
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp,$(1))
 endef
 
-# VARIABLE: LOCAL_consolidatedcanonical_FILES
+# VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_FILES
 # Stores the list of consolidated canonical issues files based on canonical stamp files
-LOCAL_consolidatedcanonical_FILES := \
+LOCAL_CONSOLIDATEDCANONICAL_FILES := \
     $(call LocalCanonicalToConsolidatedFile,$(LOCAL_CANONICAL_ISSUES_STAMP_FILES))
-  $(call log.info, LOCAL_consolidatedcanonical_FILES)
+  $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_FILES)
 
-# VARIABLE: LOCAL_consolidatedcanonical_PAGES_STAMPS
+# VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS
 # Stores the list of consolidated pages stamp files based on canonical pages stamps
 # These track the copy/processing status of pages data
-LOCAL_consolidatedcanonical_PAGES_STAMPS := \
+LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS := \
     $(call LocalCanonicalPagesToConsolidatedStamp,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
-  $(call log.info, LOCAL_consolidatedcanonical_PAGES_STAMPS)
+  $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS)
 
 # TARGET: consolidatedcanonical-target
 #: Processes newspaper content with consolidated canonical format
@@ -126,11 +126,11 @@ consolidatedcanonical-target: sync-canonical sync-langident
 # TARGET: consolidatedcanonical-files-target
 #: Internal target that builds the actual consolidated files (issues and pages)
 # Called recursively after sync to ensure stamp files are available
-consolidatedcanonical-files-target: $(LOCAL_consolidatedcanonical_FILES) $(LOCAL_consolidatedcanonical_PAGES_STAMPS)
+consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_FILES) $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS)
 
 .PHONY: consolidatedcanonical-files-target
 
-# FILE-RULE: $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2
+# FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2
 #: Rule to process a single newspaper year
 #
 # Pattern matches consolidated canonical output files for the current newspaper.
@@ -145,12 +145,12 @@ consolidatedcanonical-files-target: $(LOCAL_consolidatedcanonical_FILES) $(LOCAL
 # - Merges data with strict matching
 # - Writes consolidated canonical output
 # - Uploads to S3
-$(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
+$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX) \
     $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_consolidatedcanonical.py \
+    python3 lib/cli_CONSOLIDATEDCANONICAL.py \
       --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
       --enrichment-input $(call LocalToS3,$(word 2,$^),'') \
       --output $@ \
@@ -166,7 +166,7 @@ $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1; }
 
-# FILE-RULE: $(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp
+# FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp
 #: Rule to process/copy pages data from canonical to consolidated bucket
 #
 # Pattern matches consolidated canonical pages stamps for the current newspaper.
@@ -180,7 +180,7 @@ $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
 # - Copies all pages files for the year from canonical S3 to consolidated S3
 # - Creates a stamp file to track completion
 # - Preserves directory structure and file organization
-$(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp: \
+$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp: \
     $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
@@ -188,7 +188,7 @@ $(LOCAL_PATH_consolidatedcanonical_PAGES)/%.stamp: \
 		--recursive \
 		--endpoint-url $(SE_HOST_URL) \
 		$(S3_PATH_CANONICAL_PAGES)/$*/ \
-		$(S3_PATH_consolidatedcanonical_PAGES)/$*/ \
+		$(S3_PATH_CONSOLIDATEDCANONICAL_PAGES)/$*/ \
 	&& touch $@
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_consolidatedcanonical.mk)

@@ -6,10 +6,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 
 #: Show detailed orchestration and parallelization help
 help-orchestration:
-	@echo "PROCESSING CONFIGURATION:"
-	@echo "  RUN_VERSION_consolidatedcanonical  #  Output version (default: v2025-11-23_initial)"
-	@echo "  LANGIDENT_ENRICHMENT_RUN_ID        #  Langident run to use (default: langident-lid-ensemble_multilingual_v2-0-2)"
-	@echo ""
 	@echo "PARALLELIZATION CONFIGURATION:"
 	@echo "  COLLECTION_JOBS   #  Number of newspapers to process in parallel (default: 2)"
 	@echo "                    #  Higher values increase parallelism but consume more memory"
