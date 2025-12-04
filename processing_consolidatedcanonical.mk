@@ -156,7 +156,6 @@ $(LOCAL_PATH_consolidatedcanonical)/issues/%-issues.jsonl.bz2: \
       --output $@ \
       --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
       $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
-      $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
       --log-level $(LOGGING_LEVEL) \
       --log-file $@.log.gz \
     && \
