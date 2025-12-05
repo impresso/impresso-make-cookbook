@@ -408,17 +408,6 @@ def main():
                 sys.exit(1)
             log.info("Uploading file: %s to %s", local_path, s3_path)
 
-            # Determine if we should force overwrite for this file
-            # For second file in pair: force if first was uploaded
-            # For first file in pair: respect global setting
-            should_force_overwrite = args.force_overwrite
-            if is_second_in_pair and first_file_uploaded.get(first_pair_index, False):
-                should_force_overwrite = True
-                log.info(
-                    "Second file in pair (log file): forcing upload since first file "
-                    "was uploaded"
-                )
-
             # Check if file exists if not force_overwrite
             skip_this_pair = False
             if not args.force_overwrite:

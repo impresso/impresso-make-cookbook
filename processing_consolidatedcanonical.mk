@@ -70,12 +70,12 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES)
 
-# FUNCTION: LocalCanonicalToConsolidatedFile
-# Converts a local canonical stamp file to a consolidated output file name
+# FUNCTION: LocalCanonicalIssuesToConsolidatedIssueFile
+# Converts a local canonical pages stamp file to a consolidated issue output file name
 # Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
 # Output: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
-# Note: Handles stamps with or without extension based on LOCAL_CANONICAL_STAMP_SUFFIX
-define LocalCanonicalToConsolidatedFile
+# Note: Uses pages stamps as proxy since sync-canonical only syncs pages (issues are yearly, same granularity)
+define LocalCanonicalIssuesToConsolidatedIssueFile
 $(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(1))
 endef
 
@@ -97,11 +97,12 @@ define LocalCanonicalPagesToConsolidatedStamp
 $(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp,$(1))
 endef
 
-# VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_FILES
-# Stores the list of consolidated canonical issues files based on canonical stamp files
-LOCAL_CONSOLIDATEDCANONICAL_FILES := \
-    $(call LocalCanonicalToConsolidatedFile,$(LOCAL_CANONICAL_ISSUES_STAMP_FILES))
-  $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_FILES)
+# VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES
+# Stores the list of consolidated canonical issues files based on canonical pages stamp files
+# Note: Uses pages stamps since sync-canonical only syncs pages (issues are yearly, same as pages stamps)
+LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES := \
+    $(call LocalCanonicalIssuesToConsolidatedIssueFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
+  $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES)
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS
 # Stores the list of consolidated pages stamp files based on canonical pages stamps
@@ -126,7 +127,7 @@ consolidatedcanonical-target: sync-canonical sync-langident
 # TARGET: consolidatedcanonical-files-target
 #: Internal target that builds the actual consolidated files (issues and pages)
 # Called recursively after sync to ensure stamp files are available
-consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_FILES) $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS)
+consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS)
 
 .PHONY: consolidatedcanonical-files-target
 
@@ -136,7 +137,7 @@ consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_FILES) $(LOCAL
 # Pattern matches consolidated canonical output files for the current newspaper.
 # 
 # Dependencies:
-# - Canonical pages stamp (.stamp file from sync)
+# - Canonical pages stamp (.stamp file from sync - used as proxy for issue data availability)
 # - Langident enrichment file (.jsonl.bz2 file from langident processing)
 #
 # Processing:
