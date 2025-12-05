@@ -151,7 +151,7 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_CONSOLIDATEDCANONICAL.py \
+    python3 lib/cli_consolidatedcanonical.py \
       --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
       --enrichment-input $(call LocalToS3,$(word 2,$^),'') \
       --output $@ \
