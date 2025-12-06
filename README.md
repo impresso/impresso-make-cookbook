@@ -117,6 +117,15 @@ All input and output data reside on S3, allowing multiple machines to access sha
 
 Local **stamp files** mirror S3 metadata, enabling machines to independently track and manage processing tasks without downloading full datasets. This prevents interference between machines, as builds are verified against S3 before processing starts, ensuring no overwrites or duplicate results.
 
+**Stamp API v2 and Directory-Level Stamps:**
+
+The cookbook uses `s3_to_local_stamps.py` with `--stamp-api v2` to create **directory-level stamps** rather than individual file stamps. This approach:
+
+- **Groups files by directory**: Instead of creating one stamp per S3 object, v2 creates one stamp per directory (based on `--directory-level` parameter)
+- **Tracks latest modification**: Each directory stamp reflects the most recent modification time of any file within that directory
+- **Reduces filesystem overhead**: Fewer stamp files means faster Make dependency evaluation and less filesystem clutter
+- **Enables efficient synchronization**: Make can determine if an entire directory needs updating by checking a single stamp file
+
 **Stamp File Naming Convention:**
 
 - **Files on S3**: Stamp files have the **same name** as the S3 object they represent

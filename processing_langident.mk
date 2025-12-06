@@ -175,6 +175,14 @@ impresso-lid-statistics-target : impresso-lid-systems-target
 
 # === USER-VARIABLES (Common to all stages) ====================================
 
+# USER-VARIABLE: LOCAL_LANGIDENT_STAMP_SUFFIX
+# Suffix for local stamp files (used to track S3 synchronization status)
+# Uses .stamp extension to avoid conflicts with actual directories
+# Must match the value in sync_langident.mk for consistency
+LOCAL_LANGIDENT_STAMP_SUFFIX ?= .stamp
+  $(call log.debug, LOCAL_LANGIDENT_STAMP_SUFFIX)
+
+
 # USER-VARIABLE: LANGIDENT_LOGGING_LEVEL
 # Option to specify logging level for language identification.
 # Uses the global LOGGING_LEVEL as default, can be overridden for langident-specific logging.
@@ -408,7 +416,7 @@ endef
 # FUNCTION: LocalCanonicalToLangIdentSystemsFile
 # Converts a canonical stamp file name to a local langident stage1 file name
 define LocalCanonicalToLangIdentSystemsFile
-$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
 endef
 
 # FUNCTION: CanonicalPagesToIssuesPath
@@ -435,7 +443,7 @@ endif
 # Converts a local langident stage1 file name to a local langident stage1b stats file name with stamp suffix
 # Takes any stage1 .jsonl.bz2 file and maps it to the stats.json file in the same directory
 define LocalLangIdentStage1ToStage1bFile
-$(dir $(1))stats.json$(LOCAL_STAMP_SUFFIX)
+$(dir $(1))stats.json
 endef
 
 # VARIABLE: LOCAL_LANGIDENT_STATISTICS_FILES
@@ -580,7 +588,7 @@ impresso-lid-statistics-files-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 # If stats.json stamp already exists (from sync), this rule won't run
 # Otherwise generates new statistics from systems files
 # Uses stamp file for stats.json to track S3 synchronization state
-$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json$(LOCAL_STAMP_SUFFIX): $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
+$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(dir $@) && \
 	python3 lib/newspaper_statistics.py \
@@ -662,7 +670,7 @@ impresso-lid-ensemble-target :: impresso-lid-statistics-target $(LOCAL_LANGIDENT
 # rule for building all ensemble files
 
 
-$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json$(LOCAL_STAMP_SUFFIX)
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json$(LOCAL_LANGIDENT_STAMP_SUFFIX)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
