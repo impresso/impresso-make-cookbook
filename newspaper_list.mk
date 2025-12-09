@@ -85,7 +85,7 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 			--prefix "$(NEWSPAPER_PREFIX)" \
 			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
 			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
-			$(if $(NEWSPAPER_FNMATCH),--fnmatch $(NEWSPAPER_FNMATCH)) \
+			$(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)') \
 			> $@; \
 	else \
 		echo "$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call `make clean-newspaper-list-target` to remove it."; \
