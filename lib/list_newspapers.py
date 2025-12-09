@@ -469,7 +469,7 @@ class NewspaperLister:
         log.info(
             "Extracted %d newspaper identifiers: %s",
             len(newspapers),
-            newspapers[:10] + (["..."] if len(newspapers) > 10 else []),
+            "… ".join(newspapers[::10]) if len(newspapers) > 10 else [],
         )
 
         # Apply fnmatch filtering if pattern is provided
