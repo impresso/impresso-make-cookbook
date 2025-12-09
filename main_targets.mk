@@ -3,25 +3,25 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 # MAIN PROCESSING TARGETS
 # Core targets for newspaper processing pipeline
 ###############################################################################
+  
+  $(call log.info,MAKEFLAGS)
 
 #: Show detailed orchestration and parallelization help
 help-orchestration:
 	@echo "PARALLELIZATION CONFIGURATION:"
-	@echo "  COLLECTION_JOBS   #  Number of newspapers to process in parallel (default: 2)"
-	@echo "                    #  Higher values increase parallelism but consume more memory"
-	@echo "                    #  Recommended: 2-8 depending on available RAM and CPU cores"
+	@echo "  COLLECTION_JOBS   #  Number of different newspapers to process in parallel ($(COLLECTION_JOBS))"
+	@echo "                    #  Low numbers might not use all system resources effectively if newspapers are small and many CPU cores are available"
 	@echo ""
-	@echo "  NEWSPAPER_JOBS    #  Number of parallel jobs per newspaper (default: NPROC/COLLECTION_JOBS, floored to integer)"
-	@echo "                    #  (e.g., if NPROC=6 and COLLECTION_JOBS=4, NEWSPAPER_JOBS=1)"
+	@echo "  NEWSPAPER_JOBS    #  Number of parallel jobs per newspaper ($(NEWSPAPER_JOBS))"
 	@echo "                    #  If COLLECTION_JOBS > NPROC, NEWSPAPER_JOBS may be zero; adjust accordingly"
 	@echo "                    #  Controls fine-grained parallelism within each newspaper"
 	@echo "                    #  Auto-calculated to balance with COLLECTION_JOBS"
 	@echo ""
-	@echo "  MAX_LOAD          #  Maximum system load average (default: NPROC)"
+	@echo "  MAX_LOAD          #  Maximum system load average ($(MAX_LOAD))"
 	@echo "                    #  Prevents system overload by limiting concurrent processes"
 	@echo "                    #  Set lower if system becomes unresponsive"
 	@echo ""
-	@echo "  NPROC             #  Number of CPU cores (auto-detected)"
+	@echo "  NPROC             #  Number of CPU cores ($(NPROC))"
 	@echo "                    #  Override if auto-detection fails or for resource limiting"
 	@echo ""
 	@echo "PERFORMANCE TUNING:"
@@ -59,6 +59,7 @@ endif
 # - sync: Ensures data is synchronized
 # - processing-target: Performs the actual processing
 newspaper: | $(BUILD_DIR)
+	# MAKEFLAGS= $(MAKEFLAGS) 
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) sync
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) processing-target
 
@@ -139,11 +140,6 @@ collection: check-parallel newspaper-list-target
 help::
 	@echo "  collection        #  Process fulll impresso collection with parallel processing"
 
-# Alternative implementation using GNU parallel
-# collection: newspaper-list-target
-#	cat $(NEWSPAPERS_TO_PROCESS_FILE) | \
-#	parallel -j $(COLLECTION_JOBS) \
-#		"$(MAKE) NEWSPAPER={} all"
 
 .PHONY: collection
 
