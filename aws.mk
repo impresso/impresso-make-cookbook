@@ -29,7 +29,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_aws.mk)
 # This target verifies if the AWS credentials and configuration are properly
 # set up by listing the contents of an S3 bucket. Ensure that the required
 # configuration files exist before running this command.
-test-aws: | .aws/credentials .aws/config
+test-aws: .aws | .aws/credentials .aws/config
 	AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials \
 	aws s3 ls s3://41-processed-data-staging/lingproc/lingproc-pos-spacy_v3.6.0-multilingual_v1-0-3/
 
