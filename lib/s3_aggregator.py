@@ -208,6 +208,38 @@ def verify_s3_files(
         total_files += 1
         file_lines = 0
         file_has_error = False
+
+        # Special handling for pretty‑printed JSON files
+        if file_key.endswith(".json"):
+            try:
+                logging.info("Verifying pretty‑printed JSON file: %s", file_key)
+                with smart_open(
+                    f"s3://{bucket}/{file_key}",
+                    "r",
+                    encoding="utf-8",
+                    transport_params=transport_params,
+                ) as infile:
+                    content = infile.read()
+                    json.loads(content)
+                # Count lines only for reporting; pretty JSON is not JSONL
+                file_lines = content.count("\n")
+                total_lines += file_lines
+                logging.info("  ✓ File readable (pretty JSON): %d lines", file_lines)
+            except Exception as e:
+                logging.error("Error reading pretty JSON file %s: %s", file_key, e)
+                error_files += 1
+                file_has_error = True
+                files_with_errors.append(f"s3://{bucket}/{file_key} ({str(e)})")s
+                if delete_corrupted:
+                    try:
+                        s3.delete_object(Bucket=bucket, Key=file_key)
+                        deleted_files.append(f"s3://{bucket}/{file_key}")
+                        logging.warning("Deleted corrupted file: %s", file_key)
+                    except Exception as delete_error:
+                        logging.error("Failed to delete %s: %s", file_key, delete_error)
+            # Skip normal JSONL line-by-line logic
+            continue
+
         try:
             logging.info("Verifying file %d: %s", total_files, file_key)
             with smart_open(
