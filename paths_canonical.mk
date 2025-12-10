@@ -49,7 +49,7 @@ ifeq ($(NEWSPAPER_HAS_PROVIDER),1)
     ifneq ($(PROVIDER),)
       CANONICAL_PATH_SEGMENT := $(PROVIDER)/$(NEWSPAPER)
     else
-      $(error PROVIDER must be set when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER does not contain provider prefix)
+      $(warn PROVIDER must be set when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER does not contain provider prefix for any processing steps on newspapers.)
     endif
   endif
 else
@@ -76,7 +76,7 @@ ifeq ($(NEWSPAPER_HAS_PROVIDER),1)
     ifneq ($(PROVIDER),)
       CANONICAL_PATH_SEGMENT := $(PROVIDER)/$(NEWSPAPER)
     else
-      $(error PROVIDER must be set when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER does not contain provider prefix)
+      $(warn PROVIDER must be set when NEWSPAPER_HAS_PROVIDER=1 and NEWSPAPER does not contain provider prefix for any processing steps on newspapers.)
     endif
   endif
 else

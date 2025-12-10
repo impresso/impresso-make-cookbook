@@ -25,7 +25,7 @@ sync:: newspaper-list-target
 
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
-#NEWSPAPER ?= WTCH
+NEWSPAPER ?= BNL/actionfem
   $(call log.info, NEWSPAPER)
 
 
