@@ -33,9 +33,14 @@ Usage Examples:
         local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
 
     # Simple upload without WIP management
-    python3 -m impresso_cookbook.local_to_s3 \\
-        localpath1 s3path1 localpath2 s3path2 \\
+    python3 -m impresso_cookbook.local_to_s3 \
+        localpath1 s3path1 localpath2 s3path2 \
         --force-overwrite --set-timestamp --keep-timestamp-only
+
+    # Upload only newer non-stamp files (checks impresso-last-ts metadata)
+    python3 -m impresso_cookbook.local_to_s3 \
+        local1.txt.gz s3://bucket/file1.txt.gz \
+        --upload-if-newer --set-timestamp
 """
 
 __author__ = "simon.clematide@uzh.ch"
@@ -111,6 +116,16 @@ def main():
         "--force-overwrite",
         action="store_true",
         help="Overwrite files on S3 even if they already exist.",
+    )
+    parser.add_argument(
+        "--upload-if-newer",
+        action="store_true",
+        help=(
+            "Upload only if local file is non-empty (not a stamp file) and newer "
+            "than S3 file's impresso-last-ts metadata timestamp. Empty files "
+            "(stamp files from sync) are never uploaded. If --force-overwrite is "
+            "also set, it takes precedence."
+        ),
     )
     parser.add_argument(
         "--keep-timestamp-only",
@@ -413,12 +428,100 @@ def main():
             if not args.force_overwrite:
                 bucket, key = parse_s3_path(s3_path)
                 if s3_file_exists(s3_client, bucket, key):
-                    log.warning(
-                        "File %s already exists and --force-overwrite not set."
-                        " Skipping.",
-                        s3_path,
-                    )
-                    skip_this_pair = True
+                    # If --upload-if-newer is set, check if local file
+                    # should be uploaded
+                    if args.upload_if_newer:
+                        local_size = os.path.getsize(local_path)
+                        # Empty files are stamp files - never upload them
+                        # 0 bytes = truly empty, 14 bytes = empty bz2 file
+                        is_stamp = local_size == 0 or (
+                            local_path.endswith(".bz2") and local_size == 14
+                        )
+                        if is_stamp:
+                            log.info(
+                                "Skipping stamp file: %s (%d bytes)",
+                                local_path,
+                                local_size,
+                            )
+                            skip_this_pair = True
+                        else:
+                            # Non-empty file - check if newer than S3 metadata
+                            try:
+                                s3_head = s3_client.head_object(Bucket=bucket, Key=key)
+                                s3_metadata = s3_head.get("Metadata", {})
+                                s3_timestamp_str = s3_metadata.get(args.metadata_key)
+
+                                if s3_timestamp_str:
+                                    # Parse S3 metadata timestamp
+                                    s3_timestamp = datetime.fromisoformat(
+                                        s3_timestamp_str.replace("Z", "+00:00")
+                                    )
+                                    # Get local file modification time as timezone-aware
+                                    from datetime import timezone
+
+                                    local_mtime = datetime.fromtimestamp(
+                                        os.path.getmtime(local_path), tz=timezone.utc
+                                    )
+
+                                    if local_mtime > s3_timestamp:
+                                        log.info(
+                                            "Local file %s is newer "
+                                            "(local: %s, S3: %s). Uploading.",
+                                            local_path,
+                                            local_mtime.isoformat(),
+                                            s3_timestamp.isoformat(),
+                                        )
+                                        skip_this_pair = False
+                                    else:
+                                        log.info(
+                                            "S3 file %s is up-to-date or newer "
+                                            "(local: %s, S3: %s). Skipping.",
+                                            s3_path,
+                                            local_mtime.isoformat(),
+                                            s3_timestamp.isoformat(),
+                                        )
+                                        skip_this_pair = True
+                                else:
+                                    # No metadata timestamp - treat S3 file as outdated
+                                    log.info(
+                                        "S3 file %s has no %s metadata. "
+                                        "Treating as outdated. Uploading.",
+                                        s3_path,
+                                        args.metadata_key,
+                                    )
+                                    skip_this_pair = False
+                            except Exception as e:
+                                log.warning(
+                                    "Error checking S3 metadata for %s: %s. "
+                                    "Uploading to be safe.",
+                                    s3_path,
+                                    e,
+                                )
+                                skip_this_pair = False
+                    else:
+                        # --upload-if-newer not set, use old behavior
+                        log.warning(
+                            "File %s already exists and --force-overwrite not set."
+                            " Skipping.",
+                            s3_path,
+                        )
+                        skip_this_pair = True
+                else:
+                    # S3 file doesn't exist - always upload
+                    # (if not empty when using --upload-if-newer)
+                    if args.upload_if_newer:
+                        local_size = os.path.getsize(local_path)
+                        # Check if it's a stamp file (0 bytes or 14-byte bz2)
+                        is_stamp = local_size == 0 or (
+                            local_path.endswith(".bz2") and local_size == 14
+                        )
+                        if is_stamp:
+                            log.info(
+                                "Skipping stamp file: %s (%d bytes)",
+                                local_path,
+                                local_size,
+                            )
+                            skip_this_pair = True
 
             if skip_this_pair:
                 # If content file is skipped, also skip its log file

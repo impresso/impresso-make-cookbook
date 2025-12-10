@@ -354,5 +354,7 @@ sync-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC
 .PHONY: sync-langident
 
 
+clean-sync-langident:
+	rm -rfv $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_langident.mk)
