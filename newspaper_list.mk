@@ -19,7 +19,7 @@ sync:: newspaper-list-target
 # USER-VARIABLE: PROVIDER
 # Data provider organization (e.g., BL, SWA, NZZ)
 # Required for canonical data which is organized as PROVIDER/NEWSPAPER/
-P#ROVIDER ?= BL
+#PROVIDER ?= BL
   $(call log.info, PROVIDER)
 
 
