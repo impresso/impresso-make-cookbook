@@ -54,7 +54,6 @@ Examples:
 import argparse
 import json
 import logging
-import os
 import re
 import sys
 import tempfile
@@ -69,7 +68,7 @@ load_dotenv()
 
 
 class SmartFileHandler(logging.FileHandler):
-    def _open(self) -> any:
+    def _open(self) -> Any:
         """Open the log file using smart_open and return a file-like object."""
         return smart_open(self.baseFilename, self.mode, encoding="utf-8")
 
@@ -229,7 +228,7 @@ def verify_s3_files(
                 logging.error("Error reading pretty JSON file %s: %s", file_key, e)
                 error_files += 1
                 file_has_error = True
-                files_with_errors.append(f"s3://{bucket}/{file_key} ({str(e)})")s
+                files_with_errors.append(f"s3://{bucket}/{file_key} ({str(e)})")
                 if delete_corrupted:
                     try:
                         s3.delete_object(Bucket=bucket, Key=file_key)
