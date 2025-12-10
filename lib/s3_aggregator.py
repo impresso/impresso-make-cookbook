@@ -195,6 +195,7 @@ def verify_s3_files(
     error_files = 0
     files_with_errors = []  # Track files that have errors
     deleted_files = []  # Track files that were deleted
+    empty_files = []  # Track valid but empty files
 
     logging.info(
         "Starting verification of S3 data with extensions: %s", file_extensions
@@ -243,6 +244,9 @@ def verify_s3_files(
                                 )
                         break
             total_lines += file_lines
+            # Check for empty files (valid, 0 lines) after reading and before error check
+            if not file_has_error and file_lines == 0:
+                empty_files.append(f"s3://{bucket}/{file_key}")
             if not file_has_error:
                 logging.info("  ✓ File readable: %d lines", file_lines)
         except Exception as e:
@@ -287,8 +291,25 @@ def verify_s3_files(
             print("=" * 60)
             print(f"Total files deleted: {len(deleted_files)}")
 
+        if empty_files:
+            print("\n" + "=" * 60)
+            print("EMPTY FILES (0 lines):")
+            print("=" * 60)
+            for empty_file in empty_files:
+                print(empty_file)
+            print("=" * 60)
+            print(f"Total empty files: {len(empty_files)}")
+
         sys.exit(1)
     else:
+        if empty_files:
+            print("\n" + "=" * 60)
+            print("EMPTY FILES (0 lines):")
+            print("=" * 60)
+            for empty_file in empty_files:
+                print(empty_file)
+            print("=" * 60)
+            print(f"Total empty files: {len(empty_files)}")
         logging.info("All data is readable ✓")
         print("\nAll data is readable ✓")
 
