@@ -19,13 +19,13 @@ sync:: newspaper-list-target
 # USER-VARIABLE: PROVIDER
 # Data provider organization (e.g., BL, SWA, NZZ)
 # Required for canonical data which is organized as PROVIDER/NEWSPAPER/
-PROVIDER ?= BL
+P#ROVIDER ?= BL
   $(call log.info, PROVIDER)
 
 
 # USER-VARIABLE: NEWSPAPER
 # Default newspaper selection if none is specified
-NEWSPAPER ?= WTCH
+#NEWSPAPER ?= WTCH
   $(call log.info, NEWSPAPER)
 
 
