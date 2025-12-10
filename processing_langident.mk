@@ -69,6 +69,9 @@ ifeq ($(USE_CANONICAL),1)
 # Synchronizes canonical data when using canonical format.
 sync-input :: sync-canonical
 
+# DOUBLE-COLON-TARGET: clean-sync-output
+clean-sync-output:: clean-sync-langident
+
 # VARIABLE: LANGIDENT_FORMAT_OPTION  
 # Format option for language identification processing
 LANGIDENT_FORMAT_OPTION := --format=canonical
