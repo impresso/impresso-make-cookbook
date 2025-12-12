@@ -18,12 +18,13 @@ sync-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 
 
 # Rule to sync the input data from the S3 bucket to the local directory
+# Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_PATH_REBUILT).last_synced:
 	mkdir -p $(@D) && \
 	python -m impresso_cookbook.s3_to_local_stamps\
 	   $(S3_PATH_REBUILT) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_REBUILT_STAMP_SUFFIX) \
+	   --stamp-mode per-file \
 	   --logfile $@.log.gz && \
 	touch $@
 

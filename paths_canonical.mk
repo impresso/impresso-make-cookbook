@@ -128,17 +128,11 @@ LOCAL_PATH_CANONICAL_ISSUES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_P
 LOCAL_PATH_CANONICAL_ISSUES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_PATH_SEGMENT)/issues
   $(call log.debug, LOCAL_PATH_CANONICAL_ISSUES)
 
-# USER-VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_SUFFIX
-# The suffix for local stamp files (should be ".stamp" to avoid file/directory conflicts)
-# This must match the documented convention for stamp file naming.
-LOCAL_CANONICAL_PAGES_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_SUFFIX)
-
 # VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST
 # Stores all locally available canonical pages stamp files for dependency tracking
-# Note: Canonical pages use yearly issue-level stamps (e.g., AATA-1846.stamp), not pages-level stamps
+# Note: Canonical pages use yearly issue-level stamps with hard-coded .stamp suffix (e.g., AATA-1846.stamp)
 LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*$(LOCAL_CANONICAL_PAGES_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*.stamp 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST)
 

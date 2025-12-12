@@ -12,20 +12,16 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_nel.mk)
 LOCAL_NEL_SYNC_STAMP_FILE := $(LOCAL_PATH_NEL).last_synced
   $(call log.debug, LOCAL_NEL_SYNC_STAMP_FILE)
 
-# USER-VARIABLE: LOCAL_NEL_STAMP_SUFFIX
-# Suffix for local stamp files (used to track S3 synchronization status)
-LOCAL_NEL_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
-  $(call log.debug, LOCAL_NEL_STAMP_SUFFIX)
-
 # STAMPED-FILE-RULE: $(LOCAL_PATH_NEL).last_synced
 #: Synchronizes data from S3 to the local directory
+#: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_PATH_NEL).last_synced:
 	mkdir -p $(@D) \
 	&& \
 	python -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_NEL) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_NEL_STAMP_SUFFIX) \
+	   --stamp-mode per-file \
 	   --logfile $@.log.gz \
 	&& \
 	touch $@

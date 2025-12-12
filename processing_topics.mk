@@ -52,7 +52,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	mkdir -p $(@D) && \
 	{ set +e ; \
 	  python lib/mallet_topic_inferencer.py \
-	    --input $(call LocalToS3,$<,'') \
+	    --input $(call LocalToS3,$<) \
 	    --input-format impresso \
 	    --output $@ \
 	    --output-format jsonl \
@@ -68,14 +68,14 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	    --lingproc-run_id $(RUN_ID_LINGPROC) \
 	    --impresso-model-id $(MODEL_ID_TOPICS) \
 	    --inferencer-random-seed $(MALLET_RANDOM_SEED) \
-	    --s3-output-path $(call LocalToS3,$@,'') \
+	    --s3-output-path $(call LocalToS3,$@) \
 	    --log-file $@.log.gz ; \
 	  EXIT_CODE=$$? ; \
 	  echo "Processing exit code: $$EXIT_CODE" ; \
 	  if [ $$EXIT_CODE -eq 0 ] ; then \
 	    echo "Processing completed successfully. Uploading logfile..." ; \
 	    python3 lib/s3_to_local_stamps.py \
-	      $(call LocalToS3,$@,'').log.gz \
+	      $(call LocalToS3,$@).log.gz \
 	      --upload-file $@.log.gz \
 	      --force-overwrite ; \
 	  elif [ $$EXIT_CODE -eq 3 ]; then \

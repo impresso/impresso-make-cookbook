@@ -68,16 +68,6 @@ NEWSPAPER_FNMATCH ?=
   $(call log.debug, NEWSPAPER_FNMATCH)
 
 
-# USER-VARIABLE: LOCAL_CANONICAL_STAMP_SUFFIX
-# The suffix for the local stamp files (added to the input paths from S3)
-#
-# This suffix is appended to local stamp files to track synchronization
-# status and avoid unnecessary re-downloads of unchanged data.
-# Legacy variable - kept for compatibility; default is '.stamp' to avoid file/directory conflicts
-LOCAL_CANONICAL_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_CANONICAL_STAMP_SUFFIX)
-
-
 # VARIABLE: LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE
 # Local synchronization stamp file for canonical pages input data
 #
@@ -100,9 +90,12 @@ sync-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp
 #
-# Downloads canonical pages data from the S3 bucket to the local directory
-# using the impresso_cookbook.s3_to_local_stamps module. Creates stamp files
-# to track individual file synchronization and a master stamp file upon completion.
+# Creates directory-level stamp files (with .stamp suffix) to track synchronization 
+# of yearly page collections. One stamp file is created per year (e.g., AATA-1846.stamp),
+# with its modification timestamp set to the most recent modification time among all
+# page files within that year's directory on S3. This allows Make to detect updates
+# without downloading actual page data - the langident processing reads pages directly
+# from S3 using the year directory as a prefix pattern.
 $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
 	# creating $@ 
 	mkdir -p $(@D) \
@@ -110,8 +103,8 @@ $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
 	python -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_CANONICAL_PAGES) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension '$(LOCAL_CANONICAL_STAMP_SUFFIX)' \
-	   --stamp-api v2 \
+	   --stamp-mode per-directory \
+	   --directory-level 1 \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \

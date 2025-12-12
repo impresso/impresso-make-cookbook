@@ -18,10 +18,10 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_langident.mk)
 #
 # Makefile Pattern for WIP Handling:
 #   python3 -m impresso_cookbook.local_to_s3 \
-#       --s3-file-exists $(call LocalToS3,$@,'') \
+#       --s3-file-exists $(call LocalToS3,$@) \
 #       --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 #       --log-level $(LANGIDENT_LOGGING_LEVEL) \
-#       $@ $(call LocalToS3,$@,'') \
+#       $@ $(call LocalToS3,$@) \
 #   || { test $$? -eq 2 && exit 0; exit 1; } \
 #   && ,
 #
@@ -178,14 +178,6 @@ impresso-lid-statistics-target : impresso-lid-systems-target
 
 
 # === USER-VARIABLES (Common to all stages) ====================================
-
-# USER-VARIABLE: LOCAL_LANGIDENT_STAMP_SUFFIX
-# Suffix for local stamp files (used to track S3 synchronization status)
-# Uses .stamp extension to avoid conflicts with actual directories
-# Must match the value in sync_langident.mk for consistency
-LOCAL_LANGIDENT_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_LANGIDENT_STAMP_SUFFIX)
-
 
 # USER-VARIABLE: LANGIDENT_LOGGING_LEVEL
 # Option to specify logging level for language identification.
@@ -412,15 +404,17 @@ LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION ?= 0.5
   $(call log.debug, LANGIDENT_SYSTEMS_MINIMAL_LID_PROBABILITY_OPTION)
 
 # FUNCTION: LocalRebuiltToLangIdentStage1File
-# Converts a local rebuilt file name to a local langident stage1 file name
+# Converts a local rebuilt stamp file name to a local langident stage1 file name
+# Rebuilt stamps match S3 file names exactly (no suffix)
 define LocalRebuiltToLangIdentStage1File
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
 endef
 
 # FUNCTION: LocalCanonicalToLangIdentSystemsFile
 # Converts a canonical stamp file name to a local langident stage1 file name
+# Canonical stamps have hard-coded .stamp suffix for yearly directories
 define LocalCanonicalToLangIdentSystemsFile
-$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
 endef
 
 # FUNCTION: CanonicalPagesToIssuesPath
@@ -489,22 +483,22 @@ ifeq ($(USE_CANONICAL),1)
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 (canonical version)
 #: Rule to process a single newspaper from canonical format
-$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)
+$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
-		--s3-file-exists $(call LocalToS3,$@,'') \
+		--s3-file-exists $(call LocalToS3,$@) \
 		--create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$@ $(call LocalToS3,$@,'') \
-		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+		$@ $(call LocalToS3,$@) \
+		$@.log.gz $(call LocalToS3,$@).log.gz \
 	|| { test $$? -eq 2 && exit 0; exit 1; } \
 	&& , ) \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
-		--infile $(call LocalToS3,$(basename $<),'') \
-		--issue-file $(call LocalToS3,$(call CanonicalPagesToIssuesPath,$(basename $<)),'') \
+		--infile $(call LocalToS3,$(basename $<)) \
+		--issue-file $(call LocalToS3,$(call CanonicalPagesToIssuesPath,$(basename $<))) \
 		--outfile $@ \
 		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
 		--impresso-ft $(LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
@@ -521,35 +515,36 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOC
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
-		$@ $(call LocalToS3,$@,'') \
-		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+		$@ $(call LocalToS3,$@) \
+		$@.log.gz $(call LocalToS3,$@).log.gz \
 	|| { rm -vf $@ ; \
 	     $(if $(LANGIDENT_WIP_ENABLED), \
 	     python3 -m impresso_cookbook.local_to_s3 --remove-wip \
 	         --log-level $(LANGIDENT_LOGGING_LEVEL) \
-	         $@ $(call LocalToS3,$@,'') \
-	         $@.log.gz $(call LocalToS3,$@,'').log.gz || true ; , ) \
+	         $@ $(call LocalToS3,$@) \
+	         $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
 	     exit 1 ; }
 
 else
 
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 (rebuilt version)  
 #: Rule to process a single newspaper from rebuilt format
-$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 
+#: Rebuilt stamps match S3 file names exactly (no suffix to strip)
+$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	$(if $(LANGIDENT_WIP_ENABLED), \
 	python3 -m impresso_cookbook.local_to_s3 \
-		--s3-file-exists $(call LocalToS3,$@,'') \
+		--s3-file-exists $(call LocalToS3,$@) \
 		--create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$@ $(call LocalToS3,$@,'') \
-		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+		$@ $(call LocalToS3,$@) \
+		$@.log.gz $(call LocalToS3,$@).log.gz \
 	|| { test $$? -eq 2 && exit 0; exit 1; } \
 	&& , ) \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
-		--infile $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+		--infile $(call LocalToS3,$<) \
 		--outfile $@ \
 		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
 		--impresso-ft $(LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
@@ -567,14 +562,14 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(L
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--keep-timestamp-only \
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
-		$@ $(call LocalToS3,$@,'') \
-		$@.log.gz $(call LocalToS3,$@,'').log.gz \
+		$@ $(call LocalToS3,$@) \
+		$@.log.gz $(call LocalToS3,$@).log.gz \
 	|| { rm -vf $@ ; \
 	     $(if $(LANGIDENT_WIP_ENABLED), \
 	     python3 -m impresso_cookbook.local_to_s3 --remove-wip \
 	         --log-level $(LANGIDENT_LOGGING_LEVEL) \
-	         $@ $(call LocalToS3,$@,'') \
-	         $@.log.gz $(call LocalToS3,$@,'').log.gz || true ; , ) \
+	         $@ $(call LocalToS3,$@) \
+	         $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
 	     exit 1 ; }
 
 endif
@@ -607,34 +602,36 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--log-file $(dir $@)stats.json.log.gz \
 		--outfile $(dir $@)stats.json \
-		$(call LocalToS3,$(dir $<),'') \
+		$(call LocalToS3,$(dir $<)) \
 	&& \
 	python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--keep-timestamp-only --upload-if-newer \
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
-		$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json,'') \
-		$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz,'') \
+		$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json) \
+		$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz) \
 	|| { rm -vf $(dir $@)stats.json $@ ; \
 		$(if $(LANGIDENT_WIP_ENABLED), \
 		python3 -m impresso_cookbook.local_to_s3 \
 			--remove-wip \
 			--log-level $(LANGIDENT_LOGGING_LEVEL) \
-			$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json,'') \
-			$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz,'') || true ; , ) \
+			$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json) \
+			$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz) || true ; , ) \
 		exit 1 ; }
 
 
 # FUNCTION: LocalRebuiltToLangIdentFile
-# Converts a local rebuilt file name to a local langident file name
+# Converts a local rebuilt stamp file name to a local langident file name
+# Rebuilt stamps match S3 file names exactly (no suffix)
 define LocalRebuiltToLangIdentFile
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
 endef
 
 # FUNCTION: LocalCanonicalToLangIdentFile
 # Converts a canonical stamp file name to a local langident file name
+# Canonical stamps have hard-coded .stamp suffix for yearly directories
 define LocalCanonicalToLangIdentFile
-$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2)
 endef
 
 # VARIABLE: LOCAL_LANGIDENT_FILES
@@ -673,20 +670,25 @@ impresso-lid-ensemble-target :: impresso-lid-statistics-target $(LOCAL_LANGIDENT
 
 
 # rule for building all ensemble files
+# 
+# Each ensemble file depends on:
+#   1. Its corresponding Stage 1a file (with predictions from all LID systems)
+#   2. The newspaper-level stats.json file (Stage 1b statistics)
+# 
+# Note: File stamps match S3 names exactly (no suffix), so stats.json is just stats.json
 
-
-$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json$(LOCAL_LANGIDENT_STAMP_SUFFIX)
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
   $(if $(LANGIDENT_WIP_ENABLED), \
   python3 -m impresso_cookbook.local_to_s3 \
-    --s3-file-exists $(call LocalToS3,$@,'') \
+    --s3-file-exists $(call LocalToS3,$@) \
     --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    $@ $(call LocalToS3,$@,'') \
-    $@.log.gz $(call LocalToS3,$@,'').log.gz \
-    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
+    $@ $(call LocalToS3,$@) \
+    $@.log.gz $(call LocalToS3,$@).log.gz \
+    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) \
   || { test $$? -eq 2 && exit 0; exit 1; } \
   && , ) \
   python3 lib/impresso_ensemble_lid.py \
@@ -696,12 +698,12 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     --minimal-voting-score $(LANGIDENT_ENSEMBLE_MINIMAL_VOTING_SCORE_OPTION) \
     --minimal-text-length $(LANGIDENT_ENSEMBLE_MINIMAL_TEXT_LENGTH_OPTION) \
     --threshold_confidence_orig_lg $(LANGIDENT_ENSEMBLE_THRESHOLD_CONFIDENCE_ORIG_LG_OPTION) \
-    --newspaper-stats-filename $(call LocalToS3,$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json,'') \
+    --newspaper-stats-filename $(call LocalToS3,$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json) \
     --git-describe $(GIT_VERSION) \
     --alphabetical-ratio-threshold  $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
     --dominant-language-threshold $(LANGIDENT_ENSEMBLE_DOMINANT_LANGUAGE_THRESHOLD_OPTION) \
     --diagnostics-json $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
-    --infile $(call LocalToS3,$<,'') \
+    --infile $(call LocalToS3,$<) \
     --outfile $@ \
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     --log-file $@.log.gz \
@@ -713,16 +715,16 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     --set-timestamp --upload-if-newer  \
 	--log-level $(LANGIDENT_LOGGING_LEVEL) \
     $(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
-    $@    $(call LocalToS3,$@,'') \
-    $@.log.gz    $(call LocalToS3,$@,'').log.gz \
-    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') \
+    $@    $(call LocalToS3,$@) \
+    $@.log.gz    $(call LocalToS3,$@).log.gz \
+    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) \
   || { rm -vf $@ $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) ; \
        $(if $(LANGIDENT_WIP_ENABLED), \
        python3 -m impresso_cookbook.local_to_s3 --remove-wip \
            --log-level $(LANGIDENT_LOGGING_LEVEL) \
-           $@ $(call LocalToS3,$@,'') \
-           $@.log.gz $(call LocalToS3,$@,'').log.gz \
-           $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@),'') || true ; , ) \
+           $@ $(call LocalToS3,$@) \
+           $@.log.gz $(call LocalToS3,$@).log.gz \
+           $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) || true ; , ) \
        exit 1 ; }
 
 # DOUBLE-COLON-TARGET: impresso-lid-ensemble-target

@@ -23,15 +23,11 @@ S3_PATH_REBUILT := s3://$(S3_BUCKET_REBUILT)/$(NEWSPAPER)
 LOCAL_PATH_REBUILT := $(BUILD_DIR)/$(S3_BUCKET_REBUILT)/$(NEWSPAPER)
   $(call log.debug, LOCAL_PATH_REBUILT)
 
-# the suffix of for the local stamp files (added to the input paths on s3)
-LOCAL_REBUILT_STAMP_SUFFIX ?= .stamp
-  $(call log.debug, LOCAL_REBUILT_STAMP_SUFFIX)
-
-
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
+# Note: Stamps now match S3 filenames exactly (no suffix)
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 

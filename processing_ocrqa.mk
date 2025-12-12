@@ -60,16 +60,18 @@ OCRQA_VERBOSE_OUTPUT_OPTION ?=
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
+# Rebuilt stamps match S3 file names exactly (no suffix)
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 
 # FUNCTION: LocalRebuiltToOcrqaFile
-# Converts a local rebuilt file name to a local OCR quality assessment file name
+# Converts a local rebuilt stamp file name to a local OCR quality assessment file name
+# Rebuilt stamps match S3 file names exactly (no suffix)
 define LocalRebuiltToOcrqaFile
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_OCRQA)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_OCRQA)/%.jsonl.bz2)
 endef
 
 
@@ -90,20 +92,21 @@ ocrqa-target: $(LOCAL_OCRQA_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_OCRQA)/%.jsonl.bz2
 #: Rule to process a single newspaper
+#: Rebuilt stamps match S3 file names exactly (no suffix to strip)
 #
 # Note: Unsets errexit flag to communicate exit codes
-$(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
+$(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE)mkdir -p $(@D) && \
 	{  set +e ; \
      python3 lib/ocrqa_bloom.py \
           --languages $(OCRQA_LANGUAGES_OPTION) \
           --bloomdicts $(OCRQA_BLOOMFILTERS_OPTION) \
-          --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
-          --lid $(call LocalToS3,$(word 2,$^),'') \
+          --input $(call LocalToS3,$<) \
+          --lid $(call LocalToS3,$(word 2,$^)) \
           --git-version $(GIT_VERSION) \
           $(OCRQA_MIN_SUBTOKENS_OPTION) \
           $(OCRQA_VERBOSE_OUTPUT_OPTION) \
-          --s3-output-path $(call LocalToS3,$@,'') \
+          --s3-output-path $(call LocalToS3,$@) \
           $(OCRQA_VALIDATE_OPTION) \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
