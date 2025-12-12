@@ -637,8 +637,7 @@ endef
 # VARIABLE: LOCAL_LANGIDENT_FILES
 # Stores the list of final langident files based on rebuilt or canonical stamp files
 ifeq ($(USE_CANONICAL),1)
-LOCAL_LANGIDENT_FILES := \
-    $(call LocalCanonicalToLangIdentFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST))
+LOCAL_LANGIDENT_FILES := $(call LocalCanonicalToLangIdentFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST))
 else
 LOCAL_LANGIDENT_FILES := \
     $(call LocalRebuiltToLangIdentFile,$(LOCAL_REBUILT_STAMP_FILES))
@@ -646,6 +645,7 @@ endif
 
   $(call log.debug, LOCAL_LANGIDENT_FILES)
 
+impresso-lid-ensemble-files-target : $(LOCAL_LANGIDENT_FILES)
 # TARGET: impresso-lid-ensemble-target
 # Generate final language identification decisions using ensemble voting.
 #
@@ -664,8 +664,8 @@ endif
 # running with parallel jobs, the statistics stage completes before any ensemble
 # processing begins, preventing race conditions.
 #
-impresso-lid-ensemble-target :: impresso-lid-statistics-target $(LOCAL_LANGIDENT_FILES)
-
+impresso-lid-ensemble-target : impresso-lid-statistics-target $(LOCAL_LANGIDENT_FILES)
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-files-target 
 .PHONY: impresso-lid-ensemble-target
 
 
