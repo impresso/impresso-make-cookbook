@@ -73,7 +73,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PA
           $(call LocalToS3,$<) \
           --lid $(call LocalToS3,$(word 2,$^)) \
           $(LINGPROC_VALIDATE_OPTION) \
-          --s3-output-path $(call LocalToS3,$@,.'') \
+          --s3-output-path $(call LocalToS3,$@) \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \
