@@ -349,6 +349,19 @@ LANGIDENT_WIP_MAX_AGE ?= 1
   $(call log.debug, LANGIDENT_WIP_MAX_AGE)
 
 
+# USER-VARIABLE: LANGIDENT_UPLOAD_IF_NEWER_OPTION
+# Option to control S3 upload behavior based on timestamps.
+#
+# Set to --upload-if-newer to upload only if local timestamp is newer than S3,
+# or leave empty to skip upload (file metadata only will be updated).
+# Note: Without --force-write, files are not uploaded to S3 by default.
+# This is useful when you want to update S3 when local files have changed without
+# forcing overwrite of content-wise unchanged files.
+# LANGIDENT_UPLOAD_IF_NEWER_OPTION ?= --upload-if-newer
+LANGIDENT_UPLOAD_IF_NEWER_OPTION ?=
+  $(call log.debug, LANGIDENT_UPLOAD_IF_NEWER_OPTION)
+
+
 # === INTERNAL COMPUTED VARIABLES ==============================================
 
 # Conditional format option based on USE_CANONICAL
@@ -695,7 +708,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 	&& \
 	python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
-		--keep-timestamp-only --upload-if-newer \
+		--keep-timestamp-only $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
 		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json) \
 		$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz) \
@@ -754,7 +767,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: 
     $(if $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),) \
   && \
   python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp --upload-if-newer  \
+    --set-timestamp $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
 	--log-level $(LANGIDENT_LOGGING_LEVEL) \
     $(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
     $@    $(call LocalToS3,$@) \
