@@ -37,6 +37,9 @@ CONSOLIDATEDCANONICAL_VALIDATE_OPTION ?= --validate
 # Downloads existing consolidated canonical files for resume/inspection
 sync-output :: sync-consolidatedcanonical
 
+# DOUBLE-COLON-TARGET: clean-sync-output
+clean-sync-output:: clean-sync-consolidatedcanonical
+
 # DOUBLE-COLON-TARGET: sync-input
 # Synchronizes canonical and langident enrichment input data for consolidation
 sync-input :: sync-consolidatedcanonical-input
@@ -162,9 +165,9 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     && \
     python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp --log-level $(LOGGING_LEVEL) \
-	  --keep-timestamp-only \
-      $@        $(call LocalToS3,$@) \
-      $@.log.gz $(call LocalToS3,$@).log.gz \
+	  --keep-timestamp-only --upload-if-newer  \
+      $@        $(call LocalToS3,$@,'') \
+      $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1; }
 
 # FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp
