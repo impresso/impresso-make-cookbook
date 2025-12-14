@@ -171,6 +171,7 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
+	   --file-extensions jsonl.bz2 json \
 	   --stamp-mode per-file \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
@@ -323,7 +324,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 #   
 #   # Sync before resuming ensemble processing
 #   make sync-langident NEWSPAPER=actionfem
-#   make impresso-lid-ensemble-target NEWSPAPER=actionfem
+#   make langident-ensemble-target NEWSPAPER=actionfem
 #   
 #   # Sync before distributed processing
 #   make sync-langident NEWSPAPER=BL/WTCH
@@ -336,11 +337,11 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 # NOTE:
 #   This is a phony target - it always checks dependencies even if the
 #   .last_synced files exist, ensuring fresh sync status verification.
-sync-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
+sync-langident: $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) 
 .PHONY: sync-langident
 
 # TARGET: clean-sync-langident
 clean-sync-langident:
-	rm -rfv $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
+	rm -fv $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_langident.mk)

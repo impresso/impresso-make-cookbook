@@ -212,6 +212,63 @@ The cookbook supports optional **WIP file management** to prevent concurrent pro
 - Particularly useful in distributed environments where coordination is difficult
 - Can be disabled (default) for faster processing when coordination is managed externally
 
+** More WIP Explanations **
+
+```
+# === Work-In-Progress (WIP) File Management ===
+#
+# This processing pipeline implements WIP file management to prevent concurrent
+# processing of the same data across distributed machines. The system uses marker
+# files (.wip) on S3 to coordinate work and ensure only one process works on a
+# given dataset at a time.
+#
+# Exit Code Convention:
+#   0 - Success or skip (file exists, or WIP created successfully)
+#   1 - Error condition (processing failed)
+#   2 - WIP exists, skip processing (used to signal concurrent work in progress)
+#
+# Makefile Pattern for WIP Handling:
+#   python3 -m impresso_cookbook.local_to_s3 \
+#       --s3-file-exists $(call LocalToS3,$@) \
+#       --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+#       --log-level $(LANGIDENT_LOGGING_LEVEL) \
+#       $@ $(call LocalToS3,$@) \
+#   || { test $$? -eq 2 && exit 0; exit 1; } \
+#   && ,
+#
+# The pattern above:
+#   - Checks if output file already exists on S3 (skip if present)
+#   - --create-wip automatically enables WIP checking (no need for separate --wip flag)
+#   - Checks if a WIP file exists (exit 2 if fresh WIP found)
+#   - Creates a new WIP file if none exists or if stale
+#   - The || { test $$? -eq 2 && exit 0; exit 1; } converts exit code 2 to 0
+#     for Make, allowing the target to be skipped without error
+#   - The && , ensures the command sequence continues only on success
+#
+# WIP File Contents (JSON on S3):
+#   - hostname: Machine running the process
+#   - ip_address: IP address of the machine
+#   - username: User running the process
+#   - pid: Process ID
+#   - start_time: ISO timestamp when processing started
+#   - files: List of files being processed
+#
+# Configuration Variables:
+#   LANGIDENT_WIP_ENABLED: Set to 1 to enable WIP management (default: 1)
+#   LANGIDENT_WIP_MAX_AGE: Max age in hours for WIP files (default: 3)
+#
+# Stale WIP Handling:
+#   If a WIP file is older than LANGIDENT_WIP_MAX_AGE, it's considered stale
+#   and will be removed automatically, allowing processing to proceed. This
+#   handles cases where processes crash or machines fail.
+#
+# WIP Removal:
+#   The final ensemble stage uses --remove-wip to clean up the WIP file after
+#   successful completion of all processing stages.
+#
+###############################################################################
+```
+
 **Configuration:**
 
 ```bash

@@ -6,6 +6,51 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
   
   $(call log.info,MAKEFLAGS)
 
+# Cross-platform CPU detection
+ifndef NPROC
+ifeq ($(OS),Darwin)
+# macOS - use sysctl
+NPROC := $(shell sysctl -n hw.ncpu)
+else ifeq ($(OS),Linux)
+# Linux - use nproc
+NPROC := $(shell nproc --all)
+else
+# Fallback for other systems
+NPROC := 1
+  $(call log.warn, "NPROC not set, defaulting to 1. Please set NPROC for better performance.")
+endif
+endif
+  $(call log.info, NPROC)
+
+# USER-VARIABLE: MAX_LOAD
+# Maximum load average for the machine to allow processing
+#
+# This variable sets the maximum load average for the machine in parallelization. No new
+# jobs are started if the load average exceeds this value.
+MAX_LOAD ?= $(NPROC)
+  $(call log.info, MAX_LOAD)
+
+# USER-VARIABLE: COLLECTION_JOBS
+# Maximum number of parallel newspaper processes
+#
+# This variable sets the maximum number of different newspapers to process in parallel.
+# Default: Half of available CPU cores
+COLLECTION_JOBS ?= $(shell expr $(NPROC) / 2)
+  $(call log.info, COLLECTION_JOBS)
+
+# USER-VARIABLE: NEWSPAPER_JOBS
+# Maximum number of parallel jobs per newspaper
+#
+# This variable sets the maximum number of parallel jobs to run when processing a
+# single newspaper. Auto-calculated to balance with COLLECTION_JOBS.
+# If COLLECTION_JOBS exceeds NPROC, this may be set to 1 to avoid oversubscription.
+NEWSPAPER_JOBS ?= $(shell expr $(NPROC) / $(COLLECTION_JOBS))
+  $(call log.info, NEWSPAPER_JOBS)
+
+# PARALLEL_DELAY: Delay in seconds between starting parallel jobs
+PARALLEL_DELAY ?= 3
+  $(call log.debug, PARALLEL_DELAY)
+
 #: Show detailed orchestration and parallelization help
 help-orchestration:
 	@echo "PARALLELIZATION CONFIGURATION:"
@@ -68,33 +113,6 @@ newspaper: | $(BUILD_DIR)
 help::
 	@echo "  newspaper         #  Process a single newspaper run by the processing pipeline"
 
-# Cross-platform CPU detection
-ifndef NPROC
-ifeq ($(OS),Darwin)
-# macOS - use sysctl
-NPROC := $(shell sysctl -n hw.ncpu)
-else ifeq ($(OS),Linux)
-# Linux - use nproc
-NPROC := $(shell nproc --all)
-else
-# Fallback for other systems
-NPROC := 1
-  $(call log.warn, "NPROC not set, defaulting to 1. Please set NPROC for better performance.")
-endif
-endif
-  $(call log.info, NPROC)
-
-COLLECTION_JOBS ?= 2
-  $(call log.info, COLLECTION_JOBS)
-
-NEWSPAPER_JOBS ?= $(shell expr $(NPROC) / $(COLLECTION_JOBS))
-  $(call log.info, NEWSPAPER_JOBS	)
-
-MAX_LOAD ?= $(NPROC)
-  $(call log.info, MAX_LOAD)
-
-PARALLEL_DELAY ?= 3
-  $(call log.debug, PARALLEL_DELAY)
 
 # TARGET: all
 # Complete processing with fresh data sync

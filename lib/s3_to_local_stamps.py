@@ -546,16 +546,42 @@ class LocalStampCreator(object):
                         )
                         continue
 
-                # Check if file is truly a stamp (empty, size = 0 bytes)
+                # Check if file is truly a stamp (empty file)
+                # 0 bytes = truly empty, 14 bytes = empty bz2 file signature
                 try:
                     file_size = os.path.getsize(file_path)
-                    if file_size != 0:
-                        log.debug(
-                            "Skipping '%s' - not a stamp file (size: %d bytes, "
-                            "expected 0)",
-                            file_path,
-                            file_size,
-                        )
+                    is_stamp = file_size == 0 or (
+                        file_path.endswith(".bz2") and file_size == 14
+                    )
+                    if not is_stamp:
+                        # If file should be in expected set but isn't a stamp,
+                        # it's likely leftover from --write-content or other source
+                        # If it's also not in expected_stamp_files, remove it
+                        if file_path not in expected_stamp_files:
+                            log.warning(
+                                "Removing non-stamp file '%s' (size: %d bytes) - "
+                                "not in S3 expected set. Likely leftover from "
+                                "previous sync with --write-content.",
+                                file_path,
+                                file_size,
+                            )
+                            try:
+                                os.remove(file_path)
+                                self.stats["files_removed"] += 1
+                                continue
+                            except OSError as e:
+                                log.error(
+                                    "Failed to remove non-stamp file '%s': %s",
+                                    file_path,
+                                    e,
+                                )
+                        else:
+                            log.debug(
+                                "Skipping '%s' - not a stamp file (size: %d bytes, "
+                                "expected 0 or 14 for .bz2) but is in expected set",
+                                file_path,
+                                file_size,
+                            )
                         continue
                 except OSError as e:
                     log.warning("Error checking file size for '%s': %s", file_path, e)
