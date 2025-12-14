@@ -51,17 +51,17 @@ processing-target :: consolidatedcanonical-target
 # VARIABLE: LOCAL_CANONICAL_ISSUES_STAMP_FILES
 # Stores all locally available canonical issue stamp files for dependency tracking
 # Note: We sync canonical pages which include yearly stamps, but we need issue files
-# Looks for stamp files matching the LOCAL_CANONICAL_STAMP_SUFFIX pattern
+# Looks for stamp files with hard-coded .stamp suffix
 LOCAL_CANONICAL_ISSUES_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_ISSUES)/*$(LOCAL_CANONICAL_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_CANONICAL_ISSUES)/*.stamp 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_CANONICAL_ISSUES_STAMP_FILES)
 
 # VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_FILES
 # Stores all locally available canonical pages stamp files for dependency tracking
-# These are yearly stamps (e.g., NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp) that track page sync status
+# These are yearly stamps with hard-coded .stamp suffix (e.g., NEWSPAPER-YEAR.stamp) that track page sync status
 LOCAL_CANONICAL_PAGES_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*$(LOCAL_CANONICAL_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*.stamp 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_FILES)
 
@@ -74,30 +74,30 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
   $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES)
 
 # FUNCTION: LocalCanonicalIssuesToConsolidatedIssueFile
-# Converts a local canonical pages stamp file to a consolidated issue output file name
-# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
+# Converts a local canonical pages stamp file to the corresponding consolidated issues file
+# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
 # Output: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
 # Note: Uses pages stamps as proxy since sync-canonical only syncs pages (issues are yearly, same granularity)
 define LocalCanonicalIssuesToConsolidatedIssueFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(1))
 endef
 
 # FUNCTION: LocalCanonicalToEnrichmentFile
 # Converts a local canonical stamp file to the corresponding enrichment file
-# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
+# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
 # Output: build.d/115-canonical-processed-final/langident/RUN_ID/CANONICAL_PATH_SEGMENT/NEWSPAPER-YEAR.jsonl.bz2
-# Note: Handles stamps with or without extension, output is .jsonl.bz2 (the actual enrichment file)
+# Note: Canonical stamps have hard-coded .stamp suffix, output is .jsonl.bz2 (the actual enrichment file)
 define LocalCanonicalToEnrichmentFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(1))
 endef
 
 # FUNCTION: LocalCanonicalPagesToConsolidatedStamp
 # Converts a local canonical pages stamp file to a consolidated pages stamp file
-# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR or NEWSPAPER-YEAR.stamp
+# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
 # Output: build.d/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
-# Note: Output always uses .stamp extension for tracking consolidated pages sync status
+# Note: Both input and output use hard-coded .stamp suffix for tracking sync status
 define LocalCanonicalPagesToConsolidatedStamp
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX),$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp,$(1))
+$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp,$(1))
 endef
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES
@@ -150,13 +150,13 @@ consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $
 # - Writes consolidated canonical output
 # - Uploads to S3
 $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
-    $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX) \
+    $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp \
     $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
     python3 lib/cli_consolidatedcanonical.py \
       --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
-      --enrichment-input $(call LocalToS3,$(word 2,$^),'') \
+      --enrichment-input $(call LocalToS3,$(word 2,$^)) \
       --output $@ \
       --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
       $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
@@ -185,7 +185,7 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
 # - Creates a stamp file to track completion
 # - Preserves directory structure and file organization
 $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp: \
-    $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)
+    $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws s3 cp \

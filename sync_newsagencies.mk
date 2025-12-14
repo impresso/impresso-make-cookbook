@@ -12,20 +12,16 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_newsagencies.mk)
 LOCAL_NEWSAGENCIES_SYNC_STAMP_FILE := $(LOCAL_PATH_NEWSAGENCIES).last_synced
   $(call log.debug, LOCAL_NEWSAGENCIES_SYNC_STAMP_FILE)
 
-# USER-VARIABLE: LOCAL_NEWSAGENCIES_STAMP_SUFFIX
-# Suffix for local stamp files (used to track S3 synchronization status)
-LOCAL_NEWSAGENCIES_STAMP_SUFFIX ?= $(LOCAL_STAMP_SUFFIX)
-  $(call log.debug, LOCAL_NEWSAGENCIES_STAMP_SUFFIX)
-
 # STAMPED-FILE-RULE: $(LOCAL_PATH_NEWSAGENCIES).last_synced
 #: Synchronizes data from S3 to the local directory
+#: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_PATH_NEWSAGENCIES).last_synced:
 	mkdir -p $(@D) \
 	&& \
 	python -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_NEWSAGENCIES) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_NEWSAGENCIES_STAMP_SUFFIX) \
+	   --stamp-mode per-file \
 	   --logfile $@.log.gz \
 	&& \
 	touch $@

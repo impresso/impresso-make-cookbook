@@ -88,22 +88,13 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_langident.mk)
 #
 # STAMP FILE NAMING:
 # ==================
-# - Data files (v2 API): File stamps do NOT use .stamp extension - they match S3 object names exactly
-#   - This makes it easier to track build rules and dependencies
+# File stamps ALWAYS match S3 object names exactly (no suffix):
 #   - Example: S3 file "WTCH-1828.jsonl.bz2" → local stamp "WTCH-1828.jsonl.bz2" (zero-byte file)
-# - Directories: Use .stamp extension (e.g., "pages.stamp") to avoid conflicts with mkdir
-# - Master sync: .last_synced file marks completion of full sync operation
+#   - Example: S3 file "stats.json" → local stamp "stats.json" (zero-byte file)
 # 
-# Note: The LOCAL_LANGIDENT_STAMP_SUFFIX (".stamp") is only used for directory-level stamps,
-# not for individual file stamps when using v2 API.
+# Directory stamps (if used) always have .stamp suffix to avoid conflicts with mkdir.
+# Master sync: .last_synced file marks completion of full sync operation.
 ###############################################################################
-
-
-# USER-VARIABLE: LOCAL_LANGIDENT_STAMP_SUFFIX
-# Suffix for local stamp files (used to track S3 synchronization status)
-# Uses .stamp extension to avoid conflicts with actual directories
-LOCAL_LANGIDENT_STAMP_SUFFIX ?= 
-  $(call log.debug, LOCAL_LANGIDENT_STAMP_SUFFIX)
 
 
 # VARIABLE: LOCAL_LANGIDENT_SYNC_STAMP_FILE
@@ -163,16 +154,14 @@ LOCAL_LANGIDENT_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT).last_synced
 #     └── .last_synced                 (this file - marks sync completion)
 #
 # STAMP BEHAVIOR:
-#   - Uses LOCAL_LANGIDENT_STAMP_SUFFIX (".stamp") ONLY for directory-level stamps
-#   - File-level stamps match S3 object names exactly (NO .stamp suffix with v2 API)
-#   - This makes build rules clearer: $(LOCAL_PATH)/WTCH-1828.jsonl.bz2 directly tracks the S3 file
+#   - File-level stamps match S3 object names exactly (no suffix)
+#   - Each S3 file gets one local stamp file with the same name
 #   - Stamps are zero-byte files with timestamps matching S3 object modification times
 #   - Dangling stamps (for deleted S3 objects) are automatically removed
 #
 # SCRIPT: impresso_cookbook.s3_to_local_stamps
 #   --local-dir: Base directory for creating stamp hierarchy
-#   --stamp-extension: Suffix for directory stamps to avoid mkdir conflicts
-#   --stamp-api v2: Use v2 API (file stamps match S3 names, directories get .stamp suffix)
+#   --stamp-mode per-file: Create one stamp per S3 file with exact filename
 #   --remove-dangling-stamps: Clean up stamps for non-existent S3 objects
 #   --logfile: Compressed log of sync operation
 $(LOCAL_PATH_LANGIDENT).last_synced:
@@ -182,8 +171,8 @@ $(LOCAL_PATH_LANGIDENT).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension '$(LOCAL_LANGIDENT_STAMP_SUFFIX)' \
-	   --stamp-api v1 \
+	   --file-extensions jsonl.bz2 json \
+	   --stamp-mode per-file \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
@@ -271,17 +260,16 @@ LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT_STAGE1).last_sy
 #     This makes build rules simpler and tracking clearer.
 #
 # STAMP BEHAVIOR:
-#   - Directory stamps use LOCAL_LANGIDENT_STAMP_SUFFIX (".stamp") to avoid mkdir conflicts
-#   - File stamps match S3 object names exactly (v2 API behavior)
-#   - Example: S3 file "stats.json" → local stamp "stats.json" (not "stats.json.stamp")
-#   - Example: S3 file "WTCH-1828.jsonl.bz2" → local stamp "WTCH-1828.jsonl.bz2"
+#   - File stamps match S3 object names exactly (no suffix)
+#   - Example: S3 file "stats.json" → local stamp "stats.json" (0-byte file)
+#   - Example: S3 file "WTCH-1828.jsonl.bz2" → local stamp "WTCH-1828.jsonl.bz2" (0-byte file)
+#   - Stamps have timestamps matching S3 object modification times
 #   - Dangling stamps are removed if corresponding S3 objects no longer exist
 #
 # SCRIPT: impresso_cookbook.s3_to_local_stamps
 #   --local-dir: Base directory for stamp hierarchy
-#   --stamp-extension: Suffix for directory stamps only
+#   --stamp-mode per-file: Create one stamp per S3 file with exact filename
 #   --file-extensions: Only sync these file types (filters S3 listing)
-#   --stamp-api v2: File stamps match S3 names, directory stamps get .stamp suffix
 #   --remove-dangling-stamps: Clean up orphaned stamps
 $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	# Syncing the processed data from $(S3_PATH_LANGIDENT_STAGE1)
@@ -292,9 +280,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 	python -m impresso_cookbook.s3_to_local_stamps \
 		$(S3_PATH_LANGIDENT_STAGE1) \
 		--local-dir $(BUILD_DIR) \
-		--stamp-extension '$(LOCAL_LANGIDENT_STAMP_SUFFIX)' \
+		--stamp-mode per-file \
 		--file-extensions jsonl.bz2 json \
-		--stamp-api v1 \
 		--remove-dangling-stamps \
 		--logfile $@.log.gz \
 		--log-level $(LOGGING_LEVEL) \
@@ -337,7 +324,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 #   
 #   # Sync before resuming ensemble processing
 #   make sync-langident NEWSPAPER=actionfem
-#   make impresso-lid-ensemble-target NEWSPAPER=actionfem
+#   make langident-ensemble-target NEWSPAPER=actionfem
 #   
 #   # Sync before distributed processing
 #   make sync-langident NEWSPAPER=BL/WTCH
@@ -350,11 +337,11 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 # NOTE:
 #   This is a phony target - it always checks dependencies even if the
 #   .last_synced files exist, ensuring fresh sync status verification.
-sync-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
+sync-langident: $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 .PHONY: sync-langident
 
 # TARGET: clean-sync-langident
 clean-sync-langident:
-	rm -rfv $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
+	rm -fv $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_langident.mk)

@@ -25,16 +25,18 @@ LINGPROC_QUIET_OPTION ?=
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
+# Rebuilt stamps match S3 file names exactly (no suffix)
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 
 # FUNCTION: LocalRebuiltToLingprocFile
-# Converts a local rebuilt file name to a local linguistic processing file name
+# Converts a local rebuilt stamp file name to a local linguistic processing file name
+# Rebuilt stamps match S3 file names exactly (no suffix)
 define LocalRebuiltToLingprocFile
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2)
 endef
 
 
@@ -60,17 +62,18 @@ LINGPROC_LANGIDENT_NEEDED ?= 1
 ifeq ($(LINGPROC_LANGIDENT_NEEDED),1)
 # FILE-RULE: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 #: Rule to process a single newspaper
+#: Rebuilt stamps match S3 file names exactly (no suffix to strip)
 #
 # Note: Unsets errexit flag to communicate exit codes
-$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
+$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	{  set +e ; \
      python3 lib/spacy_linguistic_processing.py \
-          $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
-          --lid $(call LocalToS3,$(word 2,$^),'') \
+          $(call LocalToS3,$<) \
+          --lid $(call LocalToS3,$(word 2,$^)) \
           $(LINGPROC_VALIDATE_OPTION) \
-          --s3-output-path $(call LocalToS3,$@,.'') \
+          --s3-output-path $(call LocalToS3,$@) \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \
@@ -98,14 +101,15 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REB
 else
 # NO-LINGPROC_LANGIDENT_NEEDED: lingproc-target we trust the lg property inside the
 # rebuilt file
-$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 
+#: Rebuilt stamps match S3 file names exactly (no suffix to strip)
+$(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	{  set +e ; \
      python3 lib/spacy_linguistic_processing.py \
-          $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+          $(call LocalToS3,$<) \
           $(LINGPROC_VALIDATE_OPTION) \
-          --s3-output-path $(call LocalToS3,$@,.'') \
+          --s3-output-path $(call LocalToS3,$@) \
           $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
           $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION) \
           $(PROCESSING_S3_OUTPUT_DRY_RUN) \

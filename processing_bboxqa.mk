@@ -24,15 +24,17 @@ BBOXQA_IIIF_GALLICA_V3_OPTION ?= $(EMPTY)
 
 # VARIABLE: CANONICAL_PAGES_STAMP_FILES
 # Stores all canonical stamp files for dependency tracking
+# Canonical stamps have hard-coded .stamp suffix for yearly directories
 CANONICAL_PAGES_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*$(LOCAL_CANONICAL_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*.stamp 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, CANONICAL_PAGES_STAMP_FILES)
 
 # FUNCTION: CanonicalPagesToBboxqaFile
-# Converts a canonical file name to a local BBOX quality assessment file name
+# Converts a canonical stamp file name to a local BBOX quality assessment file name
+# Canonical stamps have hard-coded .stamp suffix
 define CanonicalPagesToBboxqaFile
-$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)=$(LOCAL_PATH_BBOXQA)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_BBOXQA)/%.jsonl.bz2)
 endef
 
 # VARIABLE: LOCAL_BBOXQA_FILES
@@ -52,7 +54,8 @@ bboxqa-target: $(LOCAL_BBOXQA_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2
 #: Rule to process a single newspaper year file
-$(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONICAL_STAMP_SUFFIX)
+#: Canonical stamps have hard-coded .stamp suffix
+$(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
@@ -65,8 +68,8 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%$(LOCAL_CANONIC
   python3 -m impresso_cookbook.local_to_s3 \
     $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
     --set-timestamp \
-    $@        $(call LocalToS3,$@,'') \
-    $@.log.gz $(call LocalToS3,$@,'').log.gz \
+    $@        $(call LocalToS3,$@) \
+    $@.log.gz $(call LocalToS3,$@).log.gz \
   || { rm -vf $@ ; exit 1 ; }
 
 

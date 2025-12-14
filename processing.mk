@@ -6,37 +6,23 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing.mk)
 #
 # This file defines options to control processing behavior, particularly when
 # interacting with S3 storage.
+#
+# These targets define the generic pipeline interface exposed by the cookbook.
+# Individual processing modules bind these targets to concrete implementations
+# using double-colon rules.
 ###############################################################################
 
 
 # DOUBLE-COLON-TARGET: processing-target
-#: Defines the current processing target
+#: Abstract processing entry point
 #
-# This target is used to define the current processing target for the recursive build.
+# This target defines the generic processing entry point for the cookbook.
+# Concrete processing modules bind this target to their implementation targets
+# by adding additional double-colon rules in their respective Makefiles.
 processing-target:: | $(BUILD_DIR)
 
 .PHONY: processing-target
 
-
-# USER-VARIABLE: MAX_LOAD
-# Maximum load average for the machine to allow processing
-#
-# This variable sets the maximum load average for the machine in parallelization. No new
-# jobs are started if the load average exceeds this value.
-MAX_LOAD ?= $(shell nproc)
-  $(call log.debug, MAX_LOAD)
-
-# USER-VARIABLE: COLLECTION_JOBS
-# Maximum number of parallel newspaper processes
-COLLECTION_JOBS ?= $(shell expr $$(nproc) / 2)
-
-# USER-VARIABLE: NEWSPAPER_JOBS
-# Maximum number of parallel newspaper processes
-#
-# This variable sets the maximum number of parallel newspaper processes to run in a
-# single 
-NEWSPAPER_JOBS ?= $(MAX_LOAD)
-  $(call log.debug, NEWSPAPER_JOBS)
 
 
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN

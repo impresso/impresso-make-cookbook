@@ -19,16 +19,18 @@ processing-target :: TEMPLATE-target
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking
+# Rebuilt stamps match S3 file names exactly (no suffix)
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX) 2> /dev/null \
+    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 
 # FUNCTION: LocalRebuiltToTEMPLATEFile
-# Converts a local rebuilt file name to a local TEMPLATE file name
+# Converts a local rebuilt stamp file name to a local TEMPLATE file name
+# Rebuilt stamps match S3 file names exactly (no suffix)
 define LocalRebuiltToTEMPLATEFile
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)=$(LOCAL_PATH_TEMPLATE)/%.jsonl.bz2)
+$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_TEMPLATE)/%.jsonl.bz2)
 endef
 
 
@@ -49,17 +51,18 @@ TEMPLATE-target: $(LOCAL_TEMPLATE_FILES)
 
 # FILE-RULE: $(LOCAL_PATH_TEMPLATE)/%.jsonl.bz2
 #: Rule to process a single newspaper
-$(LOCAL_PATH_TEMPLATE)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2$(LOCAL_REBUILT_STAMP_SUFFIX)
+#: Rebuilt stamps match S3 file names exactly (no suffix to strip)
+$(LOCAL_PATH_TEMPLATE)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
     python3 lib/cli_TEMPLATE.py \
-      --input $(call LocalToS3,$<,$(LOCAL_REBUILT_STAMP_SUFFIX)) \
+      --input $(call LocalToS3,$<) \
       --output $@ \
       --log-file $@.log.gz \
     && \
     python3 -m impresso_cookbook.local_to_s3 \
-      $@        $(call LocalToS3,$@,'') \
-      $@.log.gz $(call LocalToS3,$@,'').log.gz \
+      $@        $(call LocalToS3,$@) \
+      $@.log.gz $(call LocalToS3,$@).log.gz \
     || { rm -vf $@ ; exit 1 ; }
 
 

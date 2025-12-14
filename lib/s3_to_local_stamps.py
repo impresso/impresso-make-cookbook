@@ -248,11 +248,15 @@ class LocalStampCreator(object):
             sys.exit(0)
         elif self.args.s3_path:
             log.info("Starting stamp file creation...")
-            if self.args.stamp_api == "v1":
-                self.create_stamp_files(self.bucket_name, self.prefix)
-            elif self.args.stamp_api == "v2":
-                log.info("Using S3 client API v2 for stamp file creation.")
-                self.create_stamp_files_v2(self.bucket_name, self.prefix)
+            if self.args.stamp_mode == "per-file":
+                log.info("Using per-file stamp mode (exact S3 filenames)")
+                self.create_stamp_files_per_file(self.bucket_name, self.prefix)
+            elif self.args.stamp_mode == "per-directory":
+                log.info(
+                    "Using per-directory stamp mode (directory-level=%d)",
+                    self.args.directory_level,
+                )
+                self.create_stamp_files_per_directory(self.bucket_name, self.prefix)
             log.info(
                 "Stamp file creation completed. Files created: %d, Files removed: %d",
                 self.stats["files_created"],
@@ -265,8 +269,11 @@ class LocalStampCreator(object):
             )
             sys.exit(1)
 
-    def create_stamp_files(self, bucket_name: str, prefix: str) -> None:
-        """Creates local stamp files that mirror the structure of specified S3 objects.
+    def create_stamp_files_per_file(self, bucket_name: str, prefix: str) -> None:
+        """Creates local stamp files that mirror S3 objects with exact filenames.
+
+        Each S3 file gets a local stamp file with the same name (no suffix).
+        Stamp files are zero-byte files with timestamps matching S3 LastModified.
 
         Args:
             bucket_name (str): The name of the S3 bucket.
@@ -307,18 +314,22 @@ class LocalStampCreator(object):
             # Use the get_last_modified function to handle custom metadata
             last_modified = get_last_modified(response)
 
-            # Create a local stamp file
-            local_path = self.create_local_stamp_file(s3_key, last_modified, content)
+            # Create a local stamp file with exact S3 filename (no suffix)
+            local_path = self.create_local_stamp_file(
+                s3_key, last_modified, content, use_exact_name=True
+            )
             expected_stamp_files.add(local_path)
 
         # Remove dangling local stamp files if requested
         if self.args.remove_dangling_stamps:
-            self.remove_dangling_stamps(expected_stamp_files)
+            self.remove_dangling_stamps(expected_stamp_files, use_exact_names=True)
 
-    def create_stamp_files_v2(self, bucket_name: str, prefix: str) -> None:
-        """Creates local stamp files using the S3 client API.
+    def create_stamp_files_per_directory(self, bucket_name: str, prefix: str) -> None:
+        """Creates directory-level stamp files aggregating multiple S3 objects.
 
-        Supports directory prefixes.
+        Groups S3 files by directory (based on --directory-level) and creates
+        one stamp file per directory with .stamp suffix. The stamp timestamp
+        reflects the latest modification time of any file in that directory.
 
         Args:
             bucket_name (str): The name of the S3 bucket.
@@ -380,7 +391,7 @@ class LocalStampCreator(object):
             if existing is None or last_modified > existing:
                 dir_to_latest_ts[directory] = last_modified
 
-        # Create stamp files for directories
+        # Create stamp files for directories (always with .stamp suffix)
         for directory, latest_ts in dir_to_latest_ts.items():
             # Construct the local stamp file path
             logging.info(
@@ -392,7 +403,8 @@ class LocalStampCreator(object):
             if not self.args.no_bucket:
                 local_stamp_path = os.path.join(bucket_name, directory)
             local_stamp_path = os.path.join(self.args.local_dir, local_stamp_path)
-            local_stamp_path += self.args.stamp_extension
+            # Always append .stamp for directory stamps
+            local_stamp_path += ".stamp"
 
             # Ensure the parent directory exists
             os.makedirs(os.path.dirname(local_stamp_path), exist_ok=True)
@@ -412,7 +424,7 @@ class LocalStampCreator(object):
 
         # Remove dangling local stamp files if requested
         if self.args.remove_dangling_stamps:
-            self.remove_dangling_stamps(expected_stamp_files)
+            self.remove_dangling_stamps(expected_stamp_files, use_exact_names=False)
 
     def get_s3_object_content(self, s3_key: str) -> str:
         """Get the content of an S3 object.
@@ -438,14 +450,15 @@ class LocalStampCreator(object):
         s3_key: str,
         last_modified: datetime,
         content: Optional[str] = None,
+        use_exact_name: bool = True,
     ) -> str:
         """Creates a local stamp file, mirroring the modification date of an S3 object.
 
         Args:
             s3_key (str): The key of the S3 object.
-
-            last_modified (datetime): The last-modified timestamp of the S3
-                 object.
+            last_modified (datetime): The last-modified timestamp of the S3 object.
+            content (Optional[str]): Content to write (None for empty stamp files).
+            use_exact_name (bool): If True, use exact S3 filename. If False, legacy behavior.
 
         Returns:
             str: The local file path of the created stamp file.
@@ -458,8 +471,8 @@ class LocalStampCreator(object):
 
         # Adjust the file path to include the local directory
         local_file_path = os.path.join(self.args.local_dir, local_file_path)
-        if content is None:
-            local_file_path += self.args.stamp_extension
+        # In per-file mode, stamps always match S3 filenames exactly (no suffix)
+        # Content is only written if explicitly requested
 
         os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
 
@@ -474,12 +487,16 @@ class LocalStampCreator(object):
         log.info(f"'{local_file_path}' created. Last modification: {last_modified}")
         return local_file_path
 
-    def remove_dangling_stamps(self, expected_stamp_files: set[str]) -> None:
+    def remove_dangling_stamps(
+        self, expected_stamp_files: set[str], use_exact_names: bool = True
+    ) -> None:
         """Removes local stamp files that no longer exist in S3.
 
         Args:
             expected_stamp_files: Set of local stamp file paths that should exist
                 based on current S3 objects.
+            use_exact_names: If True, stamps match S3 names exactly.
+                If False, stamps have .stamp suffix (directory mode).
         """
         log.info(
             "Checking for dangling stamp files. Expected files from S3: %d",
@@ -504,39 +521,67 @@ class LocalStampCreator(object):
             for filename in files:
                 file_path = os.path.join(root, filename)
 
-                # Determine base filename based on stamp extension
-                if self.args.stamp_extension:
-                    # Check if it's a stamp file (has stamp extension)
-                    if not filename.endswith(self.args.stamp_extension):
-                        continue
-                    # Remove the stamp extension to get the base filename
-                    base_filename = filename[: -len(self.args.stamp_extension)]
-                else:
-                    # When stamp extension is empty, the file itself is the stamp
+                # Determine base filename based on stamp mode
+                if use_exact_names:
+                    # Per-file mode: stamps match S3 filenames exactly
                     base_filename = filename
+                else:
+                    # Per-directory mode: stamps have .stamp suffix
+                    if not filename.endswith(".stamp"):
+                        continue
+                    base_filename = filename[:-6]  # Remove .stamp
 
                 # Check if base filename matches any of the configured extensions
-                matches_extension = any(
-                    base_filename.endswith(ext) for ext in self.args.file_extensions
-                )
-                if not matches_extension:
-                    log.debug(
-                        "Skipping '%s' - base name doesn't match file extensions: %s",
-                        file_path,
-                        self.args.file_extensions,
+                # For directory stamps, we skip this check since directory stamps
+                # don't correspond 1:1 with file extensions
+                if use_exact_names:
+                    matches_extension = any(
+                        base_filename.endswith(ext) for ext in self.args.file_extensions
                     )
-                    continue
+                    if not matches_extension:
+                        log.debug(
+                            "Skipping '%s' - doesn't match file extensions: %s",
+                            file_path,
+                            self.args.file_extensions,
+                        )
+                        continue
 
-                # Check if file is truly a stamp (empty, size = 0 bytes)
+                # Check if file is truly a stamp (empty file)
+                # 0 bytes = truly empty, 14 bytes = empty bz2 file signature
                 try:
                     file_size = os.path.getsize(file_path)
-                    if file_size != 0:
-                        log.debug(
-                            "Skipping '%s' - not a stamp file (size: %d bytes, "
-                            "expected 0)",
-                            file_path,
-                            file_size,
-                        )
+                    is_stamp = file_size == 0 or (
+                        file_path.endswith(".bz2") and file_size == 14
+                    )
+                    if not is_stamp:
+                        # If file should be in expected set but isn't a stamp,
+                        # it's likely leftover from --write-content or other source
+                        # If it's also not in expected_stamp_files, remove it
+                        if file_path not in expected_stamp_files:
+                            log.warning(
+                                "Removing non-stamp file '%s' (size: %d bytes) - "
+                                "not in S3 expected set. Likely leftover from "
+                                "previous sync with --write-content.",
+                                file_path,
+                                file_size,
+                            )
+                            try:
+                                os.remove(file_path)
+                                self.stats["files_removed"] += 1
+                                continue
+                            except OSError as e:
+                                log.error(
+                                    "Failed to remove non-stamp file '%s': %s",
+                                    file_path,
+                                    e,
+                                )
+                        else:
+                            log.debug(
+                                "Skipping '%s' - not a stamp file (size: %d bytes, "
+                                "expected 0 or 14 for .bz2) but is in expected set",
+                                file_path,
+                                file_size,
+                            )
                         continue
                 except OSError as e:
                     log.warning("Error checking file size for '%s': %s", file_path, e)
@@ -763,12 +808,15 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
-        "--stamp-extension",
+        "--stamp-mode",
+        default="per-file",
+        choices=["per-file", "per-directory"],
         help=(
-            "Append this extension to all file names created (preceding dot must be"
-            " specified). %(default)s"
+            "Stamp creation mode. 'per-file': Create one stamp per S3 file with "
+            "exact filename (no suffix). 'per-directory': Create directory-level "
+            "stamps with .stamp suffix, aggregating multiple files. "
+            "Default: %(default)s"
         ),
-        default=".stamp",
     )
     parser.add_argument(
         "--write-content",
@@ -794,21 +842,13 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--stamp-api",
-        default="v1",
-        choices=["v1", "v2"],
-        help=(
-            "Specify the API version for stamp file creation. v1 uses the S3 resource"
-            " API and v2 uses the S3 client API. Default: %(default)s"
-        ),
-    )
-    parser.add_argument(
         "--directory-level",
         type=int,
         default=1,
         help=(
-            "Specify the number of directory levels to consider when creating stamp"
-            " files. Default: %(default)s"
+            "Number of directory levels to consider when using per-directory mode. "
+            "1 = immediate parent directory, 2 = grandparent, etc. "
+            "Only used with --stamp-mode per-directory. Default: %(default)s"
         ),
     )
     parser.add_argument(

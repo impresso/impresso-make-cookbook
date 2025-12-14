@@ -28,20 +28,15 @@ sync-topics : $(LOCAL_TOPICS_SYNC_STAMP_FILE)
 .PHONY: sync-topics
 
 
-# USER-VARIABLE: LOCAL_TOPICS_STAMP_SUFFIX
-# The suffix for local stamp files (added to the input paths on S3)
-LOCAL_TOPICS_STAMP_SUFFIX ?= ''
-  $(call log.debug, LOCAL_TOPICS_STAMP_SUFFIX)
-
-
 # FILE-RULE: LOCAL_TOPICS_SYNC_STAMP_FILE
 #: Rule to sync the output data from the S3 bucket to the local directory
+#: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_TOPICS_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
 	python  -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_TOPICS) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-extension $(LOCAL_TOPICS_STAMP_SUFFIX) \
+	   --stamp-mode per-file \
 	   2> >(tee $@.log >&2) && \
 	touch $@
 

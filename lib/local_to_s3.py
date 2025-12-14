@@ -21,6 +21,40 @@ WIP Workflow:
 2. Process files: Standard processing occurs while WIP file indicates work in progress  
 3. Upload and cleanup: --remove-wip removes WIP files after successful upload
 
+File Pairing and Dependency Logic:
+The upload process intelligently pairs content files with their log files to ensure
+consistency. Files are processed sequentially, with special handling for related pairs:
+
+1. Content File Detection: A file is considered a content file if the NEXT file in the
+   argument list starts with its name and ends with .log.gz
+   Example: file.jsonl.bz2 is paired with file.jsonl.bz2.log.gz
+
+2. Log File Detection: A file ending in .log.gz is considered a log file if the PREVIOUS
+   file in the list is its corresponding content file (log filename starts with content
+   filename, and previous file is not itself a .log.gz)
+
+3. Dependency-Based Upload Rules:
+   a) If a content file is uploaded, its log file is ALWAYS uploaded regardless of
+      timestamp comparisons (forced upload)
+   b) If a content file is skipped (stamp file or up-to-date), its log file is also
+      skipped
+   c) If a content file upload fails, its log file is not attempted
+   d) Standalone files (no paired log) follow normal upload rules
+
+4. Stamp File Detection (never uploaded with --upload-if-newer):
+   - 0 bytes: Truly empty files
+   - 14 bytes for .bz2 files: Empty bz2 compressed files (compression signature only)
+
+5. Upload Decision Priority (when --upload-if-newer is set):
+   - Log files: Upload if corresponding content file was uploaded (forced)
+   - Stamp files: Never upload (skip)
+   - Non-stamp files: Upload if local mtime > S3 impresso-last-ts metadata
+   - Files without S3 metadata: Treat as outdated and upload
+   - S3 file doesn't exist: Upload (unless stamp file)
+
+This ensures that log files remain synchronized with their content files, preventing
+situations where regenerated content files have outdated log files on S3.
+
 Usage Examples:
     # Check existence and create WIP (for makefile integration)
     python3 -m impresso_cookbook.local_to_s3 --s3-file-exists s3://bucket/file.txt.gz \\
@@ -131,8 +165,9 @@ def main():
         "--keep-timestamp-only",
         action="store_true",
         help=(
-            "Truncate local *.jsonl.bz2 files to zero length and keep only timestamp"
-            " after successful upload."
+            "Truncate all uploaded files to zero length (stamp files) and keep only "
+            "timestamp after successful upload. Converts data files, log files, and "
+            "statistics files into zero-byte stamps for efficient storage."
         ),
     )
     parser.add_argument(
@@ -384,6 +419,9 @@ def main():
 
         # Process files in pairs: content file and its log file
         # If content file is skipped/fails, log file is also skipped
+        # Track which content files were uploaded to force upload their log files
+        uploaded_content_files = set()
+
         pair_idx = 0
         while pair_idx < len(file_pairs):
             local_path, s3_path = file_pairs[pair_idx]
@@ -394,6 +432,17 @@ def main():
                 and file_pairs[pair_idx + 1][0].startswith(local_path)
                 and file_pairs[pair_idx + 1][0].endswith(".log.gz")
             )
+
+            # Determine if this is a log file for a content file
+            is_log_file = local_path.endswith(".log.gz")
+            corresponding_content_file = None
+            if is_log_file:
+                # Check if previous file was the corresponding content file
+                if pair_idx > 0:
+                    prev_local, prev_s3 = file_pairs[pair_idx - 1]
+                    is_prev_content = not prev_local.endswith(".log.gz")
+                    if local_path.startswith(prev_local) and is_prev_content:
+                        corresponding_content_file = prev_local
 
             # Check for forbidden file extensions (stamp files, sync markers)
             if any(local_path.endswith(ext) for ext in args.forbid_extensions):
@@ -425,7 +474,16 @@ def main():
 
             # Check if file exists if not force_overwrite
             skip_this_pair = False
-            if not args.force_overwrite:
+
+            # If this is a log file and its content file was uploaded, force upload
+            if is_log_file and corresponding_content_file in uploaded_content_files:
+                log.info(
+                    "Forcing upload of log file %s (content file %s was uploaded)",
+                    local_path,
+                    corresponding_content_file,
+                )
+                skip_this_pair = False
+            elif not args.force_overwrite:
                 bucket, key = parse_s3_path(s3_path)
                 if s3_file_exists(s3_client, bucket, key):
                     # If --upload-if-newer is set, check if local file
@@ -557,7 +615,13 @@ def main():
 
             # Track successfully uploaded file
             uploaded_files.append((local_path, s3_path))
-            if args.keep_timestamp_only and local_path.endswith(".jsonl.bz2"):
+
+            # Track content files that were uploaded (for forcing log file uploads)
+            if not is_log_file:
+                uploaded_content_files.add(local_path)
+
+            # Truncate all uploaded files to stamps if requested
+            if args.keep_timestamp_only:
                 log.info(
                     "Truncating %s and keeping only timestamp after upload",
                     local_path,
