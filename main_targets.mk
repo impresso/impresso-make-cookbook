@@ -149,11 +149,15 @@ check-parallel:
 collection: check-parallel newspaper-list-target
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
-	parallel  --tag -v --progress --joblog $(BUILD_DIR)/collection.joblog \
+	parallel  --tag -v \
+	   --progress \
+	   --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
-	   --delay $(PARALLEL_DELAY) --memfree 1G --load $(MAX_LOAD) \
+	   --delay $(PARALLEL_DELAY) \
+	   --memfree 1G \
+	   --load $(MAX_LOAD) \
 	   $(PARALLEL_HALT) \
-		"NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all"
+	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k -j --max-load $(MAX_LOAD) all"
 
 help::
 	@echo "  collection        #  Process fulll impresso collection with parallel processing"
