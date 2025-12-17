@@ -18,7 +18,7 @@
 # Defines the shell to use for executing commands.
 #
 # This setting ensures that all commands run within the specified shell.
-SHELL := /bin/dash
+SHELL ?= /bin/dash
   $(call log.info, SHELL)
 
 # VARIABLE: SHELLOPTS
