@@ -212,16 +212,5 @@ compute-frequencies: compute-frequencies-de
 .PHONY: list-newspapers compute-frequencies
 
 
-$(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
-# Maintains compatibility with existing workflows that expect German
-# as the default language for token extraction operations.
-extract-tokens: extract-tokens-de
-
-
-.PHONY: extract-tokens-de extract-tokens-fr extract-tokens-en extract-all-tokens
-.PHONY: aggregate-tokens-de aggregate-tokens-fr aggregate-tokens-en
-.PHONY: list-newspapers extract-tokens
-
-
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)
