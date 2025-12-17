@@ -19,6 +19,7 @@ from .common import (
     # Utility functions
     get_timestamp,
     keep_timestamp_only,
+    have_same_md5,
 )
 
 # Import S3TimestampProcessor from s3_set_timestamp module
@@ -47,4 +48,5 @@ __all__ = [
     "keep_timestamp_only",
     # S3 timestamp processing
     "S3TimestampProcessor",
+    "have_same_md5",
 ]
