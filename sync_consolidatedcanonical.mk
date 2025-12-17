@@ -84,7 +84,7 @@ sync-consolidatedcanonical: $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) $(LOC
 
 .PHONY: sync-consolidatedcanonical
 
-# TARGET: clean-sync
+# DOUBLE-COLON-TARGET: clean-sync
 #: Cleans up synchronized consolidatedcanonical processing data
 clean-sync:: clean-sync-consolidatedcanonical
 
