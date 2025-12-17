@@ -23,7 +23,12 @@ processing-target:: | $(BUILD_DIR)
 
 .PHONY: processing-target
 
-
+# Get the current git version
+ifndef git_version
+git_version := $(shell git describe --tags --always)
+endif
+  $(call log.info, git_version)
+export git_version
 
 # USER-VARIABLE: PROCESSING_S3_OUTPUT_DRY_RUN
 # Prevents any output to S3 even if an S3 output path is set.
