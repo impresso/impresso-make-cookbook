@@ -171,6 +171,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
   python3 lib/spacy_linguistic_processing.py \
     $(call LocalToS3,$<) \
     $(LINGPROC_VALIDATE_OPTION) \
+    --max-doc-length 100000 \
     --git-version $(GIT_VERSION) \
     $(LINGPROC_QUIET_OPTION) \
     -o $@ \
@@ -191,4 +192,5 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
            $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
        exit 1 ; }
 endif
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_lingproc.mk)
