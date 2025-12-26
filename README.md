@@ -370,6 +370,74 @@ LANGIDENT_WIP_MAX_AGE := 2
    ```bash
    make setup
    ```
+## Using the Cookbook as a Git Submodule
+
+The Impresso Make-Based Offline Processing Cookbook can be integrated into an existing project as a Git submodule. This setup is recommended when the cookbook is used as shared Make-based infrastructure across multiple repositories.
+
+### Add the Submodule
+
+From the root of your parent repository, run:
+
+```bash
+git submodule add https://github.com/impresso/impresso-make-cookbook.git cookbook
+git submodule update --init --recursive
+```
+
+This clones the cookbook into the `cookbook/` directory and pins it to a specific commit.
+
+### Include Cookbook Makefiles
+
+In your top-level `Makefile`, include the required cookbook makefiles explicitly:
+
+```make
+# Core configuration
+include cookbook/config.mk
+include cookbook/make_settings.mk
+
+# Logging and setup
+include cookbook/log.mk
+include cookbook/setup.mk
+
+# Processing and main targets
+include cookbook/processing.mk
+include cookbook/main_targets.mk
+```
+
+Additional `cookbook/*.mk` files can be included as needed, depending on which processing stages are required (e.g. language identification, linguistic processing, OCR QA).
+
+### Local Configuration Overrides
+
+Local configuration should be placed in a file that is not tracked by Git, for example:
+
+```make
+# config.local.mk (not committed)
+BUILD_DIR := build.d
+LOGGING_LEVEL := INFO
+```
+
+Ensure this file is included before or alongside the cookbook configuration if overrides are needed.
+
+### Updating the Submodule
+
+To update the cookbook to a newer version:
+
+```bash
+cd cookbook
+git fetch
+git checkout main
+git pull
+cd ..
+git add cookbook
+git commit -m "Update impresso-make-cookbook submodule"
+```
+
+This makes cookbook updates explicit and reproducible across machines.
+
+### Notes
+
+* The cookbook is path-stable when used as a submodule; internal includes assume the `cookbook/` prefix.
+* Build directories, stamp files, and S3 synchronization behavior are unaffected by submodule usage.
+* The Python helper package in `lib/` can still be installed independently via `pip` if required.
 
 ## Makefile Targets
 
