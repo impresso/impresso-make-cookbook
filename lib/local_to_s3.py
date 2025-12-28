@@ -417,6 +417,16 @@ def main():
         # Track successfully uploaded files for timestamp setting
         uploaded_files = []
 
+        # Statistics tracking for final summary
+        stats = {
+            "uploaded": [],
+            "skipped_existing": [],
+            "skipped_stamp": [],
+            "skipped_uptodate": [],
+            "skipped_paired": [],
+            "failed": [],
+        }
+
         # Process files in pairs: content file and its log file
         # If content file is skipped/fails, log file is also skipped
         # Track which content files were uploaded to force upload their log files
@@ -476,6 +486,7 @@ def main():
             skip_this_pair = False
 
             # If this is a log file and its content file was uploaded, force upload
+            skip_reason = None
             if is_log_file and corresponding_content_file in uploaded_content_files:
                 log.info(
                     "Forcing upload of log file %s (content file %s was uploaded)",
@@ -502,6 +513,7 @@ def main():
                                 local_size,
                             )
                             skip_this_pair = True
+                            skip_reason = "stamp file"
                         else:
                             # Non-empty file - check if newer than S3 metadata
                             try:
@@ -539,6 +551,7 @@ def main():
                                             s3_timestamp.isoformat(),
                                         )
                                         skip_this_pair = True
+                                        skip_reason = "up-to-date"
                                 else:
                                     # No metadata timestamp - treat S3 file as outdated
                                     log.info(
@@ -564,6 +577,7 @@ def main():
                             s3_path,
                         )
                         skip_this_pair = True
+                        skip_reason = "already exists"
                 else:
                     # S3 file doesn't exist - always upload
                     # (if not empty when using --upload-if-newer)
@@ -580,12 +594,22 @@ def main():
                                 local_size,
                             )
                             skip_this_pair = True
+                            skip_reason = "stamp file"
 
             if skip_this_pair:
+                # Track skip reason
+                if skip_reason == "stamp file":
+                    stats["skipped_stamp"].append((local_path, s3_path))
+                elif skip_reason == "up-to-date":
+                    stats["skipped_uptodate"].append((local_path, s3_path))
+                elif skip_reason == "already exists":
+                    stats["skipped_existing"].append((local_path, s3_path))
+
                 # If content file is skipped, also skip its log file
                 if is_content_file:
                     log_local, log_s3 = file_pairs[pair_idx + 1]
                     log.info("Skipping log file %s (content file was skipped)", log_s3)
+                    stats["skipped_paired"].append((log_local, log_s3))
                     pair_idx += 2  # Skip both content and log
                 else:
                     pair_idx += 1
@@ -602,12 +626,14 @@ def main():
                     f"Upload failed for {local_path} to {s3_path}. Skipping"
                     " further actions for this file."
                 )
+                stats["failed"].append((local_path, s3_path))
                 # If content file upload fails, skip its log file too
                 if is_content_file:
                     log_local, log_s3 = file_pairs[pair_idx + 1]
                     log.info(
                         "Skipping log file %s (content file upload failed)", log_s3
                     )
+                    stats["skipped_paired"].append((log_local, log_s3))
                     pair_idx += 2
                 else:
                     pair_idx += 1
@@ -615,6 +641,7 @@ def main():
 
             # Track successfully uploaded file
             uploaded_files.append((local_path, s3_path))
+            stats["uploaded"].append((local_path, s3_path))
 
             # Track content files that were uploaded (for forcing log file uploads)
             if not is_log_file:
@@ -629,7 +656,71 @@ def main():
                 keep_timestamp_only(local_path)
 
             pair_idx += 1
-        log.info("All uploads completed successfully")
+
+        # Print comprehensive upload statistics
+        log.info("=" * 80)
+        log.info("UPLOAD STATISTICS SUMMARY")
+        log.info("=" * 80)
+        log.info("Total files processed: %d", len(file_pairs))
+        log.info("")
+
+        if stats["uploaded"]:
+            log.info("✓ Successfully uploaded: %d file(s)", len(stats["uploaded"]))
+            for local_path, s3_path in stats["uploaded"]:
+                log.info("  - %s → %s", os.path.basename(local_path), s3_path)
+        else:
+            log.info("✓ Successfully uploaded: 0 files")
+        log.info("")
+
+        if stats["skipped_stamp"]:
+            log.info(
+                "⊘ Skipped (stamp files): %d file(s)",
+                len(stats["skipped_stamp"]),
+            )
+            for local_path, s3_path in stats["skipped_stamp"]:
+                log.info(
+                    "  - %s (stamp file, %d bytes)",
+                    os.path.basename(local_path),
+                    os.path.getsize(local_path),
+                )
+
+        if stats["skipped_uptodate"]:
+            log.info(
+                "⊘ Skipped (up-to-date): %d file(s)",
+                len(stats["skipped_uptodate"]),
+            )
+            for local_path, s3_path in stats["skipped_uptodate"]:
+                log.info(
+                    "  - %s (S3 version is current)",
+                    os.path.basename(local_path),
+                )
+
+        if stats["skipped_existing"]:
+            log.info(
+                "⊘ Skipped (already exists): %d file(s)",
+                len(stats["skipped_existing"]),
+            )
+            for local_path, s3_path in stats["skipped_existing"]:
+                log.info(
+                    "  - %s (use --force-overwrite to replace)",
+                    os.path.basename(local_path),
+                )
+
+        if stats["skipped_paired"]:
+            log.info(
+                "⊘ Skipped (paired with skipped/failed file): %d file(s)",
+                len(stats["skipped_paired"]),
+            )
+            for local_path, s3_path in stats["skipped_paired"]:
+                log.info("  - %s", os.path.basename(local_path))
+
+        if stats["failed"]:
+            log.error("✗ Failed uploads: %d file(s)", len(stats["failed"]))
+            for local_path, s3_path in stats["failed"]:
+                log.error("  - %s → %s", os.path.basename(local_path), s3_path)
+
+        log.info("=" * 80)
+
         # Clean up WIP files after successful upload
         if args.remove_wip:
             for local_path, s3_path in uploaded_files:
