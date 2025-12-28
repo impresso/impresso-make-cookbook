@@ -2,10 +2,12 @@
 
   {
     id: .id,
-    collection: .collection,
+#    collection: .collection,
     year: .year,
     lg: .lg,
     len: .len,
     lg_decision: .lg_decision,
-    tp: .tp
+    tp: .tp,
+    alphabetical_ratio: .alphabetical_ratio,
+    ocrqa:.ocrqa
   }
