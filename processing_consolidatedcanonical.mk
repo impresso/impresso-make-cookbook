@@ -32,6 +32,18 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_consolidatedcanoni
 CONSOLIDATEDCANONICAL_VALIDATE_OPTION ?= --validate
   $(call log.debug, CONSOLIDATEDCANONICAL_VALIDATE_OPTION)
 
+# USER-VARIABLE: CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION
+# Option to control S3 upload behavior based on timestamps.
+#
+# Set to --upload-if-newer to upload only if local timestamp is newer than S3,
+# or leave empty to skip upload (file metadata only will be updated).
+# Note: Without --force-write, files are not uploaded to S3 by default.
+# This is useful when you want to update S3 when local files have changed without
+# forcing overwrite of content-wise unchanged files.
+# CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION ?= --upload-if-newer
+CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION ?=
+  $(call log.debug, CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION)
+
 # DOUBLE-COLON-TARGET: sync-output
 # Synchronizes consolidatedcanonical processing output data from S3 to local
 # Downloads existing consolidated canonical files for resume/inspection
@@ -165,7 +177,7 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     && \
     python3 -m impresso_cookbook.local_to_s3 \
     --set-timestamp --log-level $(LOGGING_LEVEL) \
-	  --keep-timestamp-only --upload-if-newer  \
+	  --keep-timestamp-only $(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION) \
       $@        $(call LocalToS3,$@,'') \
       $@.log.gz $(call LocalToS3,$@,'').log.gz \
     || { rm -vf $@ ; exit 1; }
