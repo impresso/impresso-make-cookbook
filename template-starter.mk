@@ -17,7 +17,7 @@ create-newprocessing-cookbook-starter: $(TARGET_FILES) $(PROCESSING_CLI_FILE) Ma
 cookbook/%_$(PROCESSING_ACRONYM).mk: cookbook/%_TEMPLATE.mk
 	sed 's/TEMPLATE/$(PROCESSING_ACRONYM)/g' $< > $@
 
-lib/cli_myprocessing.py: lib/cli_TEMPLATE.py
+$(PROCESSING_CLI_FILE): lib/cli_TEMPLATE.py
 	sed 's/TEMPLATE/$(PROCESSING_ACRONYM)/g' $< > $@
 
 Makefile.$(PROCESSING_ACRONYM): Makefile
