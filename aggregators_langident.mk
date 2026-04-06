@@ -4,6 +4,17 @@ aggregate:
 	--s3-prefix $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=) \
 	-o $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=)__AGGREGATED.jsonl.gz 
 
+aggregate-for-floret-stats:
+#  $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=)__AGGREGATED.for-floret-langident.stats.json: 
+	# For .gz compressed
+	aws s3 cp $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=)__AGGREGATED.jsonl.gz - | gunzip | \
+	jq -s 'map(select((.lg_decision | startswith("dominant") | not) and .len >= 400)) | group_by(.lg) | map({language: .[0].lg, count: length}) | sort_by(.count) | reverse' \
+	> $(LOCAL_PATH_LANGIDENT:/$(NEWSPAPER)=)__AGGREGATED.for-floret-langident.stats.json
+	aws s3 cp $(LOCAL_PATH_LANGIDENT:/$(NEWSPAPER)=)__AGGREGATED.for-floret-langident.stats.json $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=)__AGGREGATED.for-floret-langident.stats.json
+
+
+
+
 VERIFY_EXTENSIONS ?= jsonl.bz2 json
 
 verify-data::
