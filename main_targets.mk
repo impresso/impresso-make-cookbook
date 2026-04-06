@@ -43,8 +43,8 @@ COLLECTION_JOBS ?= $(shell expr $(NPROC) / 2)
 #
 # This variable sets the maximum number of parallel jobs to run when processing a
 # single newspaper. Auto-calculated to balance with COLLECTION_JOBS.
-# If COLLECTION_JOBS exceeds NPROC, this may be set to 1 to avoid oversubscription.
-NEWSPAPER_JOBS ?= $(shell expr $(NPROC) / $(COLLECTION_JOBS))
+# If COLLECTION_JOBS exceeds NPROC, this is clamped to 1 to avoid -j 0 (unlimited jobs).
+NEWSPAPER_JOBS ?= $(shell if [ "$(COLLECTION_JOBS)" -gt 0 ]; then v=$$(expr $(NPROC) / $(COLLECTION_JOBS)); [ "$$v" -lt 1 ] && v=1; echo $$v; else echo 1; fi)
   $(call log.info, NEWSPAPER_JOBS)
 
 # PARALLEL_DELAY: Delay in seconds between starting parallel jobs
@@ -58,7 +58,7 @@ help-orchestration:
 	@echo "                    #  Low numbers might not use all system resources effectively if newspapers are small and many CPU cores are available"
 	@echo ""
 	@echo "  NEWSPAPER_JOBS    #  Number of parallel jobs per newspaper ($(NEWSPAPER_JOBS))"
-	@echo "                    #  If COLLECTION_JOBS > NPROC, NEWSPAPER_JOBS may be zero; adjust accordingly"
+	@echo "                    #  Auto-calculated and clamped to at least 1"
 	@echo "                    #  Controls fine-grained parallelism within each newspaper"
 	@echo "                    #  Auto-calculated to balance with COLLECTION_JOBS"
 	@echo ""
@@ -69,6 +69,8 @@ help-orchestration:
 	@echo "  NPROC             #  Number of CPU cores ($(NPROC))"
 	@echo "                    #  Override if auto-detection fails or for resource limiting"
 	@echo ""
+	@echo "  HALT_ON_ERROR     #  Stop collection run on first failing job (0 or 1; current: $(HALT_ON_ERROR))"
+	@echo ""
 	@echo "PERFORMANCE TUNING:"
 	@echo "  • For CPU-bound tasks: COLLECTION_JOBS ≤ NPROC"
 	@echo "  • For I/O-bound tasks: COLLECTION_JOBS can exceed NPROC"
@@ -77,7 +79,7 @@ help-orchestration:
 	@echo ""
 	@echo "EXAMPLES:"
 	@echo "  make newspaper PROVIDER=BL NEWSPAPER=WTCH"
-	@echo "  make collection COLLECTION_JOBS=4 CFG=config.prod.mk"
+	@echo "  make collection COLLECTION_JOBS=4 CFG=config.local.mk"
 	@echo "  make all PROVIDER=BL NEWSPAPER=WTCH MAX_LOAD=8"
 	@echo "  make sync-input PROVIDER=SWA NEWSPAPER=actionfem"
 	@echo ""
@@ -112,6 +114,7 @@ newspaper: | $(BUILD_DIR)
 
 help::
 	@echo "  newspaper         #  Process a single newspaper run by the processing pipeline"
+	@echo "  help-orchestration # Show parallelization tuning and examples"
 
 
 # TARGET: all
@@ -160,7 +163,9 @@ collection: check-parallel newspaper-list-target
 	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k -j --max-load $(MAX_LOAD) all"
 
 help::
-	@echo "  collection        #  Process fulll impresso collection with parallel processing"
+	@echo "  collection-xargs  #  Process collection via xargs (fallback when GNU parallel is unavailable)"
+	@echo "  collection        #  Process full impresso collection with parallel processing"
+	@echo "                     #  Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
 
 
 .PHONY: collection
