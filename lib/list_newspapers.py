@@ -66,14 +66,14 @@ DEFAULT_ENDPOINT = "https://os.zhdk.cloud.switch.ch/"
 # Compile regex patterns once at module level for better performance
 # Updated regex patterns to match the actual file schemas
 # Schema A: PROVIDER/NEWSPAPER/issues/NEWSPAPER-YEAR-issues.jsonl.bz2 (with provider)
-ISSUES_YEAR_RE = re.compile(r".*/([A-Za-z0-9]+)/issues/\1-(\d{4})-issues\.jsonl\.bz2$")
+ISSUES_YEAR_RE = re.compile(r".*/([A-Za-z0-9_]+)/issues/\1-(\d{4})-issues\.jsonl\.bz2$")
 # Schema B: PROVIDER/NEWSPAPER/NEWSPAPER-YEAR.jsonl.bz2 (with provider)
-DIRECT_YEAR_RE = re.compile(r".*/([A-Za-z0-9]+)/\1-(\d{4})\.jsonl\.bz2$")
+DIRECT_YEAR_RE = re.compile(r".*/([A-Za-z0-9_]+)/\1-(\d{4})\.jsonl\.bz2$")
 # Schema C: NEWSPAPER/NEWSPAPER-YEAR.jsonl.bz2 (no provider, direct newspaper folder)
-NO_PROVIDER_DIRECT_RE = re.compile(r"([A-Za-z0-9]+)/\1-(\d{4})\.jsonl\.bz2$")
+NO_PROVIDER_DIRECT_RE = re.compile(r"([A-Za-z0-9_]+)/\1-(\d{4})\.jsonl\.bz2$")
 # Schema D: NEWSPAPER/issues/NEWSPAPER-YEAR-issues.jsonl.bz2 (no provider, with issues)
 NO_PROVIDER_ISSUES_RE = re.compile(
-    r"([A-Za-z0-9]+)/issues/\1-(\d{4})-issues\.jsonl\.bz2$"
+    r"([A-Za-z0-9_]+)/issues/\1-(\d{4})-issues\.jsonl\.bz2$"
 )
 
 
