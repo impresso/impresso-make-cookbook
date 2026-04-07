@@ -15,7 +15,7 @@ Features:
 - Pattern filtering: --prefix is stripped before --fnmatch is applied to newspaper names
 
 Grouping behavior (--large-first):
-- Newspapers are grouped by number of available years using quantile-based thresholds
+- Newspapers are grouped by number of available years using logarithmic thresholds
 - Groups are ordered from largest to smallest (e.g., newspapers with most years first)
 - Within each group, newspapers are randomly shuffled
 - Number of groups is configurable via --num-groups (default: 3)
@@ -49,6 +49,7 @@ Examples:
 import argparse
 import fnmatch
 import logging
+import math
 import random
 import re
 import sys
@@ -553,17 +554,31 @@ class NewspaperLister:
         return years_per_np
 
     def compute_group_thresholds(self, counts: List[int]) -> List[int]:
-        """Compute thresholds to split counts into num_groups groups."""
+        """Compute log-spaced thresholds to split counts into num_groups groups."""
         if not counts or self.num_groups <= 1:
             return []
 
-        sc = sorted(counts)
-        thresholds = []
+        min_count = min(counts)
+        max_count = max(counts)
+        if min_count == max_count:
+            return []
+
+        min_shifted = min_count + 1
+        max_shifted = max_count + 1
+        log_min = math.log(min_shifted)
+        log_max = math.log(max_shifted)
+        thresholds: List[int] = []
 
         for i in range(1, self.num_groups):
-            quantile = i / self.num_groups
-            idx = max(0, int((len(sc) - 1) * quantile))
-            thresholds.append(sc[idx])
+            fraction = i / self.num_groups
+            raw_threshold = math.exp(log_min + (log_max - log_min) * fraction) - 1
+            threshold = max(min_count, min(max_count, int(round(raw_threshold))))
+            if thresholds and threshold <= thresholds[-1]:
+                threshold = min(max_count, thresholds[-1] + 1)
+            thresholds.append(threshold)
+
+        while thresholds and thresholds[-1] >= max_count:
+            thresholds.pop()
 
         return thresholds
 
