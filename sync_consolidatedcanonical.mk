@@ -41,13 +41,16 @@ LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CONSOLIDATEDCA
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL).last_synced
 #: Synchronizes consolidated issues output data from S3 to the local directory (for resume scenarios)
-#: Creates directory stamps with .stamp suffix (hard-coded) to avoid conflicts with mkdir
+#: Issue outputs are real local file targets downstream, unlike pages which are represented by local stamp targets.
+#: Therefore issues are synced in per-file mode, creating empty timestamp-only local placeholders
+#: at the exact target paths for remote issue objects, while pages continue to use per-directory
+#: .stamp files in the separate pages sync rule below.
 $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
 	python -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_CONSOLIDATEDCANONICAL) \
 	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
+	   --stamp-mode per-file \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
@@ -89,11 +92,20 @@ sync-consolidatedcanonical: $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) $(LOC
 clean-sync:: clean-sync-consolidatedcanonical
 
 # TARGET: clean-sync-consolidatedcanonical
-#: Removes local synchronization stamp files for consolidatedcanonical processing
-#: Note: Enrichment data cleanup is handled by sync_langident.mk
+#: Removes only local synchronization marker files for consolidatedcanonical processing
+#: Keeps per-file issue placeholders and mirrored page stamps in place
+#: so downstream targets are not needlessly invalidated.
 clean-sync-consolidatedcanonical:
-	rm -vrf $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE) $(LOCAL_PATH_CONSOLIDATEDCANONICAL) || true
+	rm -vf \
+	  $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) \
+	  $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE).log.gz \
+	  $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE) \
+	  $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE).log.gz \
+	  || true
 
-.PHONY: clean-sync-consolidatedcanonical
+# Optional hard reset target
+purge-sync-consolidatedcanonical:
+	rm -vrf $(LOCAL_PATH_CONSOLIDATEDCANONICAL) || true
+.PHONY: clean-sync-consolidatedcanonical purge-sync-consolidatedcanonical
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_consolidatedcanonical.mk)
