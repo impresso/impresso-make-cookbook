@@ -10,6 +10,17 @@ ifndef BUILD_DIR
 $(warning LocalToS3 function requires BUILD_DIR to be defined. Please set BUILD_DIR in your configuration.)
 endif
 
+# FUNCTION: LocalToS3_Internal
+# Internal function that converts local file paths to their S3 equivalents
+# Args:
+#   1: Local file path
+#   2: Suffix to remove (always receives a value, even if empty)
+# Note: Suffix is removed BEFORE path conversion to ensure correct substitution
+# Warning: If BUILD_DIR is empty, the conversion will not work correctly
+define LocalToS3_Internal
+$(if $(BUILD_DIR),$(subst $(BUILD_DIR),s3:/,$(subst $(2),,$(1))),$(error LocalToS3: BUILD_DIR is not set. Cannot convert path: $(1)))
+endef
+
 # FUNCTION: LocalToS3
 # Converts local file paths to their S3 equivalents
 # Args:
@@ -18,10 +29,8 @@ endif
 # Usage:
 #   $(call LocalToS3,path/to/file.txt)           # No suffix removal
 #   $(call LocalToS3,path/to/file.txt,.txt)      # Remove .txt suffix
-# Note: Suffix is removed BEFORE path conversion to ensure correct substitution
-# Warning: If BUILD_DIR is empty, the conversion will not work correctly
 define LocalToS3
-$(if $(BUILD_DIR),$(subst $(BUILD_DIR),s3:/,$(if $(strip $(2)),$(subst $(2),,$(1)),$(1))),$(error LocalToS3: BUILD_DIR is not set. Cannot convert path: $(1)))
+$(call LocalToS3_Internal,$(1),$(value 2))
 endef
 
 # TARGET: test-LocalToS3
