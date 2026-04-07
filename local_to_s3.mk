@@ -29,8 +29,6 @@ endef
 # Usage:
 #   $(call LocalToS3,path/to/file.txt)           # No suffix removal
 #   $(call LocalToS3,path/to/file.txt,.txt)      # Remove .txt suffix
-# Note: Suffix is removed BEFORE path conversion to ensure correct substitution
-# Warning: If BUILD_DIR is empty, the conversion will not work correctly
 define LocalToS3
 $(call LocalToS3_Internal,$(1),$(value 2))
 endef
