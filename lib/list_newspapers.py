@@ -53,6 +53,7 @@ import random
 import re
 import sys
 import time
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 from botocore.client import BaseClient
@@ -80,6 +81,12 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="List newspapers from S3 with optional size-aware shuffling."
+    )
+    parser.add_argument(
+        "--output-file",
+        dest="output_file",
+        help="Write the newspaper list to FILE instead of stdout",
+        metavar="FILE",
     )
     parser.add_argument(
         "--log-file", dest="log_file", help="Write log to FILE", metavar="FILE"
@@ -156,6 +163,7 @@ class NewspaperLister:
         seed: Optional[int] = None,
         log_level: str = "INFO",
         log_file: Optional[str] = None,
+        output_file: Optional[str] = None,
         fnmatch_pattern: Optional[str] = None,
     ) -> None:
         """Initialize the NewspaperLister with configuration parameters."""
@@ -168,6 +176,7 @@ class NewspaperLister:
         self.seed = seed
         self.log_level = log_level
         self.log_file = log_file
+        self.output_file = output_file
         self.fnmatch_pattern = fnmatch_pattern
 
         # Configure the module-specific logger
@@ -647,13 +656,21 @@ class NewspaperLister:
         start_time = time.time()
 
         try:
+            if self.log_file:
+                log.info("Writing execution log to %s", self.log_file)
+
+            if self.output_file:
+                log.info("Writing newspaper list to %s", self.output_file)
+            else:
+                log.info("Writing newspaper list to stdout")
+
             # Discover newspapers from S3 structure
             log.info("Starting newspaper discovery...")
             newspapers = self.discover_newspapers()
 
             if not newspapers:
                 log.warning("No newspapers found")
-                print("", end="")
+                self.write_output([])
                 return
 
             # Count years for each newspaper
@@ -677,11 +694,24 @@ class NewspaperLister:
                 ordered if len(ordered) <= 20 else ordered[:20] + ["..."],
             )
 
-            print(*ordered)
+            self.write_output(ordered)
 
         except Exception as e:
             log.error("Error during processing: %s", e, exc_info=True)
             sys.exit(1)
+
+    def write_output(self, newspapers: List[str]) -> None:
+        """Write the resulting newspaper list to the configured destination."""
+        output = " ".join(newspapers)
+
+        if self.output_file:
+            output_path = Path(self.output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(output, encoding="utf-8")
+            log.info("Wrote %d newspapers to %s", len(newspapers), self.output_file)
+            return
+
+        print(output, end="")
 
 
 def main(args: Optional[List[str]] = None) -> None:
@@ -702,6 +732,7 @@ def main(args: Optional[List[str]] = None) -> None:
         seed=options.seed,
         log_level=options.log_level,
         log_file=options.log_file,
+        output_file=options.output_file,
         fnmatch_pattern=options.fnmatch,
     )
 

@@ -35,6 +35,12 @@ NEWSPAPERS_TO_PROCESS_FILE ?= $(BUILD_DIR)/newspapers.txt
   $(call log.debug, NEWSPAPERS_TO_PROCESS_FILE)
 
 
+# USER-VARIABLE: NEWSPAPERS_TO_PROCESS_LOG_FILE
+# Log file capturing the newspaper list generation process
+NEWSPAPERS_TO_PROCESS_LOG_FILE ?= $(NEWSPAPERS_TO_PROCESS_FILE).log.gz
+  $(call log.debug, NEWSPAPERS_TO_PROCESS_LOG_FILE)
+
+
 # USER-VARIABLE: NEWSPAPER_YEAR_SORTING
 # Determines the order of newspaper processing
 # - 'shuf' for random order
@@ -82,19 +88,22 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	@if [ ! -e $@ ]; then \
 		python cookbook/lib/list_newspapers.py \
 			--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
+			--output-file $@ \
+			--log-file $(NEWSPAPERS_TO_PROCESS_LOG_FILE) \
 			--prefix "$(NEWSPAPER_PREFIX)" \
 			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
 			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
-			$(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)') \
-			> $@; \
+			$(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)'); \
 	else \
-		echo "$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call `make clean-newspaper-list-target` to remove it."; \
+		message="$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call make clean-newspaper-list-target to remove it."; \
+		echo "$$message"; \
+		printf '%s\n' "$$message" > $(NEWSPAPERS_TO_PROCESS_LOG_FILE); \
 	fi
 
 # TARGET: clean-newspaper-list-target
 #: Cleans the generated newspaper list file
 clean-newspaper-list-target:
-	rm -fv $(NEWSPAPERS_TO_PROCESS_FILE)
+	rm -fv $(NEWSPAPERS_TO_PROCESS_FILE) $(NEWSPAPERS_TO_PROCESS_LOG_FILE)
 
 .PHONY: clean-newspaper-list-target
 
