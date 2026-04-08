@@ -471,12 +471,21 @@ LOCAL_LANGIDENT_STATISTICS_FILES := \
 
 
 # VARIABLE: LOCAL_LANGIDENT_ENSEMBLE_FILES
-# Stores the list of final langident ensemble files based on systems files.
+# Stores the list of primary final langident ensemble files based on systems files.
 #
 # Transforms systems files from LOCAL_PATH_LANGIDENT_STAGE1 to LOCAL_PATH_LANGIDENT.
+# The matching %.diagnostics.json file is generated and uploaded as a side effect
+# of the corresponding %.jsonl.bz2 recipe, but is not tracked as an independent
+# Make target.
+#
+# Tradeoff:
+# If a diagnostics file is deleted directly on S3 while the matching JSONL file
+# still exists and is considered up to date, Make will not notice and rebuild
+# that diagnostics file automatically. This is intentional here because the
+# ensemble recipe assumes the primary target is the JSONL output; tracking
+# diagnostics as a separate target causes incorrect multi-target scheduling.
 LOCAL_LANGIDENT_ENSEMBLE_FILES := \
-    $(call LocalLangIdentSystemsToEnsembleFile,$(LOCAL_LANGIDENT_SYSTEMS_FILES)) \
-    $(call LocalLangIdentSystemsToDiagnosticsFile,$(LOCAL_LANGIDENT_SYSTEMS_FILES))
+	$(call LocalLangIdentSystemsToEnsembleFile,$(LOCAL_LANGIDENT_SYSTEMS_FILES))
 
   $(call log.debug, LOCAL_LANGIDENT_ENSEMBLE_FILES)
 
@@ -732,7 +741,13 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 #   2. The newspaper-level stats.json file (Stage 1b statistics)
 #
 # Note: File stamps match S3 names exactly (no suffix), so stats.json is just stats.json.
-$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.diagnostics.json: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
+# The matching %.diagnostics.json file is generated and uploaded by this same
+# recipe as a side effect of building the primary %.jsonl.bz2 target. It is not
+# declared as an independent target because this recipe derives filenames from
+# $@ and therefore assumes that $@ is the JSONL output. Listing diagnostics as
+# a primary target can make Make invoke this recipe with $@ set to the
+# diagnostics file, which breaks the upload/output path logic.
+$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
