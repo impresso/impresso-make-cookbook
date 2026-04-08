@@ -324,13 +324,13 @@ LANGIDENT_OCRQA_VERSION_OPTION ?=
   $(call log.debug, LANGIDENT_OCRQA_VERSION_OPTION)
 
 
-# USER-VARIABLE: LANGIDENT_HF_CACHE_ONLY_OPTION
-# Option to prefer already cached Hugging Face assets in Stage 1 model loading.
+# USER-VARIABLE: LANGIDENT_LOCAL_FILES_ONLY_OPTION
+# Option to load Hugging Face-backed Stage 1 model assets from local files only.
 #
-# Set to --hf-cache-only to enable cache-only loading when supported by the
+# Set to --local-files-only to enable local-files-only loading when supported by the
 # downstream impresso_pipelines package, or leave empty to disable.
-LANGIDENT_HF_CACHE_ONLY_OPTION ?=
-  $(call log.debug, LANGIDENT_HF_CACHE_ONLY_OPTION)
+LANGIDENT_LOCAL_FILES_ONLY_OPTION ?= --local-files-only
+  $(call log.debug, LANGIDENT_LOCAL_FILES_ONLY_OPTION)
 
 
 # === USER-CONFIGURABLE VARIABLES (Work-In-Progress Management) ===============
@@ -632,7 +632,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--git-describe $(GIT_VERSION) \
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$(LANGIDENT_HF_CACHE_ONLY_OPTION) \
+		$(LANGIDENT_LOCAL_FILES_ONLY_OPTION) \
 		$(LANGIDENT_OCRQA_OPTION) \
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
@@ -680,7 +680,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 		--git-describe $(GIT_VERSION) \
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$(LANGIDENT_HF_CACHE_ONLY_OPTION) \
+		$(LANGIDENT_LOCAL_FILES_ONLY_OPTION) \
 		$(LANGIDENT_OCRQA_OPTION) \
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
