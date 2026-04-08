@@ -14,7 +14,7 @@ endif
 # Internal function that converts local file paths to their S3 equivalents
 # Args:
 #   1: Local file path
-#   2: Suffix to remove (can be empty)
+#   2: Suffix to remove (always receives a value, even if empty)
 # Note: Suffix is removed BEFORE path conversion to ensure correct substitution
 # Warning: If BUILD_DIR is empty, the conversion will not work correctly
 define LocalToS3_Internal
@@ -30,7 +30,7 @@ endef
 #   $(call LocalToS3,path/to/file.txt)           # No suffix removal
 #   $(call LocalToS3,path/to/file.txt,.txt)      # Remove .txt suffix
 define LocalToS3
-$(call LocalToS3_Internal,$(1),$(if $(2),$(2),))
+$(call LocalToS3_Internal,$(1),$(value 2))
 endef
 
 # TARGET: test-LocalToS3
