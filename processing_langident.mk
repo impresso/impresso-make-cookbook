@@ -335,19 +335,6 @@ LANGIDENT_LOCAL_FILES_ONLY_OPTION ?= --local-files-only
 
 # === USER-CONFIGURABLE VARIABLES (Work-In-Progress Management) ===============
 
-# USER-VARIABLE: LANGIDENT_WIP_ENABLED
-# Option to enable work-in-progress (WIP) file management to prevent concurrent processing.
-#
-# Set to 1 to enable WIP checks, or leave empty to disable
-# When enabled, the system will:
-# - Check for existing WIP files on S3 before starting processing
-# - Create WIP files to signal work in progress
-# - Remove stale WIP files (older than LANGIDENT_WIP_MAX_AGE)
-# - Remove WIP files after successful completion
-LANGIDENT_WIP_ENABLED ?= 1
-  $(call log.debug, LANGIDENT_WIP_ENABLED)
-
-
 # USER-VARIABLE: LANGIDENT_WIP_MAX_AGE
 # Maximum age in hours for WIP files before considering them stale.
 #
@@ -609,15 +596,14 @@ ifeq ($(USE_CANONICAL),1)
 $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	$(if $(LANGIDENT_WIP_ENABLED), \
-	python3 -m impresso_cookbook.local_to_s3 \
-		--s3-file-exists $(call LocalToS3,$@) \
-		--create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+	python3 scripts/manage_s3_wip.py acquire \
+		--s3-target $(call LocalToS3,$@) \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$@ $(call LocalToS3,$@) \
-		$@.log.gz $(call LocalToS3,$@).log.gz \
-	|| { test $$? -eq 2 && exit 0; exit 1; } \
-	&& , ) \
+		--local-target $@ \
+		--files $@ $@.log.gz \
+	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
 		--infile $(call LocalToS3,$(basename $<)) \
@@ -638,15 +624,15 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@) \
 		$@.log.gz $(call LocalToS3,$@).log.gz \
+	&& python3 scripts/manage_s3_wip.py release \
+		--s3-target $(call LocalToS3,$@) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 	|| { rm -vf $@ ; \
-	     $(if $(LANGIDENT_WIP_ENABLED), \
-	     python3 -m impresso_cookbook.local_to_s3 --remove-wip \
-	         --log-level $(LANGIDENT_LOGGING_LEVEL) \
-	         $@ $(call LocalToS3,$@) \
-	         $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
+	     python3 scripts/manage_s3_wip.py release \
+	         --s3-target $(call LocalToS3,$@) \
+	         --log-level $(LANGIDENT_LOGGING_LEVEL) || true ; \
 	     exit 1 ; }
 
 else
@@ -658,15 +644,14 @@ else
 $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	$(if $(LANGIDENT_WIP_ENABLED), \
-	python3 -m impresso_cookbook.local_to_s3 \
-		--s3-file-exists $(call LocalToS3,$@) \
-		--create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+	python3 scripts/manage_s3_wip.py acquire \
+		--s3-target $(call LocalToS3,$@) \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
-		$@ $(call LocalToS3,$@) \
-		$@.log.gz $(call LocalToS3,$@).log.gz \
-	|| { test $$? -eq 2 && exit 0; exit 1; } \
-	&& , ) \
+		--local-target $@ \
+		--files $@ $@.log.gz \
+	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
 		--infile $(call LocalToS3,$<) \
@@ -687,15 +672,15 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--keep-timestamp-only \
-		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$@ $(call LocalToS3,$@) \
 		$@.log.gz $(call LocalToS3,$@).log.gz \
+	&& python3 scripts/manage_s3_wip.py release \
+		--s3-target $(call LocalToS3,$@) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 	|| { rm -vf $@ ; \
-	     $(if $(LANGIDENT_WIP_ENABLED), \
-	     python3 -m impresso_cookbook.local_to_s3 --remove-wip \
-	         --log-level $(LANGIDENT_LOGGING_LEVEL) \
-	         $@ $(call LocalToS3,$@) \
-	         $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
+	     python3 scripts/manage_s3_wip.py release \
+	         --s3-target $(call LocalToS3,$@) \
+	         --log-level $(LANGIDENT_LOGGING_LEVEL) || true ; \
 	     exit 1 ; }
 
 endif
@@ -711,6 +696,21 @@ endif
 # Uses stamp file for stats.json to track S3 synchronization state.
 $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 	$(MAKE_SILENCE_RECIPE) \
+	python3 scripts/check_stage1_newspaper_ready.py \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--local-target $@ \
+		$(foreach file,$(LOCAL_LANGIDENT_SYSTEMS_FILES),--stage1-output $(call LocalToS3,$(file))) \
+	|| { status=$$?; case $$status in 1) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
+	python3 scripts/manage_s3_wip.py acquire \
+		--s3-target $(call LocalToS3,$@) \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--local-target $@ \
+		--files $@ $(dir $@)stats.json.log.gz \
+	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
 	mkdir -p $(dir $@) && \
 	python3 lib/newspaper_statistics.py \
 		--newspaper $(notdir $(NEWSPAPER)) \
@@ -729,16 +729,16 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 	python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--keep-timestamp-only $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
-		$(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
 		$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json) \
 		$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz) \
+	&& python3 scripts/manage_s3_wip.py release \
+		--s3-target $(call LocalToS3,$@) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 	|| { rm -vf $@ ; \
-		$(if $(LANGIDENT_WIP_ENABLED), \
-		python3 -m impresso_cookbook.local_to_s3 \
-			--remove-wip \
-			--log-level $(LANGIDENT_LOGGING_LEVEL) \
-			$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json) \
-			$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz) || true ; , ) \
+		python3 scripts/manage_s3_wip.py release \
+			--s3-target $(call LocalToS3,$@) \
+			--log-level $(LANGIDENT_LOGGING_LEVEL) || true ; \
+		rm -vf $(dir $@)stats.json.log.gz ; \
 		exit 1 ; }
 
 
@@ -762,17 +762,23 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) \
   && \
-  $(if $(LANGIDENT_WIP_ENABLED), \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --s3-file-exists $(call LocalToS3,$@) \
-    --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
-    --log-level $(LANGIDENT_LOGGING_LEVEL) \
-    $@ $(call LocalToS3,$@) \
-    $@.log.gz $(call LocalToS3,$@).log.gz \
-    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) \
-  || { test $$? -eq 2 && exit 0; exit 1; } \
-  && , ) \
-  python3 lib/impresso_ensemble_lid.py \
+	python3 scripts/check_ensemble_year_ready.py \
+		--stage1-output $(call LocalToS3,$<) \
+		--stats-output $(call LocalToS3,$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json) \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--local-target $@ \
+	|| { status=$$?; case $$status in 1) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
+	python3 scripts/manage_s3_wip.py acquire \
+		--s3-target $(call LocalToS3,$@) \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--local-target $@ \
+		--files $@ $@.log.gz $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
+	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
+	python3 lib/impresso_ensemble_lid.py \
     --lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
     --weight-lb-impresso-ft $(LANGIDENT_ENSEMBLE_WEIGHT_LB_IMPRESSO_OPTION) \
     --minimal-lid-probability $(LANGIDENT_ENSEMBLE_MINIMAL_LID_PROBABILITY_OPTION) \
@@ -792,41 +798,19 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 
     $(if $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),--admissible-languages $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),) \
     $(if $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),) \
   && \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
-	--log-level $(LANGIDENT_LOGGING_LEVEL) \
-    $(if $(LANGIDENT_WIP_ENABLED),--remove-wip,) \
-    $@    $(call LocalToS3,$@) \
-    $@.log.gz    $(call LocalToS3,$@).log.gz \
-    $(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) \
-  || { rm -vf $@ $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) ; \
-       $(if $(LANGIDENT_WIP_ENABLED), \
-       python3 -m impresso_cookbook.local_to_s3 --remove-wip \
-           --log-level $(LANGIDENT_LOGGING_LEVEL) \
-           $@ $(call LocalToS3,$@) \
-           $@.log.gz $(call LocalToS3,$@).log.gz \
-           $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) || true ; , ) \
-       exit 1 ; }
-
-# DOUBLE-COLON-TARGET: langident-ensemble-target
-# Finalize language decisions and diagnostics
-#
-# Processes ensemble results and generates diagnostics.
-#langident-ensemble-target ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-files
-
-# DOUBLE-COLON-TARGET: impresso-lid-statistics
-# Generate statistics
-#
-# Produces statistics from processed data.
-#impresso-lid-statistics ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-diagnostics-files-manifest-target
-
-# DOUBLE-COLON-TARGET: impresso-lid-eval
-# Evaluate against gold standard
-#
-# Compares results with a gold standard for evaluation.
-#impresso-lid-eval ::
-#    $(MAKE) $(MAKEFILEFLAG) -f $(firstword $(MAKEFILE_LIST)) impresso-lid-ensemble-eval
+	python3 -m impresso_cookbook.local_to_s3 \
+		--set-timestamp $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		$@    $(call LocalToS3,$@) \
+		$@.log.gz    $(call LocalToS3,$@).log.gz \
+		$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)    $(call LocalToS3,$(patsubst %.jsonl.bz2,%.diagnostics.json,$@)) \
+	&& python3 scripts/manage_s3_wip.py release \
+		--s3-target $(call LocalToS3,$@) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+	|| { rm -vf $@ $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) ; \
+		python3 scripts/manage_s3_wip.py release \
+			--s3-target $(call LocalToS3,$@) \
+			--log-level $(LANGIDENT_LOGGING_LEVEL) || true ; \
+		exit 1 ; }
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_langident.mk)
