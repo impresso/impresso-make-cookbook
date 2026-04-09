@@ -7,12 +7,13 @@ corresponding entries from S3 files based on ID patterns. It extracts content fr
 matching lines in S3 JSONL.bz2 files and applies optional JQ transformations.
 
 Features:
-- Reads a JSONL file containing record IDs
+- Reads a JSONL file containing record IDs or a TXT file with one ID per line
 - Parses IDs to determine corresponding S3 files (e.g., NEWSPAPER-YEAR-CONTENTITEMID)
 - Fetches matching records from S3 JSONL.bz2 files
 - Supports JQ-based transformation of extracted records
 - Memory-efficient processing with caching of frequently accessed files
 - Outputs compiled corpus to a local file or S3 path
+- Assumes input IDs are unique (duplicate IDs produce single output record)
 
 Usage:
     python s3_compiler.py \
@@ -20,6 +21,13 @@ Usage:
         --s3-prefix s3://bucket/path/to/dataset \
         -o compiled_corpus.jsonl \
         --id-field id \
+        --log-level INFO
+
+    # With plain text ID file:
+    python s3_compiler.py \
+        -i sample_ids.txt \
+        --s3-prefix s3://bucket/path/to/dataset \
+        -o compiled_corpus.jsonl \
         --log-level INFO
 
     # With transformation:
@@ -32,24 +40,33 @@ Usage:
         --log-level INFO
 
 Examples:
-1. Basic compilation:
+1. Basic compilation with JSONL:
     python s3_compiler.py -i ids.jsonl --s3-prefix s3://bucket/data \
         -o corpus.jsonl --id-field id
 
-2. With transformation:
+2. Basic compilation with TXT:
+    python s3_compiler.py -i ids.txt --s3-prefix s3://bucket/data \
+        -o corpus.jsonl
+
+3. With transformation:
     python s3_compiler.py -i ids.jsonl --s3-prefix s3://bucket/data \
         -o corpus.jsonl --id-field id \
         --transform-expr '{id: .id, text: .content_text, date: .date}'
 
-3. Using transform file:
+4. Using transform file:
     python s3_compiler.py -i ids.jsonl --s3-prefix s3://bucket/data \
         -o corpus.jsonl --id-field id --transform-file transform.jq
 
 ID Format:
 The script expects IDs in the format: NEWSPAPER-YEAR-CONTENTITEMID
-It will search for files ending with: NEWSPAPER-YEAR.jsonl.bz2 in the S3 prefix
+IDs must fully match the --id-pattern regex (default requires exact format)
+It will search for files matching: --file-pattern
+  (default: {newspaper}-{year}.jsonl.bz2)
 Files may be in nested directories and optionally have prefixes
 (e.g., path/to/NEWSPAPER-YEAR.jsonl.bz2 or path/to/PREFIX-NEWSPAPER-YEAR.jsonl.bz2)
+
+Note: Input IDs are assumed to be unique. Duplicate IDs will result in a single
+output record with metadata from the last occurrence in the input file.
 """
 
 import argparse
@@ -118,7 +135,10 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
         "--input-file",
         type=str,
         required=True,
-        help="Input JSONL file containing record IDs (local or S3)",
+        help=(
+            "Input file containing record IDs: JSONL format (with --id-field) or TXT"
+            " format (one ID per line)"
+        ),
     )
     parser.add_argument(
         "--s3-prefix",
@@ -247,6 +267,9 @@ class S3CompilerProcessor:
             log.error(f"Invalid ID pattern '{self.id_pattern}': {e}")
             sys.exit(1)
 
+        # Validate file pattern
+        self._validate_file_pattern()
+
         # Compile JQ expression
         self._compile_jq_expressions()
 
@@ -259,7 +282,20 @@ class S3CompilerProcessor:
             "parsed_ids": 0,
             "found_records": 0,
             "files_loaded": 0,
+            "rejected_ids": 0,
         }
+
+    def _validate_file_pattern(self) -> None:
+        """Validate that file_pattern contains required placeholders."""
+        required_placeholders = ["{newspaper}", "{year}"]
+        missing = [p for p in required_placeholders if p not in self.file_pattern]
+        if missing:
+            log.error(
+                f"File pattern '{self.file_pattern}' missing required placeholders: "
+                f"{missing}. Must contain {{newspaper}} and {{year}}."
+            )
+            sys.exit(1)
+        log.debug(f"File pattern validated: {self.file_pattern}")
 
     def _compile_jq_expressions(self) -> None:
         """Compile JQ transformation expression."""
@@ -291,6 +327,7 @@ class S3CompilerProcessor:
     def _parse_id(self, record_id: str) -> Optional[Dict[str, str]]:
         """
         Parse an ID to extract components for file lookup.
+        Uses fullmatch to ensure the entire ID string matches the pattern.
 
         Args:
             record_id: The record ID to parse
@@ -298,9 +335,12 @@ class S3CompilerProcessor:
         Returns:
             Optional[Dict[str, str]]: Parsed components or None if parsing fails
         """
-        match = self.id_regex.match(record_id)
+        match = self.id_regex.fullmatch(record_id)
         if not match:
-            log.debug(f"ID '{record_id}' does not match pattern '{self.id_pattern}'")
+            log.debug(
+                f"ID '{record_id}' does not fully match pattern '{self.id_pattern}'"
+            )
+            self.statistics["rejected_ids"] += 1
             return None
 
         groups = match.groups()
@@ -336,9 +376,11 @@ class S3CompilerProcessor:
 
         bucket, prefix = parse_s3_path(self.s3_prefix)
 
-        # Search pattern: files ending with NEWSPAPER-YEAR.jsonl.bz2
+        # Generate search suffix using file_pattern template
         # Files may have optional prefixes or be in nested directories
-        search_suffix = f"{parsed_id['newspaper']}-{parsed_id['year']}.jsonl.bz2"
+        search_suffix = self.file_pattern.format(
+            newspaper=parsed_id["newspaper"], year=parsed_id["year"]
+        )
 
         try:
             # List objects with the prefix to find matching files
@@ -486,11 +528,27 @@ class S3CompilerProcessor:
         Read input file and group IDs by their newspaper-year pattern.
         This avoids S3 operations during the grouping phase.
 
+        Supports two input formats:
+        - JSONL: Each line is a JSON object with ID in the specified field
+        - TXT: Each line contains a single ID (detected by .txt extension)
+
+        Note: Duplicate IDs are allowed in input but will result in a single
+        output record. The cached metadata (for --include-from-input fields)
+        will be from the last occurrence of each ID.
+
         Returns:
             Dict[str, List[Dict[str, Any]]]: Mapping from newspaper-year patterns to
             list of records containing ID and input data
         """
         pattern_to_records: Dict[str, List[Dict[str, Any]]] = {}
+
+        # Detect input format based on file extension
+        is_txt_format = self.input_file.lower().endswith(".txt")
+
+        if is_txt_format:
+            log.info("Detected TXT format input file (one ID per line)")
+        else:
+            log.info("Detected JSONL format input file")
 
         with smart_open(
             self.input_file,
@@ -500,14 +558,26 @@ class S3CompilerProcessor:
         ) as infile:
             for line_num, line in enumerate(infile, 1):
                 try:
-                    input_record = json.loads(line)
-                    self.statistics["input_records"] += 1
-
-                    if self.id_field not in input_record:
-                        log.warning(f"Line {line_num}: Missing '{self.id_field}' field")
+                    line = line.strip()
+                    if not line:  # Skip empty lines
                         continue
 
-                    record_id = str(input_record[self.id_field])
+                    if is_txt_format:
+                        # Plain text format: each line is an ID
+                        record_id = line
+                        input_record = {self.id_field: record_id}
+                    else:
+                        # JSONL format: parse JSON object
+                        input_record = json.loads(line)
+                        if self.id_field not in input_record:
+                            log.warning(
+                                f"Line {line_num}: Missing '{self.id_field}' field"
+                            )
+                            continue
+                        record_id = str(input_record[self.id_field])
+
+                    self.statistics["input_records"] += 1
+
                     parsed_id = self._parse_id(record_id)
 
                     if parsed_id is None:
@@ -532,7 +602,9 @@ class S3CompilerProcessor:
                     pattern_to_records[pattern_key].append(record_info)
 
                 except json.JSONDecodeError:
-                    log.warning(f"Skipping malformed line {line_num}")
+                    if not is_txt_format:
+                        log.warning(f"Skipping malformed line {line_num}")
+                    # For TXT format, this shouldn't happen as we don't parse JSON
                 except Exception as e:
                     log.error(f"Error processing line {line_num}: {e}")
 
@@ -638,6 +710,9 @@ class S3CompilerProcessor:
             log.info("Compilation complete:")
             log.info(f"  Input records processed: {self.statistics['input_records']}")
             log.info(f"  IDs successfully parsed: {self.statistics['parsed_ids']}")
+            log.info(
+                f"  IDs rejected (pattern mismatch): {self.statistics['rejected_ids']}"
+            )
             log.info(f"  Records found in S3: {self.statistics['found_records']}")
             log.info(f"  Files loaded from S3: {self.statistics['files_loaded']}")
             log.info(f"  Unique patterns processed: {len(pattern_to_records)}")
