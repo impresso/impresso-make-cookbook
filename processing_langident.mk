@@ -358,6 +358,41 @@ LANGIDENT_UPLOAD_IF_NEWER_OPTION ?=
   $(call log.debug, LANGIDENT_UPLOAD_IF_NEWER_OPTION)
 
 
+# USER-VARIABLE: LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION
+# Option to force upload of Stage 1 files even if S3 version is newer.
+#
+# DANGER: Set to --force-overwrite to always upload locally-computed files to S3,
+# overwriting any existing S3 version regardless of timestamp. Use this when you
+# need to guarantee that a freshly-computed Stage 1 result replaces the S3 version.
+# Default: empty (no forced upload). Only enable in controlled single-machine scenarios
+# or when you explicitly want to overwrite distributed results.
+# LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION ?= --force-overwrite
+LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION ?=
+  $(call log.debug, LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION)
+
+
+# USER-VARIABLE: LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION
+# Option to force upload of Stage 2 statistics files even if S3 version is newer.
+#
+# DANGER: Set to --force-overwrite to always upload locally-computed stats.json to S3.
+# Default: empty (no forced upload). Only enable when you explicitly want to replace
+# the S3 statistics with freshly-computed values.
+# LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION ?= --force-overwrite
+LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION ?=
+  $(call log.debug, LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION)
+
+
+# USER-VARIABLE: LANGIDENT_FORCE_UPLOAD_STAGE3_OPTION
+# Option to force upload of Stage 3 ensemble files even if S3 version is newer.
+#
+# DANGER: Set to --force-overwrite to always upload locally-computed ensemble results.
+# Default: empty (no forced upload). Only enable when you explicitly want to replace
+# the S3 ensemble files with freshly-computed decisions.
+# LANGIDENT_FORCE_UPLOAD_STAGE3_OPTION ?= --force-overwrite
+LANGIDENT_FORCE_UPLOAD_STAGE3_OPTION ?=
+  $(call log.debug, LANGIDENT_FORCE_UPLOAD_STAGE3_OPTION)
+
+
 # === INTERNAL COMPUTED VARIABLES ==============================================
 
 # Conditional format option based on USE_CANONICAL
@@ -376,6 +411,36 @@ LANGIDENT_FORMAT_OPTION := --format=rebuilt
   $(call log.debug, LANGIDENT_FORMAT_OPTION)
 
 endif
+
+
+# VARIABLE: LANGIDENT_WIP_FORCE_STAGE1
+# Internal flag to force WIP acquisition when stage 1 force-upload is enabled.
+ifneq ($(LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION),)
+LANGIDENT_WIP_FORCE_STAGE1 := --force
+else
+LANGIDENT_WIP_FORCE_STAGE1 :=
+endif
+  $(call log.debug, LANGIDENT_WIP_FORCE_STAGE1)
+
+
+# VARIABLE: LANGIDENT_WIP_FORCE_STAGE2
+# Internal flag to force WIP acquisition when stage 2 force-upload is enabled.
+ifneq ($(LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION),)
+LANGIDENT_WIP_FORCE_STAGE2 := --force
+else
+LANGIDENT_WIP_FORCE_STAGE2 :=
+endif
+  $(call log.debug, LANGIDENT_WIP_FORCE_STAGE2)
+
+
+# VARIABLE: LANGIDENT_WIP_FORCE_STAGE3
+# Internal flag to force WIP acquisition when stage 3 force-upload is enabled.
+ifneq ($(LANGIDENT_FORCE_UPLOAD_STAGE3_OPTION),)
+LANGIDENT_WIP_FORCE_STAGE3 := --force
+else
+LANGIDENT_WIP_FORCE_STAGE3 :=
+endif
+  $(call log.debug, LANGIDENT_WIP_FORCE_STAGE3)
 
 
 # === PATH TRANSFORMATION FUNCTIONS ============================================
@@ -602,6 +667,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--local-target $@ \
 		--files $@ $@.log.gz \
+		$(LANGIDENT_WIP_FORCE_STAGE1) \
 	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
 	&& \
 	python3 lib/impresso_langident_systems.py \
@@ -624,6 +690,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
+		$(LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION) \
 		$@ $(call LocalToS3,$@) \
 		$@.log.gz $(call LocalToS3,$@).log.gz \
 	&& python3 scripts/manage_s3_wip.py release \
@@ -650,6 +717,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--local-target $@ \
 		--files $@ $@.log.gz \
+		$(LANGIDENT_WIP_FORCE_STAGE1) \
 	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
 	&& \
 	python3 lib/impresso_langident_systems.py \
@@ -671,7 +739,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
 	&& python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
-		--keep-timestamp-only \
+		--keep-timestamp-only $(LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION) \
 		$@ $(call LocalToS3,$@) \
 		$@.log.gz $(call LocalToS3,$@).log.gz \
 	&& python3 scripts/manage_s3_wip.py release \
@@ -709,6 +777,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--local-target $@ \
 		--files $@ $(dir $@)stats.json.log.gz \
+		$(LANGIDENT_WIP_FORCE_STAGE2) \
 	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
 	&& \
 	mkdir -p $(dir $@) && \
@@ -729,6 +798,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
 	python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--keep-timestamp-only $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
+		$(LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION) \
 		$(dir $@)stats.json $(call LocalToS3,$(dir $@)stats.json) \
 		$(dir $@)stats.json.log.gz $(call LocalToS3,$(dir $@)stats.json.log.gz) \
 	&& python3 scripts/manage_s3_wip.py release \
@@ -776,6 +846,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--local-target $@ \
 		--files $@ $@.log.gz $(patsubst %.jsonl.bz2,%.diagnostics.json,$@) \
+		$(LANGIDENT_WIP_FORCE_STAGE3) \
 	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
 	&& \
 	python3 lib/impresso_ensemble_lid.py \
@@ -800,6 +871,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 
   && \
 	python3 -m impresso_cookbook.local_to_s3 \
 		--set-timestamp $(LANGIDENT_UPLOAD_IF_NEWER_OPTION) \
+		$(LANGIDENT_FORCE_UPLOAD_STAGE3_OPTION) \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$@    $(call LocalToS3,$@) \
 		$@.log.gz    $(call LocalToS3,$@).log.gz \
