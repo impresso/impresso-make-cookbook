@@ -56,14 +56,25 @@ TASK_SAMPLING ?= langident
 MODEL_ID_SAMPLING ?= lid-ensemble_multilingual_v2-0-2
   $(call log.debug, MODEL_ID_SAMPLING)
 
+# USER-VARIABLE: SAMPLING_PARAMS_INFIX
+# Optional infix encoding sampling hyperparameters (e.g. ocrqa thresholds, min chars).
+# When set, it is inserted between MODEL_ID_SAMPLING and RUN_VERSION_SAMPLING in RUN_ID_SAMPLING.
+# Example: ocrqa90-minlen200
+SAMPLING_PARAMS_INFIX ?=
+  $(call log.debug, SAMPLING_PARAMS_INFIX)
+
 # USER-VARIABLE: RUN_VERSION_SAMPLING
 # Sampling run version identifier.
 RUN_VERSION_SAMPLING ?= v1-0-0
   $(call log.debug, RUN_VERSION_SAMPLING)
 
+# VARIABLE: _SAMPLING_PARAMS_INFIX_SEP
+# Internal: separator before infix, only when infix is non-empty.
+_SAMPLING_PARAMS_INFIX_SEP := $(if $(SAMPLING_PARAMS_INFIX),-$(SAMPLING_PARAMS_INFIX),)
+
 # USER-VARIABLE: RUN_ID_SAMPLING
 # Unique run identifier used in output paths.
-RUN_ID_SAMPLING ?= $(PROCESS_LABEL_SAMPLING)-$(TASK_SAMPLING)-$(MODEL_ID_SAMPLING)_$(RUN_VERSION_SAMPLING)
+RUN_ID_SAMPLING ?= $(PROCESS_LABEL_SAMPLING)-$(TASK_SAMPLING)-$(MODEL_ID_SAMPLING)$(_SAMPLING_PARAMS_INFIX_SEP)_$(RUN_VERSION_SAMPLING)
   $(call log.debug, RUN_ID_SAMPLING)
 
 # USER-VARIABLE: LANGIDENT_OUTPUT_KEY_PREFIX
@@ -153,7 +164,7 @@ check-langident-output-bucket:
 	  AWS_ACCESS_KEY_ID="$(SE_ACCESS_KEY)" \
 	  AWS_SECRET_ACCESS_KEY="$(SE_SECRET_KEY)" \
 	  AWS_DEFAULT_REGION="us-east-1" \
-	  aws s3api head-bucket \
+	  aws -- s3api head-bucket \
 	    --bucket "$(LANGIDENT_OUTPUT_BUCKET)" \
 	    --endpoint-url "$(SE_HOST_URL)" \
 	    >/dev/null 2>&1 || { \
