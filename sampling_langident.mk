@@ -44,7 +44,7 @@ LANGIDENT_OUTPUT_BUCKET ?= 140-processing-sandbox
 # USER-VARIABLE: LANGIDENT_OUTPUT_KEY_PREFIX
 # Key prefix under the output bucket.
 LANGIDENT_OUTPUT_KEY_PREFIX ?= sampling/langident
-	$(call log.debug, LANGIDENT_OUTPUT_KEY_PREFIX)
+  $(call log.debug, LANGIDENT_OUTPUT_KEY_PREFIX)
 
 # USER-VARIABLE: LANGIDENT_OUTPUT_PREFIX
 # Target prefix for language-specific outputs.
@@ -54,6 +54,16 @@ LANGIDENT_OUTPUT_PREFIX ?= s3://$(LANGIDENT_OUTPUT_BUCKET)/$(LANGIDENT_OUTPUT_KE
 LANGIDENT_SAMPLE_DIR := $(BUILD_DIR)/$(LANGIDENT_OUTPUT_BUCKET)/$(LANGIDENT_OUTPUT_KEY_PREFIX)
 LANGIDENT_IDS_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).ids.jsonl.gz)
 LANGIDENT_COMPILED_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).compiled.jsonl)
+
+# USER-VARIABLE: LANGIDENT_UPLOAD_ENABLED
+# If set to 0, keep outputs locally and skip upload to S3.
+LANGIDENT_UPLOAD_ENABLED ?= 1
+  $(call log.debug, LANGIDENT_UPLOAD_ENABLED)
+
+# USER-VARIABLE: LANGIDENT_CHECK_OUTPUT_BUCKET
+# If set to 1, verify output bucket accessibility before upload.
+LANGIDENT_CHECK_OUTPUT_BUCKET ?= 1
+  $(call log.debug, LANGIDENT_CHECK_OUTPUT_BUCKET)
 
 # Convert local mirrored output path to S3 path
 # $(1) local file path under LANGIDENT_SAMPLE_DIR
@@ -103,8 +113,36 @@ sampling-langident-lb: $(LANGIDENT_SAMPLE_DIR)/lb.ids.jsonl.gz $(LANGIDENT_SAMPL
 
 .PHONY: sampling-langident-lb
 
+# Keep local targets when upload step fails.
+.PRECIOUS: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
+.PRECIOUS: $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl
 
-$(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR)
+
+# Check S3 output bucket accessibility with current credentials.
+check-langident-output-bucket:
+	@if [ "$(LANGIDENT_UPLOAD_ENABLED)" = "1" ] && [ "$(LANGIDENT_CHECK_OUTPUT_BUCKET)" = "1" ]; then \
+	  command -v aws >/dev/null 2>&1 || { \
+	    echo "ERROR: aws CLI not found. Install aws CLI or set LANGIDENT_CHECK_OUTPUT_BUCKET=0"; \
+	    exit 2; \
+	  }; \
+	  AWS_ACCESS_KEY_ID="$(SE_ACCESS_KEY)" \
+	  AWS_SECRET_ACCESS_KEY="$(SE_SECRET_KEY)" \
+	  AWS_DEFAULT_REGION="us-east-1" \
+	  aws s3api head-bucket \
+	    --bucket "$(LANGIDENT_OUTPUT_BUCKET)" \
+	    --endpoint-url "$(SE_HOST_URL)" \
+	    >/dev/null 2>&1 || { \
+	      echo "ERROR: output bucket is not accessible: $(LANGIDENT_OUTPUT_BUCKET)"; \
+	      echo "Tip: override LANGIDENT_OUTPUT_BUCKET to an existing bucket or set LANGIDENT_UPLOAD_ENABLED=0"; \
+	      exit 2; \
+	    }; \
+	  echo "Output bucket is accessible: $(LANGIDENT_OUTPUT_BUCKET)"; \
+	fi
+
+.PHONY: check-langident-output-bucket
+
+
+$(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR) check-langident-output-bucket
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	python3 lib/sampling_langident_ids.py \
@@ -117,12 +155,16 @@ $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR)
 	  --log-level $(SAMPLE_LOG_LEVEL) \
 	  --log-file $@.log.gz \
 	&& \
-	python3 -m impresso_cookbook.local_to_s3 \
-	  $@ $(call LocalLangidentToS3,$@) \
-	  $@.log.gz $(call LocalLangidentToS3,$@).log.gz
+	if [ "$(LANGIDENT_UPLOAD_ENABLED)" = "1" ]; then \
+	  python3 -m impresso_cookbook.local_to_s3 \
+	    $@ $(call LocalLangidentToS3,$@) \
+	    $@.log.gz $(call LocalLangidentToS3,$@).log.gz ; \
+	else \
+	  echo "LANGIDENT_UPLOAD_ENABLED=0, keeping local outputs only: $@" ; \
+	fi
 
 
-$(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
+$(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz | check-langident-output-bucket
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	python3 cookbook/lib/s3_compiler.py \
@@ -133,9 +175,13 @@ $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
 	  --log-level $(SAMPLE_LOG_LEVEL) \
 	  --log-file $@.log.gz \
 	&& \
-	python3 -m impresso_cookbook.local_to_s3 \
-	  $@ $(call LocalLangidentToS3,$@) \
-	  $@.log.gz $(call LocalLangidentToS3,$@).log.gz
+	if [ "$(LANGIDENT_UPLOAD_ENABLED)" = "1" ]; then \
+	  python3 -m impresso_cookbook.local_to_s3 \
+	    $@ $(call LocalLangidentToS3,$@) \
+	    $@.log.gz $(call LocalLangidentToS3,$@).log.gz ; \
+	else \
+	  echo "LANGIDENT_UPLOAD_ENABLED=0, keeping local outputs only: $@" ; \
+	fi
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sampling_langident.mk)
