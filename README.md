@@ -58,7 +58,6 @@ The build system is organized into several make include files:
 ### Processing Pipeline Makefiles
 
 - `cookbook/paths_*.mk`: Path definitions for different processing stages
-
   - `paths_canonical.mk`: Canonical newspaper content paths
   - `paths_rebuilt.mk`: Rebuilt newspaper content paths
   - `paths_lingproc.mk`: Linguistic processing paths
@@ -68,7 +67,6 @@ The build system is organized into several make include files:
   - `paths_bboxqa.mk`: Bounding box quality assessment paths
 
 - `cookbook/processing_*.mk`: Processing targets for different NLP tasks
-
   - `processing_lingproc.mk`: Linguistic processing (POS tagging, NER)
   - `processing_ocrqa.mk`: OCR quality assessment
   - `processing_langident.mk`: Language identification
@@ -76,7 +74,6 @@ The build system is organized into several make include files:
   - `processing_bboxqa.mk`: Bounding box quality assessment
 
 - `cookbook/sync_*.mk`: Data synchronization for different processing stages
-
   - `sync_canonical.mk`: Canonical content synchronization
   - `sync_rebuilt.mk`: Rebuilt content synchronization
   - `sync_lingproc.mk`: Linguistic processing data sync
@@ -86,7 +83,6 @@ The build system is organized into several make include files:
   - `sync_bboxqa.mk`: Bounding box QA data synchronization
 
 - `cookbook/setup_*.mk`: Setup targets for different processing environments
-
   - `setup_python.mk`: Python environment setup
   - `setup_lingproc.mk`: Linguistic processing environment
   - `setup_ocrqa.mk`: OCR quality assessment setup
@@ -102,6 +98,88 @@ The build system is organized into several make include files:
 Ensure that the environment variables `SE_ACCESS_KEY` and `SE_SECRET_KEY` for access to the S3 impresso infrastructure are set, e.g., by setting them in a local `.env` file.
 
 The build process uploads the processed data to the impresso S3 bucket.
+
+## AWS CLI With Project-Local Config
+
+Use AWS CLI with project-local config files so commands do not depend on global `~/.aws` settings.
+
+Important distinction in this cookbook:
+
+- Most data uploads in processing/sampling recipes are done with `python3 -m impresso_cookbook.local_to_s3`.
+- AWS CLI is used mainly for setup, connectivity checks, bucket/prefix inspection, and occasional manual operations.
+- Do not replace `local_to_s3` upload steps in recipes unless you explicitly want to change reliability/verification behavior.
+
+### 1. Generate local AWS config files
+
+From the repository root:
+
+```bash
+make create-aws-config
+```
+
+This uses `.env` values and writes:
+
+- `.aws/config`
+- `.aws/credentials`
+
+### 2. Call AWS CLI with local config explicitly
+
+```bash
+AWS_CONFIG_FILE=.aws/config \
+AWS_SHARED_CREDENTIALS_FILE=.aws/credentials \
+aws s3 ls s3://140-processing-sandbox/
+```
+
+You can also point AWS CLI to any project-local config directory (not only `.aws`):
+
+```bash
+AWS_DIR=configs/aws
+AWS_CONFIG_FILE="$AWS_DIR/config" \
+AWS_SHARED_CREDENTIALS_FILE="$AWS_DIR/credentials" \
+aws s3api head-bucket --bucket 140-processing-sandbox --endpoint-url "$SE_HOST_URL"
+```
+
+This is useful when running multiple environments side by side (dev/staging/prod) with separate credential files.
+
+For S3-compatible endpoints, the endpoint is already written to `.aws/config` by `create-aws-config`.
+
+Typical AWS CLI use in this repository:
+
+- quick bucket/prefix listing (`aws s3 ls ...`)
+- bucket existence/access checks (`aws s3api head-bucket ...`)
+- manual diagnostics
+
+Typical upload path in this repository:
+
+- Make recipes call `python3 -m impresso_cookbook.local_to_s3 ...` for file uploads
+
+### 3. Quick connectivity test via Make
+
+```bash
+make test-aws
+```
+
+### 4. Use with run-specific Make configs
+
+When running with a project config file (for example `CFG=configs/config_sampling_RUN_ID.mk`), AWS CLI checks in Make recipes still use project-local credentials from `.env` and/or `.aws/*` (not global user config).
+
+This is independent from recipe uploads, which continue to run through `local_to_s3.py`.
+
+Example:
+
+```bash
+make sampling-langident-fr CFG=configs/config_sampling_RUN_ID.mk
+```
+
+### Notes
+
+- If `aws` is missing, install it with:
+
+```bash
+make install-aws
+```
+
+- Keep `.aws/credentials` local to this repository and do not commit secrets.
 
 ## Processing Workflow Overview
 
@@ -370,6 +448,7 @@ LANGIDENT_WIP_MAX_AGE := 2
    ```bash
    make setup
    ```
+
 ## Using the Cookbook as a Git Submodule
 
 The Impresso Make-Based Offline Processing Cookbook can be integrated into an existing project as a Git submodule. This setup is recommended when the cookbook is used as shared Make-based infrastructure across multiple repositories.
@@ -435,9 +514,9 @@ This makes cookbook updates explicit and reproducible across machines.
 
 ### Notes
 
-* The cookbook is path-stable when used as a submodule; internal includes assume the `cookbook/` prefix.
-* Build directories, stamp files, and S3 synchronization behavior are unaffected by submodule usage.
-* The Python helper package in `lib/` can still be installed independently via `pip` if required.
+- The cookbook is path-stable when used as a submodule; internal includes assume the `cookbook/` prefix.
+- Build directories, stamp files, and S3 synchronization behavior are unaffected by submodule usage.
+- The Python helper package in `lib/` can still be installed independently via `pip` if required.
 
 ## Makefile Targets
 
