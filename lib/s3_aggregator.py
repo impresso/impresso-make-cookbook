@@ -30,23 +30,27 @@ Examples:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
         --keys id --filter type=article --output output.jsonl
 
-3. Use jq filter for token extraction:
+3. Extract keys and include source metadata:
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
+        --keys id tokens --include-source-meta --output output.jsonl
+
+4. Use jq filter for token extraction:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
         --jq-filter lib/extract_tokens.jq --output output.txt.gz \\
         --log-file s3://bucket/logs/process.log.gz
 
-4. Extract all content without key filtering:
+5. Extract all content without key filtering:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \
         --keys content --output output.txt.gz
 
-5. Verify data readability:
+6. Verify data readability:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --verify
 
-6. Verify data with custom file extensions:
+7. Verify data with custom file extensions:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --verify \
         --verify-file-extensions json jsonl.gz json.bz2
 
-7. Verify and delete corrupted files:
+8. Verify and delete corrupted files:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --verify \
         --verify-and-delete
 """
@@ -127,6 +131,38 @@ def apply_jq_filter(data: Dict[str, Any], jq_filter: Optional[jq.jq]) -> Optiona
             logging.error("Error applying jq filter: %s", e)
             return None
     return data
+
+
+def build_source_metadata(bucket: str, file_key: str) -> Dict[str, str]:
+    """Build source locator metadata from an S3 object key.
+
+    Expected canonical layouts are either:
+    - PROVIDER/NEWSPAPER/<subdir>/...
+    - NEWSPAPER/<subdir>/...
+
+    Args:
+        bucket (str): S3 bucket name.
+        file_key (str): S3 object key being processed.
+
+    Returns:
+        Dict[str, str]: Source metadata fields to merge into JSON output.
+    """
+    source_metadata = {
+        "source_file": f"s3://{bucket}/{file_key}",
+        "source_bucket": bucket,
+        "source_key": file_key,
+    }
+
+    path_parts = file_key.split("/")
+    if len(path_parts) >= 3 and path_parts[2] in {"pages", "issues"}:
+        source_metadata["provider"] = path_parts[0]
+        source_metadata["newspaper"] = path_parts[1]
+        source_metadata["source_path_segment"] = "/".join(path_parts[:2])
+    elif len(path_parts) >= 2 and path_parts[1] in {"pages", "issues"}:
+        source_metadata["newspaper"] = path_parts[0]
+        source_metadata["source_path_segment"] = path_parts[0]
+
+    return source_metadata
 
 
 def process_jsonl_file(
@@ -365,6 +401,7 @@ def process_s3_files(
     filters: Dict[str, str],
     output_path: str,
     jq_filter: Optional[jq.jq],
+    include_source_meta: bool = False,
 ) -> None:
     """Process JSONL.bz2 files in an S3 bucket, apply filters, jq filter, extract specified keys, and write to an output file (local or S3).
 
@@ -375,6 +412,8 @@ def process_s3_files(
         filters (Dict[str, str]): Filters to apply to each JSON object.
         output_path (str): Path to the output file (local or S3).
         jq_filter (Optional[jq.jq]): A compiled jq filter.
+        include_source_meta (bool): If True, merge source locator fields into
+            JSON object output.
     """
     import os
 
@@ -399,6 +438,7 @@ def process_s3_files(
                 if not file_key.endswith("jsonl.bz2"):
                     continue
                 logging.info("Processing file: %s", file_key)
+                source_metadata = build_source_metadata(bucket, file_key)
                 with smart_open(
                     f"s3://{bucket}/{file_key}",
                     "rb",
@@ -415,6 +455,8 @@ def process_s3_files(
                                 if isinstance(processed_data, list):
                                     # Handle jq filter results (list of strings/values)
                                     for item in processed_data:
+                                        if include_source_meta and isinstance(item, dict):
+                                            item = {**item, **source_metadata}
                                         if isinstance(item, str):
                                             tmpfile.write(item + "\n")
                                         else:
@@ -425,6 +467,14 @@ def process_s3_files(
                                         processed_count += 1
                                 else:
                                     # Handle regular JSON objects
+                                    if (
+                                        include_source_meta
+                                        and isinstance(processed_data, dict)
+                                    ):
+                                        processed_data = {
+                                            **processed_data,
+                                            **source_metadata,
+                                        }
                                     tmpfile.write(
                                         json.dumps(processed_data, ensure_ascii=False)
                                         + "\n"
@@ -550,6 +600,15 @@ def parse_arguments(args: Optional[Sequence[str]] = None) -> argparse.Namespace:
         type=str,
         help="Path to a jq filter file to apply to each JSON object",
     )
+    parser.add_argument(
+        "--include-source-meta",
+        action="store_true",
+        help=(
+            "Include source locator metadata in JSON object output: "
+            "provider, newspaper, source_path_segment, source_file, "
+            "source_bucket, source_key"
+        ),
+    )
     return parser.parse_args(args)
 
 
@@ -620,7 +679,15 @@ def main(args: Optional[Sequence[str]] = None) -> None:
             logging.error("Failed to load jq filter: %s", e)
             sys.exit(1)
 
-    process_s3_files(bucket, prefix, keys, filters, options.output, jq_filter)
+    process_s3_files(
+        bucket,
+        prefix,
+        keys,
+        filters,
+        options.output,
+        jq_filter,
+        include_source_meta=options.include_source_meta,
+    )
 
     logging.info("Processing complete. Results saved to %s", options.output)
 
