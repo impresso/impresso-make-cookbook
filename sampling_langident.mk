@@ -7,7 +7,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sampling_langident.mk)
 ###############################################################################
 
 # USER-VARIABLE: LANGIDENT_AGGREGATED_S3
-# Aggregated langident input containing at least id, lg, len, and ocrqa.
+# Aggregated langident input containing at least id, lg, len, and ocrqa and provider.
 LANGIDENT_AGGREGATED_S3 ?= s3://115-canonical-processed-final/langident/langident-lid-ensemble_multilingual_v2-0-2__AGGREGATED.jsonl.gz
   $(call log.debug, LANGIDENT_AGGREGATED_S3)
 
@@ -33,7 +33,7 @@ LANGIDENT_MAX_PER_NEWSPAPER_YEAR ?= 500
 
 # USER-VARIABLE: LANGIDENT_FULLTEXT_PREFIX
 # Source prefix used by s3_compiler to fetch full records.
-LANGIDENT_FULLTEXT_PREFIX ?= s3://22-rebuilt-final
+LANGIDENT_FULLTEXT_PREFIX ?= s3://142-rebuilt-final
   $(call log.debug, LANGIDENT_FULLTEXT_PREFIX)
 
 # USER-VARIABLE: LANGIDENT_OUTPUT_BUCKET
@@ -41,9 +41,34 @@ LANGIDENT_FULLTEXT_PREFIX ?= s3://22-rebuilt-final
 LANGIDENT_OUTPUT_BUCKET ?= 140-processing-sandbox
   $(call log.debug, LANGIDENT_OUTPUT_BUCKET)
 
+# USER-VARIABLE: PROCESS_LABEL_SAMPLING
+# Label for sampling outputs.
+PROCESS_LABEL_SAMPLING ?= sampling
+	$(call log.debug, PROCESS_LABEL_SAMPLING)
+
+# USER-VARIABLE: TASK_SAMPLING
+# Sampling task identifier.
+TASK_SAMPLING ?= langident
+	$(call log.debug, TASK_SAMPLING)
+
+# USER-VARIABLE: MODEL_ID_SAMPLING
+# Sampling model/source identifier.
+MODEL_ID_SAMPLING ?= lid-ensemble_multilingual_v2-0-2
+	$(call log.debug, MODEL_ID_SAMPLING)
+
+# USER-VARIABLE: RUN_VERSION_SAMPLING
+# Sampling run version identifier.
+RUN_VERSION_SAMPLING ?= v1-0-0
+	$(call log.debug, RUN_VERSION_SAMPLING)
+
+# USER-VARIABLE: RUN_ID_SAMPLING
+# Unique run identifier used in output paths.
+RUN_ID_SAMPLING ?= $(PROCESS_LABEL_SAMPLING)-$(TASK_SAMPLING)-$(MODEL_ID_SAMPLING)_$(RUN_VERSION_SAMPLING)
+	$(call log.debug, RUN_ID_SAMPLING)
+
 # USER-VARIABLE: LANGIDENT_OUTPUT_KEY_PREFIX
 # Key prefix under the output bucket.
-LANGIDENT_OUTPUT_KEY_PREFIX ?= sampling/langident
+LANGIDENT_OUTPUT_KEY_PREFIX ?= sampling/langident/$(RUN_ID_SAMPLING)
   $(call log.debug, LANGIDENT_OUTPUT_KEY_PREFIX)
 
 # USER-VARIABLE: LANGIDENT_OUTPUT_PREFIX
