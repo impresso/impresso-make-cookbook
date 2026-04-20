@@ -40,6 +40,15 @@ test-aws: .aws | .aws/credentials .aws/config
 # This target ensures that the necessary AWS configuration and credentials files
 # are generated from the environment variables defined in `.env`.
 create-aws-config: .aws .aws/credentials .aws/config
+	@echo ""
+	@echo "AWS config files created."
+	@echo "To add the required variables to your .env, paste and run:"
+	@echo ""
+	@echo "cat >> .env << 'EOF'"
+	@echo "AWS_CONFIG_FILE=.aws/config"
+	@echo "AWS_SHARED_CREDENTIALS_FILE=.aws/credentials"
+	@echo "EOF"
+	@echo ""
 
 .aws:
 	mkdir -p .aws
