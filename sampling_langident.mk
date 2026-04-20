@@ -41,24 +41,24 @@ LANGIDENT_FULLTEXT_PREFIX ?= s3://22-rebuilt-final
 LANGIDENT_OUTPUT_BUCKET ?= 140-processing-sandbox
   $(call log.debug, LANGIDENT_OUTPUT_BUCKET)
 
+# USER-VARIABLE: LANGIDENT_OUTPUT_KEY_PREFIX
+# Key prefix under the output bucket.
+LANGIDENT_OUTPUT_KEY_PREFIX ?= sampling/langident
+	$(call log.debug, LANGIDENT_OUTPUT_KEY_PREFIX)
+
 # USER-VARIABLE: LANGIDENT_OUTPUT_PREFIX
 # Target prefix for language-specific outputs.
-LANGIDENT_OUTPUT_PREFIX ?= s3://$(LANGIDENT_OUTPUT_BUCKET)/sampling/langident
+LANGIDENT_OUTPUT_PREFIX ?= s3://$(LANGIDENT_OUTPUT_BUCKET)/$(LANGIDENT_OUTPUT_KEY_PREFIX)
   $(call log.debug, LANGIDENT_OUTPUT_PREFIX)
 
-LANGIDENT_SAMPLE_DIR := $(BUILD_DIR)/sampling/langident
+LANGIDENT_SAMPLE_DIR := $(BUILD_DIR)/$(LANGIDENT_OUTPUT_BUCKET)/$(LANGIDENT_OUTPUT_KEY_PREFIX)
 LANGIDENT_IDS_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).ids.jsonl.gz)
 LANGIDENT_COMPILED_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).compiled.jsonl)
 
-# Helper functions for S3 output paths
-# $(1) is language code
-
-define LangidentIdsS3
-$(LANGIDENT_OUTPUT_PREFIX)/$(1).ids.jsonl.gz
-endef
-
-define LangidentCompiledS3
-$(LANGIDENT_OUTPUT_PREFIX)/$(1).compiled.jsonl
+# Convert local mirrored output path to S3 path
+# $(1) local file path under LANGIDENT_SAMPLE_DIR
+define LocalLangidentToS3
+$(1:$(LANGIDENT_SAMPLE_DIR)/%=$(LANGIDENT_OUTPUT_PREFIX)/%)
 endef
 
 #: Create ID samples for all configured languages
@@ -118,8 +118,8 @@ $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR)
 	  --log-file $@.log.gz \
 	&& \
 	python3 -m impresso_cookbook.local_to_s3 \
-	  $@ $(call LangidentIdsS3,$*) \
-	  $@.log.gz $(call LangidentIdsS3,$*).log.gz
+	  $@ $(call LocalLangidentToS3,$@) \
+	  $@.log.gz $(call LocalLangidentToS3,$@).log.gz
 
 
 $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
@@ -134,8 +134,8 @@ $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
 	  --log-file $@.log.gz \
 	&& \
 	python3 -m impresso_cookbook.local_to_s3 \
-	  $@ $(call LangidentCompiledS3,$*) \
-	  $@.log.gz $(call LangidentCompiledS3,$*).log.gz
+	  $@ $(call LocalLangidentToS3,$@) \
+	  $@.log.gz $(call LocalLangidentToS3,$@).log.gz
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sampling_langident.mk)
