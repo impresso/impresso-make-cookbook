@@ -13,7 +13,7 @@ SAMPLE_SOURCE_PREFIX ?= $(S3_PATH_REBUILT)
 
 # USER-VARIABLE: SAMPLE_OUTPUT_BUCKET
 # S3 bucket where sample outputs are written.
-SAMPLE_OUTPUT_BUCKET ?= 140-processing-sandbox
+SAMPLE_OUTPUT_BUCKET ?= 140-processed-data-sandbox
   $(call log.debug, SAMPLE_OUTPUT_BUCKET)
 
 # USER-VARIABLE: SAMPLE_OUTPUT_PREFIX

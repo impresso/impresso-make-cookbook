@@ -21,10 +21,32 @@ LANGIDENT_SAMPLE_LANGUAGES ?= de fr en lb
 LANGIDENT_MIN_OCRQA ?= 0.9
   $(call log.debug, LANGIDENT_MIN_OCRQA)
 
+# USER-VARIABLE: LANGIDENT_MIN_OCRQA_de / _fr / _en / _lb
+# Per-language ocrqa threshold overrides. Fall back to LANGIDENT_MIN_OCRQA if not set.
+LANGIDENT_MIN_OCRQA_de ?= $(LANGIDENT_MIN_OCRQA)
+LANGIDENT_MIN_OCRQA_fr ?= $(LANGIDENT_MIN_OCRQA)
+LANGIDENT_MIN_OCRQA_en ?= $(LANGIDENT_MIN_OCRQA)
+LANGIDENT_MIN_OCRQA_lb ?= $(LANGIDENT_MIN_OCRQA)
+  $(call log.debug, LANGIDENT_MIN_OCRQA_de)
+  $(call log.debug, LANGIDENT_MIN_OCRQA_fr)
+  $(call log.debug, LANGIDENT_MIN_OCRQA_en)
+  $(call log.debug, LANGIDENT_MIN_OCRQA_lb)
+
 # USER-VARIABLE: LANGIDENT_MIN_CHARS
 # Keep records with len >= LANGIDENT_MIN_CHARS.
 LANGIDENT_MIN_CHARS ?= 200
   $(call log.debug, LANGIDENT_MIN_CHARS)
+
+# USER-VARIABLE: LANGIDENT_MIN_CHARS_de / _fr / _en / _lb
+# Per-language minimum character count overrides. Fall back to LANGIDENT_MIN_CHARS if not set.
+LANGIDENT_MIN_CHARS_de ?= $(LANGIDENT_MIN_CHARS)
+LANGIDENT_MIN_CHARS_fr ?= $(LANGIDENT_MIN_CHARS)
+LANGIDENT_MIN_CHARS_en ?= $(LANGIDENT_MIN_CHARS)
+LANGIDENT_MIN_CHARS_lb ?= $(LANGIDENT_MIN_CHARS)
+  $(call log.debug, LANGIDENT_MIN_CHARS_de)
+  $(call log.debug, LANGIDENT_MIN_CHARS_fr)
+  $(call log.debug, LANGIDENT_MIN_CHARS_en)
+  $(call log.debug, LANGIDENT_MIN_CHARS_lb)
 
 # USER-VARIABLE: LANGIDENT_MAX_PER_NEWSPAPER_YEAR
 # Maximum selected records per newspaper-year group.
@@ -33,12 +55,12 @@ LANGIDENT_MAX_PER_NEWSPAPER_YEAR ?= 500
 
 # USER-VARIABLE: LANGIDENT_FULLTEXT_PREFIX
 # Source prefix used by s3_compiler to fetch full records.
-LANGIDENT_FULLTEXT_PREFIX ?= s3://142-rebuilt-final
+LANGIDENT_FULLTEXT_PREFIX ?= s3://122-rebuilt-final
   $(call log.debug, LANGIDENT_FULLTEXT_PREFIX)
 
 # USER-VARIABLE: LANGIDENT_OUTPUT_BUCKET
 # Target bucket for language-specific outputs.
-LANGIDENT_OUTPUT_BUCKET ?= 140-processing-sandbox
+LANGIDENT_OUTPUT_BUCKET ?= 140-processed-data-sandbox
   $(call log.debug, LANGIDENT_OUTPUT_BUCKET)
 
 # USER-VARIABLE: PROCESS_LABEL_SAMPLING
@@ -57,10 +79,11 @@ MODEL_ID_SAMPLING ?= lid-ensemble_multilingual_v2-0-2
   $(call log.debug, MODEL_ID_SAMPLING)
 
 # USER-VARIABLE: SAMPLING_PARAMS_INFIX
-# Optional infix encoding sampling hyperparameters (e.g. ocrqa thresholds, min chars).
+# Optional infix encoding sampling hyperparameters (e.g. ocrqa thresholds, min chars, max samples).
 # When set, it is inserted between MODEL_ID_SAMPLING and RUN_VERSION_SAMPLING in RUN_ID_SAMPLING.
-# Example: ocrqa90-minlen200
-SAMPLING_PARAMS_INFIX ?=
+# If not set, it is computed from LANGIDENT_MIN_OCRQA, LANGIDENT_MIN_CHARS, and LANGIDENT_MAX_PER_NEWSPAPER_YEAR.
+# Example: ocrqa90-minlen200-max500
+SAMPLING_PARAMS_INFIX ?= ocrqa$(shell printf "%.0f" "$$(echo '$(LANGIDENT_MIN_OCRQA) * 100' | bc)")-minlen$(LANGIDENT_MIN_CHARS)-max$(LANGIDENT_MAX_PER_NEWSPAPER_YEAR)
   $(call log.debug, SAMPLING_PARAMS_INFIX)
 
 # USER-VARIABLE: RUN_VERSION_SAMPLING
@@ -89,7 +112,12 @@ LANGIDENT_OUTPUT_PREFIX ?= s3://$(LANGIDENT_OUTPUT_BUCKET)/$(LANGIDENT_OUTPUT_KE
 
 LANGIDENT_SAMPLE_DIR := $(BUILD_DIR)/$(LANGIDENT_OUTPUT_BUCKET)/$(LANGIDENT_OUTPUT_KEY_PREFIX)
 LANGIDENT_IDS_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).ids.jsonl.gz)
-LANGIDENT_COMPILED_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).compiled.jsonl)
+LANGIDENT_COMPILED_FILES := $(foreach L,$(LANGIDENT_SAMPLE_LANGUAGES),$(LANGIDENT_SAMPLE_DIR)/$(L).compiled.jsonl.bz2)
+
+# USER-VARIABLE: LANGIDENT_MAX_ITEMS
+# Stop ID collection after keeping this many items (0 = no limit; for testing).
+LANGIDENT_MAX_ITEMS ?= 0
+  $(call log.debug, LANGIDENT_MAX_ITEMS)
 
 # USER-VARIABLE: LANGIDENT_UPLOAD_ENABLED
 # If set to 0, keep outputs locally and skip upload to S3.
@@ -133,25 +161,25 @@ help::
 
 
 # Per-language entry points
-sampling-langident-de: $(LANGIDENT_SAMPLE_DIR)/de.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/de.compiled.jsonl
+sampling-langident-de: $(LANGIDENT_SAMPLE_DIR)/de.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/de.compiled.jsonl.bz2
 
 .PHONY: sampling-langident-de
 
-sampling-langident-fr: $(LANGIDENT_SAMPLE_DIR)/fr.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/fr.compiled.jsonl
+sampling-langident-fr: $(LANGIDENT_SAMPLE_DIR)/fr.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/fr.compiled.jsonl.bz2
 
 .PHONY: sampling-langident-fr
 
-sampling-langident-en: $(LANGIDENT_SAMPLE_DIR)/en.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/en.compiled.jsonl
+sampling-langident-en: $(LANGIDENT_SAMPLE_DIR)/en.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/en.compiled.jsonl.bz2
 
 .PHONY: sampling-langident-en
 
-sampling-langident-lb: $(LANGIDENT_SAMPLE_DIR)/lb.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/lb.compiled.jsonl
+sampling-langident-lb: $(LANGIDENT_SAMPLE_DIR)/lb.ids.jsonl.gz $(LANGIDENT_SAMPLE_DIR)/lb.compiled.jsonl.bz2
 
 .PHONY: sampling-langident-lb
 
 # Keep local targets when upload step fails.
 .PRECIOUS: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
-.PRECIOUS: $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl
+.PRECIOUS: $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl.bz2
 
 
 # Check S3 output bucket accessibility with current credentials.
@@ -164,7 +192,7 @@ check-langident-output-bucket:
 	  AWS_ACCESS_KEY_ID="$(SE_ACCESS_KEY)" \
 	  AWS_SECRET_ACCESS_KEY="$(SE_SECRET_KEY)" \
 	  AWS_DEFAULT_REGION="us-east-1" \
-	  aws -- s3api head-bucket \
+	  aws s3api head-bucket \
 	    --bucket "$(LANGIDENT_OUTPUT_BUCKET)" \
 	    --endpoint-url "$(SE_HOST_URL)" \
 	    >/dev/null 2>&1 || { \
@@ -185,9 +213,10 @@ $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR) check-langident-output-bu
 	  --input-file $(LANGIDENT_AGGREGATED_S3) \
 	  --output-file $@ \
 	  --language $* \
-	  --min-ocrqa $(LANGIDENT_MIN_OCRQA) \
-	  --min-chars $(LANGIDENT_MIN_CHARS) \
+	  --min-ocrqa $(LANGIDENT_MIN_OCRQA_$*) \
+	  --min-chars $(LANGIDENT_MIN_CHARS_$*) \
 	  --max-per-newspaper-year $(LANGIDENT_MAX_PER_NEWSPAPER_YEAR) \
+	  $(if $(filter-out 0,$(LANGIDENT_MAX_ITEMS)),--max-items $(LANGIDENT_MAX_ITEMS),) \
 	  --log-level $(SAMPLE_LOG_LEVEL) \
 	  --log-file $@.log.gz \
 	&& \
@@ -200,7 +229,7 @@ $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR) check-langident-output-bu
 	fi
 
 
-$(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz | check-langident-output-bucket
+$(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl.bz2: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz | check-langident-output-bucket
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	python3 cookbook/lib/s3_compiler.py \
@@ -208,6 +237,8 @@ $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz
 	  --s3-prefix $(LANGIDENT_FULLTEXT_PREFIX) \
 	  --output $@ \
 	  --id-field id \
+	  --include-from-input provider lg len ocrqa newspaper year \
+	  --transform-expr '{id: .id, ft: .ft, consolidated_ocrqa: .consolidated_ocrqa, lb: .lb}' \
 	  --log-level $(SAMPLE_LOG_LEVEL) \
 	  --log-file $@.log.gz \
 	&& \

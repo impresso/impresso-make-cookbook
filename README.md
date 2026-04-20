@@ -127,7 +127,7 @@ This uses `.env` values and writes:
 ```bash
 AWS_CONFIG_FILE=.aws/config \
 AWS_SHARED_CREDENTIALS_FILE=.aws/credentials \
-aws s3 ls s3://140-processing-sandbox/
+aws s3 ls s3://140-processed-data-sandbox/
 ```
 
 You can also point AWS CLI to any project-local config directory (not only `.aws`):
@@ -136,7 +136,7 @@ You can also point AWS CLI to any project-local config directory (not only `.aws
 AWS_DIR=configs/aws
 AWS_CONFIG_FILE="$AWS_DIR/config" \
 AWS_SHARED_CREDENTIALS_FILE="$AWS_DIR/credentials" \
-aws s3api head-bucket --bucket 140-processing-sandbox --endpoint-url "$SE_HOST_URL"
+aws s3api head-bucket --bucket 140-processed-data-sandbox --endpoint-url "$SE_HOST_URL"
 ```
 
 This is useful when running multiple environments side by side (dev/staging/prod) with separate credential files.
