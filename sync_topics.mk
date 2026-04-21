@@ -28,16 +28,20 @@ sync-topics : $(LOCAL_TOPICS_SYNC_STAMP_FILE)
 .PHONY: sync-topics
 
 
-# FILE-RULE: LOCAL_TOPICS_SYNC_STAMP_FILE
-#: Rule to sync the output data from the S3 bucket to the local directory
+# STAMPED-FILE-RULE: $(LOCAL_PATH_TOPICS).last_synced
+#: Synchronizes topics data from S3 to local stamp files
 #: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_TOPICS_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
-	python  -m impresso_cookbook.s3_to_local_stamps  \
+	python -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_TOPICS) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \
-	   2> >(tee $@.log >&2) && \
+	   --file-extensions jsonl.bz2 json log.gz \
+	   --remove-dangling-stamps \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& \
 	touch $@
 
 
