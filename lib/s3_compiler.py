@@ -242,7 +242,8 @@ class S3CompilerProcessor:
             log_file: Path to log file
         """
         self.input_file = input_file
-        self.s3_prefix = s3_prefix
+        # Normalize s3_prefix to ensure it has a trailing slash
+        self.s3_prefix = s3_prefix.rstrip('/') + '/' if s3_prefix else s3_prefix
         self.output_file = output_file
         self.id_field = id_field
         self.id_pattern = id_pattern
