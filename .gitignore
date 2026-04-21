@@ -6,3 +6,5 @@ lib/build
 lib/*_myprocessing.py
 .DS_Store
 Pipfile.lock
+.env
+venv/
