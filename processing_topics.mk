@@ -51,7 +51,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE)\
 	mkdir -p $(@D) && \
 	{ set +e ; \
-	  python lib/mallet_topic_inferencer.py \
+	  python -m lib.mallet_topic_inferencer \
 	    --input $(call LocalToS3,$<) \
 	    --input-format impresso \
 	    --output $@ \
@@ -74,7 +74,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	  echo "Processing exit code: $$EXIT_CODE" ; \
 	  if [ $$EXIT_CODE -eq 0 ] ; then \
 	    echo "Processing completed successfully. Uploading logfile..." ; \
-	    python3 lib/s3_to_local_stamps.py \
+	    python3 -m impresso_cookbook.s3_to_local_stamps \
 	      $(call LocalToS3,$@).log.gz \
 	      --upload-file $@.log.gz \
 	      --force-overwrite ; \

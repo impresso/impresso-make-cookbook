@@ -10,11 +10,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_topics.mk)
 sync-output :: sync-topics
 
 
-# DOUBLE-COLON-TARGET: sync-input
-# Synchronizes linguistic processing input data from S3
-sync-input :: sync-topics
-
-
 # VARIABLE: LOCAL_TOPICS_SYNC_STAMP_FILE
 # Local stamp file to track synchronization status
 LOCAL_TOPICS_SYNC_STAMP_FILE := $(LOCAL_PATH_TOPICS).last_synced
@@ -47,6 +42,9 @@ $(LOCAL_TOPICS_SYNC_STAMP_FILE):
 
 # TARGET: clean-sync-topics
 #: Removes synchronized topic data from local storage
+clean-sync:: clean-sync-topics
+clean-sync-output:: clean-sync-topics
+
 clean-sync-topics:
 	rm -rfv $(LOCAL_PATH_TOPICS) $(LOCAL_TOPICS_SYNC_STAMP_FILE) || true
 
