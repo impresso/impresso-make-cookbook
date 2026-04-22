@@ -562,6 +562,8 @@ The build system automatically detects CPU cores and configures parallel process
 #### Topic Modeling
 
 - `make topics-target`: Run topic modeling with Mallet
+- `make setup-topics`: Set up Java, Python checks, and local topic paths
+- `make install-java`: Ensure a Java runtime is available for Mallet
 - `make check-python-installation`: Test Java/JPype setup for Mallet
 
 #### Bounding Box Quality Assessment
@@ -796,6 +798,8 @@ Key user-configurable variables (can be overridden):
 
 #### Topic Modeling
 
+- `JAVA_PACKAGE_APT`: Java package to install on Debian/Ubuntu for Mallet runtime setup
+- `JAVA_PACKAGE_BREW`: Java package to install with Homebrew for Mallet runtime setup
 - `MALLET_RANDOM_SEED`: Random seed for Mallet topic modeling
 - `MODEL_VERSION_TOPICS`: Version identifier for topic models
 - `LANG_TOPICS`: Language specification for topic models
