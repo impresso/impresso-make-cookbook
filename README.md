@@ -800,6 +800,12 @@ Key user-configurable variables (can be overridden):
 
 - `JAVA_PACKAGE_APT`: Java package to install on Debian/Ubuntu for Mallet runtime setup
 - `JAVA_PACKAGE_BREW`: Java package to install with Homebrew for Mallet runtime setup
+- `TOPICS_LOGGING_LEVEL`: Logging level for topic inference orchestration
+- `TOPICS_MIN_P`: Minimum topic probability threshold emitted by the inferencer
+- `TOPICS_LANGUAGES`: Space-separated language list passed to the inferencer
+- `TOPICS_DE_CONFIG`: German topic-model config path
+- `TOPICS_FR_CONFIG`: French topic-model config path
+- `TOPICS_LB_CONFIG`: Luxembourgish topic-model config path
 - `MALLET_RANDOM_SEED`: Random seed for Mallet topic modeling
 - `MODEL_VERSION_TOPICS`: Version identifier for topic models
 - `LANG_TOPICS`: Language specification for topic models
