@@ -1,49 +1,57 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_topics.mk)
 
-# DOUBLE COLON TARGET specifications
+###############################################################################
+# SETUP TARGETS
+# Targets for setting up the topic inference environment
+###############################################################################
 
+
+# TARGET: setup
+# Prepares local directories and validates dependencies for topic inference
 setup:: setup-topics
 
 
 # TARGET: setup-topics
 #: Sets up the topic inference environment
-setup-topics: | $(BUILD_DIR)
-	# install the following OS level dependencies
-	cat < lib/install_$(INSTALLER).sh
-	# Install the OS level dependencies
-	# lib/install_$(INSTALLER).sh
-	# check the python environment
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) check-python-installation
-	# Sync the newspaper media list to process (testing s3 connectivity as well)
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) newspaper-list-target
+setup-topics: install-java check-python-installation newspaper-list-target | $(BUILD_DIR)
+	mkdir -p $(LOCAL_PATH_TOPICS)
 
- .PHONY: setup-topics
+.PHONY: setup-topics
+
+# USER-VARIABLE: JAVA_PACKAGE_APT
+# Java package name to install on Debian/Ubuntu systems.
+JAVA_PACKAGE_APT ?= openjdk-17-jre-headless
+
+# USER-VARIABLE: JAVA_PACKAGE_BREW
+# Java package name to install with Homebrew on macOS.
+JAVA_PACKAGE_BREW ?= openjdk@17
 
 # TARGET: install-java
 #: Installs java
 ifeq ($(OS),Linux)
 install-java:
-	which java ||sudo apt-get install -y openjdk-17-jre-headless 
+	which java >/dev/null || sudo apt-get install -y $(JAVA_PACKAGE_APT)
 
 else ifeq ($(OS),Darwin)
 install-java:
-	which java || brew install openjdk@17 
-	echo "JAVA_HOME=$$(brew --prefix openjdk)" > .env_java
+	which java >/dev/null || brew install $(JAVA_PACKAGE_BREW)
+	echo "JAVA_HOME=$$(brew --prefix $(JAVA_PACKAGE_BREW))" > .env_java
 	echo 'PATH=$$JAVA_HOME/bin:$$PATH' >> .env_java
 endif
 
-setup:: setup-topics
+.PHONY: install-java
 
+# TARGET: check-python-installation
+#: Checks whether the Python environment is ready for Mallet topic inference
 check-python-installation:
-	#
-	# TEST PYTHON INSTALLATION FOR mallet topic inference ...
 	python3 lib/test_jpype_installation.py || \
 	{ echo "Double check whether the required python packages are installed! or you running in the correct python environment!" ; exit 1; }
-	# OK: PYTHON ENVIRONMENT IS FINE!
 
-.PHONY:  check-python-installation
+.PHONY: check-python-installation
 
 help::
+	@echo "  setup-topics                  # Set up Java, Python, and local paths for topic inference"
+	@echo "  install-java                  # Ensure a Java runtime is available for Mallet"
 	@echo "  check-python-installation    # Check whether the environment is setup correctly"
 
 
