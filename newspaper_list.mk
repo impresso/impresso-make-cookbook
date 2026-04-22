@@ -95,6 +95,11 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
 			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
 			$(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)'); \
+	elif [ ! -s $@ ]; then \
+		message="WARNING: $(NEWSPAPERS_TO_PROCESS_FILE) exists but is empty; removing it."; \
+		echo "$$message" >&2; \
+		printf '%s\n' "$$message" > $(NEWSPAPERS_TO_PROCESS_LOG_FILE); \
+		rm -fv $@; \
 	else \
 		message="$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call make clean-newspaper-list-target to remove it."; \
 		echo "$$message"; \
