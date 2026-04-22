@@ -18,10 +18,16 @@ This document describes the process for creating and publishing releases for the
 Releases follow these general steps:
 
 1. **Prepare**: Review changes, update documentation, and test
-2. **Tag**: Create a git tag with the version number
-3. **Document**: Write comprehensive release notes
-4. **Publish**: Create a GitHub release
-5. **Announce**: Notify users and update installation instructions
+2. **Document**: Write comprehensive release notes in the repository
+3. **Commit**: Commit the release notes and any final version/documentation updates
+4. **Tag**: Create a git tag for that exact release commit
+5. **Publish**: Create a GitHub release from the committed release notes file
+6. **Announce**: Notify users and update installation instructions
+
+The key rule is to avoid writing or revising release notes after the release tag has
+already been created. The release notes file should be part of the tagged commit so
+that the repository state, the tag, and the published GitHub release all refer to the
+same snapshot.
 
 ## Version Numbering
 
@@ -75,6 +81,7 @@ git log v1.0.0..HEAD --oneline -- "*.mk"
 ### 3. Update Version References
 
 Check and update version references in:
+
 - [ ] `README.md` (installation instructions)
 - [ ] `lib/pyproject.toml` (Python package version)
 - [ ] Any hardcoded version strings in scripts
@@ -97,6 +104,10 @@ make newspaper NEWSPAPER=test_newspaper LOGGING_LEVEL=DEBUG
 ```
 
 ## Creating Release Notes
+
+Release notes should be prepared before the tag is created and committed together with
+the final release-ready changes. The GitHub release description should then be created
+from that committed file instead of being written separately in the web interface.
 
 ### Structure
 
@@ -130,6 +141,7 @@ Brief description of the release...
 ## 🎯 Major Features
 
 ### Feature Category 1
+
 - Description of feature
 - Key capabilities
 - Usage example
@@ -201,7 +213,19 @@ git diff v1.0.0..HEAD --name-status | grep "^M"
 
 ## Publishing a Release
 
-### 1. Create Git Tag
+### 1. Commit Release Notes and Final Metadata
+
+Before tagging, ensure the release notes file and any final documentation or version
+updates are committed:
+
+```bash
+git add CHANGELOG.md README.md RELEASE_NOTES_v1.1.0.md
+git commit -m "Prepare release v1.1.0"
+```
+
+This ensures the release notes are part of the exact commit that will be tagged.
+
+### 2. Create Git Tag
 
 ```bash
 # Create an annotated tag
@@ -211,7 +235,7 @@ git tag -a v1.1.0 -m "Release v1.1.0: Description"
 git push origin v1.1.0
 ```
 
-### 2. Create GitHub Release
+### 3. Create GitHub Release
 
 #### Via GitHub Web Interface
 
@@ -219,7 +243,7 @@ git push origin v1.1.0
 2. Click "Draft a new release"
 3. Select the tag you just created
 4. Fill in the release title: `v1.1.0` or descriptive name
-5. Paste your release notes in the description
+5. Paste the content of the committed `RELEASE_NOTES_v1.1.0.md` file into the description
 6. Check "Set as a pre-release" if applicable
 7. Click "Publish release"
 
@@ -240,7 +264,10 @@ gh release create v1.1.0 \
   --prerelease  # omit for stable release
 ```
 
-### 3. Update Existing Release (if needed)
+Using `--notes-file` is preferred because it makes the GitHub release text come from
+the same file that is stored in git and included in the tagged release commit.
+
+### 4. Update Existing Release (if needed)
 
 If you need to improve release notes for an existing release:
 
@@ -252,6 +279,9 @@ gh release edit v1.1.0 \
 # Or via web interface:
 # Go to the release page and click "Edit release"
 ```
+
+This should be treated as a correction path, not the normal workflow. The normal path
+is to finalize and commit the release notes before creating the tag.
 
 ## Post-Release Tasks
 
@@ -287,6 +317,7 @@ python3 -m pip install "git+https://github.com/impresso/impresso-make-cookbook.g
 ### 4. Monitor for Issues
 
 After release:
+
 - Monitor GitHub issues for bug reports
 - Check discussion forums or communication channels
 - Be prepared to create patch releases if critical bugs are found
@@ -296,6 +327,7 @@ After release:
 For critical bug fixes:
 
 1. Create a hotfix branch from the release tag:
+
    ```bash
    git checkout -b hotfix/1.1.1 v1.1.0
    ```
@@ -303,6 +335,7 @@ For critical bug fixes:
 2. Make the fix and test thoroughly
 
 3. Create a patch release:
+
    ```bash
    git tag -a v1.1.1 -m "Hotfix: Description of critical fix"
    git push origin v1.1.1
@@ -325,8 +358,10 @@ Use this checklist when preparing a release:
 - [ ] Documentation is updated
 - [ ] `CHANGELOG.md` is updated
 - [ ] Version numbers are updated where needed
+- [ ] `RELEASE_NOTES_vX.Y.Z.md` is written before tagging
+- [ ] Release notes are committed on the release commit
 - [ ] Git tag is created
-- [ ] GitHub release is created with comprehensive notes
+- [ ] GitHub release is created from the committed release notes file
 - [ ] Release notes follow the template
 - [ ] Installation instructions are verified
 - [ ] Team is notified
@@ -342,6 +377,7 @@ Use this checklist when preparing a release:
 ## Questions?
 
 If you have questions about the release process, please:
+
 - Review previous releases for examples
 - Check this guide
 - Ask the maintainers
