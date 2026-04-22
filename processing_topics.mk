@@ -26,6 +26,31 @@ endef
 TOPICS_LOGGING_LEVEL ?= $(LOGGING_LEVEL)
   $(call log.debug, TOPICS_LOGGING_LEVEL)
 
+# USER-VARIABLE: TOPICS_MIN_P
+# Minimum topic probability threshold emitted by the inferencer.
+TOPICS_MIN_P ?= 0.05
+  $(call log.debug, TOPICS_MIN_P)
+
+# USER-VARIABLE: TOPICS_LANGUAGES
+# Space-separated language codes passed to the inferencer.
+TOPICS_LANGUAGES ?= de fr lb
+  $(call log.debug, TOPICS_LANGUAGES)
+
+# USER-VARIABLE: TOPICS_DE_CONFIG
+# German topic-model config path.
+TOPICS_DE_CONFIG ?= models/tm/tm-de-all-v2.0.config.json
+  $(call log.debug, TOPICS_DE_CONFIG)
+
+# USER-VARIABLE: TOPICS_FR_CONFIG
+# French topic-model config path.
+TOPICS_FR_CONFIG ?= models/tm/tm-fr-all-v2.0.config.json
+  $(call log.debug, TOPICS_FR_CONFIG)
+
+# USER-VARIABLE: TOPICS_LB_CONFIG
+# Luxembourgish topic-model config path.
+TOPICS_LB_CONFIG ?= models/tm/tm-lb-all-v2.1.config.json
+  $(call log.debug, TOPICS_LB_CONFIG)
+
 # USER-VARIABLE: TOPICS_WIP_ENABLED
 # Option to enable S3 WIP locks for topic processing.
 TOPICS_WIP_ENABLED ?= 1
@@ -122,19 +147,19 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	      case $$status in 0) exit 0 ;; 1) ;; *) exit $$status ;; esac ; \
 	    fi ; \
 	  fi ; \
-	  python -m lib.mallet_topic_inferencer \
-	    --input $(call LocalToS3,$<) \
-	    --input-format impresso \
-	    --output $@ \
-	    --output-format jsonl \
-	    --min-p 0.05 \
-	    --languages de fr lb \
-	    --de_config models/tm/tm-de-all-v2.0.config.json \
-	    --fr_config models/tm/tm-fr-all-v2.0.config.json \
-	    --lb_config models/tm/tm-lb-all-v2.1.config.json \
-	    --git-version $(GIT_VERSION) \
-	    --lingproc-run_id $(RUN_ID_LINGPROC) \
-	    --impresso-model-id $(MODEL_ID_TOPICS) \
+		  python -m lib.mallet_topic_inferencer \
+		    --input $(call LocalToS3,$<) \
+		    --input-format impresso \
+		    --output $@ \
+		    --output-format jsonl \
+		    --min-p $(TOPICS_MIN_P) \
+		    --languages $(TOPICS_LANGUAGES) \
+		    --de_config $(TOPICS_DE_CONFIG) \
+		    --fr_config $(TOPICS_FR_CONFIG) \
+		    --lb_config $(TOPICS_LB_CONFIG) \
+		    --git-version $(GIT_VERSION) \
+		    --lingproc-run_id $(RUN_ID_LINGPROC) \
+		    --impresso-model-id $(MODEL_ID_TOPICS) \
 	    --inferencer-random-seed $(MALLET_RANDOM_SEED) \
 	    --log-level $(TOPICS_LOGGING_LEVEL) \
 	    --log-file $@.log.gz ; \
