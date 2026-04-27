@@ -8,7 +8,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/paths_rebuilt.mk)
 # USER-VARIABLE: S3_BUCKET_REBUILT
 # The input bucket for rebuilt content.
 # This variable specifies the S3 bucket where the rebuilt newspaper content is stored.
-S3_BUCKET_REBUILT ?= 22-rebuilt-final
+S3_BUCKET_REBUILT ?= 122-rebuilt-final
   $(call log.debug, S3_BUCKET_REBUILT)
 
 # VARIABLE: S3_PATH_REBUILT
