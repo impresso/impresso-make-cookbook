@@ -9,7 +9,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/lingproc.mk)
 # The input bucket for linguistic processing
 #
 # Defines the S3 bucket where the processed data is stored.
-S3_BUCKET_LINGPROC ?= 40-processed-data-sandbox
+S3_BUCKET_LINGPROC ?= 142-processed-data-final
   $(call log.debug, S3_BUCKET_LINGPROC)
 
 
