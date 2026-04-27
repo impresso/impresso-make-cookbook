@@ -2,14 +2,14 @@
 """
 This script processes JSONL.bz2 files stored in an S3 bucket. It extracts specified keys 
 and their values from the JSON objects, applies optional filters, and writes the results 
-to an output file (local or S3) with proper temporary file cleanup.
+to an output file (local or S3), stdout, with proper temporary file cleanup.
 
 Features:
 - Reads JSONL.bz2 files from an S3 bucket using a specified prefix
 - Extracts specific keys from each JSON object or returns full objects
 - Supports filtering JSON objects based on key-value pairs
 - Allows applying advanced transformations using jq filters
-- Outputs processed data to local files or S3 paths
+- Outputs processed data to local files, S3 paths, or stdout
 - Automatic temporary file cleanup under all exit conditions
 - Comprehensive logging with optional S3-compatible log files
 
@@ -40,17 +40,21 @@ Examples:
         --log-file s3://bucket/logs/process.log.gz
 
 5. Extract all content without key filtering:
-    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
         --keys content --output output.txt.gz
 
-6. Verify data readability:
+6. Output to stdout:
+    python3 s3_aggregator.py --s3-prefix s3://bucket/prefix \\
+        --keys id content --stdout
+
+7. Verify data readability:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --verify
 
-7. Verify data with custom file extensions:
+8. Verify data with custom file extensions:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --verify \
         --verify-file-extensions json jsonl.gz json.bz2
 
-8. Verify and delete corrupted files:
+9. Verify and delete corrupted files:
     python3 s3_aggregator.py --s3-prefix s3://bucket/prefix --verify \
         --verify-and-delete
 """
@@ -399,19 +403,23 @@ def process_s3_files(
     prefix: str,
     keys: Sequence[str],
     filters: Dict[str, str],
-    output_path: str,
+    output_path: Optional[str],
     jq_filter: Optional[jq.jq],
+    use_stdout: bool = False,
     include_source_meta: bool = False,
 ) -> None:
-    """Process JSONL.bz2 files in an S3 bucket, apply filters, jq filter, extract specified keys, and write to an output file (local or S3).
+    """Process JSONL.bz2 files in an S3 bucket, apply filters, jq filter,
+    extract specified keys, and write to an output file (local or S3) or stdout.
 
     Args:
         bucket (str): S3 bucket name.
         prefix (str): Prefix to filter files.
         keys (Sequence[str]): Keys to extract from each JSON object.
         filters (Dict[str, str]): Filters to apply to each JSON object.
-        output_path (str): Path to the output file (local or S3).
+        output_path (Optional[str]): Path to the output file (local or S3).
+            None if using stdout.
         jq_filter (Optional[jq.jq]): A compiled jq filter.
+        use_stdout (bool): If True, write output to stdout instead of a file.
         include_source_meta (bool): If True, merge source locator fields into
             JSON object output.
     """
@@ -422,85 +430,130 @@ def process_s3_files(
     total_lines = 0
     processed_count = 0
 
-    suffix = output_path.split(".")[-1]
     tmpfile_path = None
 
+    # Check if we can use raw passthrough mode (no processing needed)
+    use_raw_passthrough = use_stdout and not keys and not filters and not jq_filter
+
     try:
-        with tempfile.NamedTemporaryFile(
-            delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
-        ) as tmpfile:
-            tmpfile_path = tmpfile.name
+        # Determine output mode: stdout or file
+        if use_stdout:
+            output_handle = sys.stdout
+        else:
+            assert output_path is not None
+            suffix = output_path.split(".")[-1]
+            with tempfile.NamedTemporaryFile(
+                delete=False, mode="w", encoding="utf-8", suffix=f".{suffix}"
+            ) as tmpfile:
+                tmpfile_path = tmpfile.name
+            logging.info("Temporary file created: %s", tmpfile_path)
+            output_handle = smart_open(tmpfile_path, "w", encoding="utf-8")
 
-        logging.info("Temporary file created: %s", tmpfile_path)
-
-        with smart_open(tmpfile_path, "w", encoding="utf-8") as tmpfile:
+        with output_handle as tmpfile:
             for file_key in yield_s3_objects(bucket, prefix):
                 if not file_key.endswith("jsonl.bz2"):
                     continue
                 logging.info("Processing file: %s", file_key)
-                source_metadata = build_source_metadata(bucket, file_key)
-                with smart_open(
-                    f"s3://{bucket}/{file_key}",
-                    "rb",
-                    transport_params=transport_params,
-                ) as infile:
-                    for line in infile:
-                        total_lines += 1
-                        try:
-                            data = json.loads(line)
-                            processed_data = process_jsonl_file(
-                                data, keys, filters, jq_filter
-                            )
-                            if processed_data:
-                                if isinstance(processed_data, list):
-                                    # Handle jq filter results (list of strings/values)
-                                    for item in processed_data:
-                                        if include_source_meta and isinstance(item, dict):
-                                            item = {**item, **source_metadata}
-                                        if isinstance(item, str):
-                                            tmpfile.write(item + "\n")
-                                        else:
-                                            tmpfile.write(
-                                                json.dumps(item, ensure_ascii=False)
-                                                + "\n"
+                source_metadata = (
+                    build_source_metadata(bucket, file_key)
+                    if include_source_meta
+                    else {}
+                )
+
+                # Raw passthrough mode - just copy lines without parsing
+                if use_raw_passthrough:
+                    with smart_open(
+                        f"s3://{bucket}/{file_key}",
+                        "r",
+                        encoding="utf-8",
+                        transport_params=transport_params,
+                    ) as infile:
+                        for line in infile:
+                            total_lines += 1
+                            processed_count += 1
+                            # Write line as-is (already a string)
+                            tmpfile.write(line)
+                else:
+                    # Normal mode - parse and process JSON
+                    with smart_open(
+                        f"s3://{bucket}/{file_key}",
+                        "rb",
+                        transport_params=transport_params,
+                    ) as infile:
+                        for line in infile:
+                            total_lines += 1
+                            try:
+                                data = json.loads(line)
+                                processed_data = process_jsonl_file(
+                                    data, keys, filters, jq_filter
+                                )
+                                if processed_data:
+                                    if isinstance(processed_data, list):
+                                        # Handle jq filter results
+                                        # (list of strings/values)
+                                        for item in processed_data:
+                                            if include_source_meta and isinstance(
+                                                item, dict
+                                            ):
+                                                item = {**item, **source_metadata}
+                                            if isinstance(item, str):
+                                                tmpfile.write(item + "\n")
+                                            else:
+                                                tmpfile.write(
+                                                    json.dumps(item, ensure_ascii=False)
+                                                    + "\n"
+                                                )
+                                            processed_count += 1
+                                    else:
+                                        # Handle regular JSON objects
+                                        if include_source_meta and isinstance(
+                                            processed_data, dict
+                                        ):
+                                            processed_data = {
+                                                **processed_data,
+                                                **source_metadata,
+                                            }
+                                        tmpfile.write(
+                                            json.dumps(
+                                                processed_data, ensure_ascii=False
                                             )
+                                            + "\n"
+                                        )
                                         processed_count += 1
-                                else:
-                                    # Handle regular JSON objects
-                                    if (
-                                        include_source_meta
-                                        and isinstance(processed_data, dict)
-                                    ):
-                                        processed_data = {
-                                            **processed_data,
-                                            **source_metadata,
-                                        }
-                                    tmpfile.write(
-                                        json.dumps(processed_data, ensure_ascii=False)
-                                        + "\n"
-                                    )
-                                    processed_count += 1
-                        except json.JSONDecodeError:
-                            logging.error(
-                                "Could not decode JSON from line: %s", line.strip()
-                            )
-                        except Exception as e:
-                            logging.error("An error occurred processing line: %s", e)
+                            except json.JSONDecodeError:
+                                logging.error(
+                                    "Could not decode JSON from line: %s",
+                                    line.strip(),
+                                )
+                            except Exception as e:
+                                logging.error(
+                                    "An error occurred processing line: %s", e
+                                )
 
         # File processing completed successfully, now handle output
-        if output_path.startswith("s3://"):
-            upload_to_s3(tmpfile_path, output_path, s3)
-            # After successful S3 upload, we can clean up the temp file
-            logging.info("Uploaded %s to S3, cleaning up temporary file", tmpfile_path)
+        if use_stdout:
+            # Output already written to stdout, just log stats to stderr
+            logging.info("Total lines read: %d", total_lines)
+            logging.info("Total items processed and written: %d", processed_count)
         else:
-            import shutil
+            assert output_path is not None
+            assert tmpfile_path is not None
+            if output_path.startswith("s3://"):
+                upload_to_s3(tmpfile_path, output_path, s3)
+                # After successful S3 upload, we can clean up the temp file
+                logging.info(
+                    "Uploaded %s to S3, cleaning up temporary file", tmpfile_path
+                )
+                logging.info("Total lines read: %d", total_lines)
+                logging.info("Total items processed and written: %d", processed_count)
+            else:
+                import shutil
 
-            shutil.move(tmpfile_path, output_path)
-            tmpfile_path = None  # File moved, don't delete it in finally block
-            logging.info("Moved temporary file to %s", output_path)
-
-        logging.info("Total lines read: %d", total_lines)
-        logging.info("Total items processed and written: %d", processed_count)
+                shutil.move(tmpfile_path, output_path)
+                tmpfile_path = None  # File moved, don't delete it in finally block
+                logging.info("Moved temporary file to %s", output_path)
+                logging.info("Total lines read: %d", total_lines)
+                logging.info("Total items processed and written: %d", processed_count)
 
     except Exception as e:
         logging.error("Error during file processing: %s", e)
@@ -545,6 +598,12 @@ def parse_arguments(args: Optional[Sequence[str]] = None) -> argparse.Namespace:
             "Path to store the output JSONL file (local or S3). Example:"
             " s3://your-bucket/output-prefix/output.jsonl"
         ),
+    )
+
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Write output to stdout instead of a file",
     )
 
     parser.add_argument(
@@ -656,15 +715,24 @@ def main(args: Optional[Sequence[str]] = None) -> None:
             "--verify-and-delete requires --verify flag. Ignoring --verify-and-delete."
         )
 
-    # For non-verify mode, output is required
-    if not options.output:
-        logging.error("--output is required when not in --verify mode")
+    # For non-verify mode, either output or stdout is required
+    if not options.output and not options.stdout:
+        logging.error(
+            "Either --output or --stdout is required when not in --verify mode"
+        )
         sys.exit(1)
 
-    output_match = re.match(r"s3://([^/]+)/(.+)", options.output)
-    if not output_match and options.output.startswith("s3://"):
-        logging.error("Invalid S3 output format. Expected s3://BUCKET/PREFIX")
+    # Cannot use both --output and --stdout
+    if options.output and options.stdout:
+        logging.error("Cannot use both --output and --stdout")
         sys.exit(1)
+
+    # Validate S3 output format if output is provided and not using stdout
+    if options.output and not options.stdout:
+        output_match = re.match(r"s3://([^/]+)/(.+)", options.output)
+        if not output_match and options.output.startswith("s3://"):
+            logging.error("Invalid S3 output format. Expected s3://BUCKET/PREFIX")
+            sys.exit(1)
 
     keys = options.keys
     filters = parse_filter_arguments(options.filter) if options.filter else {}
@@ -686,10 +754,14 @@ def main(args: Optional[Sequence[str]] = None) -> None:
         filters,
         options.output,
         jq_filter,
+        use_stdout=options.stdout,
         include_source_meta=options.include_source_meta,
     )
 
-    logging.info("Processing complete. Results saved to %s", options.output)
+    if not options.stdout:
+        logging.info("Processing complete. Results saved to %s", options.output)
+    else:
+        logging.info("Processing complete. Results written to stdout")
 
 
 if __name__ == "__main__":

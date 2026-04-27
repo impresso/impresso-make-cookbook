@@ -60,8 +60,13 @@ LOCAL_FREQS_BASE_PATH := $(BUILD_DIR)/$(S3_BUCKET_LINGPROC_COMPONENT)/token-freq
 # Skips processing if output already exists on S3 to enable parallel execution.
 compute-frequencies-%-de:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/de
-	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz ; then \
+	@set +e; \
+	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz ; status=$$?; \
+	set -e; \
+	if [ $$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $*_de_freqs.jsonl.bz2"; \
+	elif [ $$status -ne 0 ]; then \
+		exit $$status; \
 	else \
 		LANGUAGE=de python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
@@ -86,8 +91,13 @@ compute-frequencies-%-de:
 # Skips processing if output already exists on S3 to enable parallel execution.
 compute-frequencies-%-fr:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/fr
-	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz ; then \
+	@set +e; \
+	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz ; status=$$?; \
+	set -e; \
+	if [ $$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $*_fr_freqs.jsonl.bz2"; \
+	elif [ $$status -ne 0 ]; then \
+		exit $$status; \
 	else \
 		LANGUAGE=fr python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
@@ -112,8 +122,13 @@ compute-frequencies-%-fr:
 # Skips processing if output already exists on S3 to enable parallel execution.
 compute-frequencies-%-en:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/en
-	@if python3 -m impresso_cookbook.local_to_s3 --s3-file-exists $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz ; then \
+	@set +e; \
+	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz ; status=$$?; \
+	set -e; \
+	if [ $$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $*_en_freqs.jsonl.bz2"; \
+	elif [ $$status -ne 0 ]; then \
+		exit $$status; \
 	else \
 		LANGUAGE=en python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
@@ -127,6 +142,36 @@ compute-frequencies-%-en:
 		$(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 \
 		$(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz; \
 	fi
+
+
+# Explicitly generate per-newspaper targets so newspaper ids containing provider
+# prefixes, such as BNF/legaulois, are matched as full target names.
+define compute_frequency_rule
+compute-frequencies-$(1)-$(2):
+	@mkdir -p $(dir $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2)
+	@set +e; \
+	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz ; status=$$$$?; \
+	set -e; \
+	if [ $$$$status -eq 2 ]; then \
+		echo "File already exists or WIP in progress, skipping processing for $(1)_$(2)_freqs.jsonl.bz2"; \
+	elif [ $$$$status -ne 0 ]; then \
+		exit $$$$status; \
+	else \
+		LANGUAGE=$(2) python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
+		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$(1) \
+		-o $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 \
+		--log-file $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz && \
+		python3 -m impresso_cookbook.local_to_s3 \
+		--keep-timestamp-only \
+		--set-timestamp \
+		--ts-key __file__ \
+		--remove-wip \
+		$(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 \
+		$(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz; \
+	fi
+endef
+
+$(foreach newspaper,$(ALL_NEWSPAPERS),$(foreach language,de fr en,$(eval $(call compute_frequency_rule,$(newspaper),$(language)))))
 
 
 # PATTERN-RULE: aggregate-frequencies-%
@@ -194,7 +239,7 @@ compute-all-frequencies: compute-frequencies-de compute-frequencies-fr compute-f
 # Shows the complete list of newspaper identifiers that will be processed for
 # word frequency computation. Useful for verification and debugging of newspaper coverage
 # before starting large-scale frequency computation operations.
-list-newspapers:
+list-newspapers: newspaper-list-target
 	@echo "Available newspapers: $(ALL_NEWSPAPERS)"
 
 

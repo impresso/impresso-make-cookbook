@@ -18,8 +18,32 @@ Key Features:
 
 WIP Workflow:
 1. Check file existence: --s3-file-exists --wip --create-wip creates WIP if needed
-2. Process files: Standard processing occurs while WIP file indicates work in progress  
+2. Process files: Standard processing occurs while WIP file indicates work in progress
 3. Upload and cleanup: --remove-wip removes WIP files after successful upload
+
+Exit Codes for --s3-file-exists:
+By default, --s3-file-exists keeps traditional existence-test semantics:
+
+- 0: The requested S3 object exists.
+- 1: The requested S3 object does not exist and no WIP file was created.
+- 2: A non-stale WIP file exists, so another process is already working.
+
+When --create-wip is used and the target object is missing, a WIP file is created
+and the command exits with 0. This historical behavior is used by processing
+recipes that chain the preflight check with `&& process`.
+
+Some aggregation/preflight recipes need a different convention where 0 means
+"continue processing" and 2 means "skip because output already exists or WIP is
+active". Those recipes must opt in with --exit-2-if-exists. In that mode:
+
+- 0: The target is missing and processing may continue; if --create-wip was used,
+     the WIP file was created.
+- 2: The target already exists, or a non-stale WIP file exists.
+- 1: Error, or missing target without WIP creation in legacy-compatible cases.
+
+Do not use --exit-2-if-exists for generic existence checks. It is intended for
+Make preflight recipes that explicitly inspect the exit status before deciding
+whether to skip or process.
 
 File Pairing and Dependency Logic:
 The upload process intelligently pairs content files with their log files to ensure
@@ -60,6 +84,13 @@ Usage Examples:
     python3 -m impresso_cookbook.local_to_s3 --s3-file-exists s3://bucket/file.txt.gz \\
         --wip --wip-max-age 2 --create-wip \\
         local1.txt.gz s3://bucket/file1.txt.gz local1.log.gz s3://bucket/file1.log.gz
+
+    # Preflight where Make treats 0 as process and 2 as skip
+    python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists \\
+        --s3-file-exists s3://bucket/file.json.bz2 \\
+        --wip --wip-max-age 2 --create-wip \\
+        local.json.bz2 s3://bucket/file.json.bz2 \\
+        local.log.gz s3://bucket/file.log.gz
 
     # Upload files and remove WIP
     python3 -m impresso_cookbook.local_to_s3 --remove-wip --set-timestamp \\
@@ -131,6 +162,15 @@ def main():
         "--s3-file-exists",
         help="Check if S3 file exists and exit with code 0 if it does, 1 if not.",
         metavar="S3_PATH",
+    )
+    parser.add_argument(
+        "--exit-2-if-exists",
+        action="store_true",
+        help=(
+            "With --s3-file-exists, exit with code 2 when the S3 file already "
+            "exists. This preserves the default existence-check behavior unless "
+            "explicitly requested by processing preflight recipes."
+        ),
     )
     parser.add_argument(
         "--wip",
@@ -238,7 +278,7 @@ def main():
             exists = s3_file_exists(s3_client, args.s3_file_exists)
             if exists:
                 log.info("S3 file exists: %s", args.s3_file_exists)
-                sys.exit(0)
+                sys.exit(2 if args.exit_2_if_exists else 0)
             # WIP file management (still needs direct S3 ops, but use parse_s3_path)
             if args.wip:
                 wip_path = args.s3_file_exists + ".wip"
@@ -316,7 +356,7 @@ def main():
                     for i in range(0, len(args.files), 2)
                 ]
                 for local_path, s3_path in file_pairs:
-                    if local_path.endswith((".txt.gz", ".jsonl.bz2")):
+                    if local_path.endswith((".txt.gz", ".jsonl.bz2", ".json.bz2")):
                         wip_path = s3_path + ".wip"
                         wip_content = json.dumps(wip_info, indent=2)
                         bucket, key = parse_s3_path(wip_path)
@@ -344,9 +384,8 @@ def main():
                 )
                 sys.exit(0)
             # S3 file doesn't exist and no WIP was created
-            # Exit to let processing proceed
             log.info("S3 file does not exist: %s", args.s3_file_exists)
-            sys.exit(1)
+            sys.exit(0 if args.exit_2_if_exists else 1)
         except Exception as e:
             log.error("Error checking S3 file existence: %s", e)
             sys.exit(1)
@@ -390,7 +429,7 @@ def main():
                 (args.files[i], args.files[i + 1]) for i in range(0, len(args.files), 2)
             ]
             for local_path, s3_path in file_pairs:
-                if local_path.endswith((".txt.gz", ".jsonl.bz2")):
+                if local_path.endswith((".txt.gz", ".jsonl.bz2", ".json.bz2")):
                     wip_path = s3_path + ".wip"
                     wip_content = json.dumps(wip_info, indent=2)
                     bucket, key = parse_s3_path(wip_path)
@@ -724,7 +763,7 @@ def main():
         # Clean up WIP files after successful upload
         if args.remove_wip:
             for local_path, s3_path in uploaded_files:
-                if local_path.endswith((".txt.gz", ".jsonl.bz2")):
+                if local_path.endswith((".txt.gz", ".jsonl.bz2", ".json.bz2")):
                     wip_path = s3_path + ".wip"
                     bucket, key = parse_s3_path(wip_path)
                     try:
