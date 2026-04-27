@@ -71,7 +71,7 @@ NEWSPAPER_FNMATCH ?= $(EMPTY)
 # For consolidated canonical processing, use the canonical bucket.
 # If it is not defined in the current include set, fall back to rebuilt.
 S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(if $(S3_BUCKET_CANONICAL),$(S3_BUCKET_CANONICAL),$(S3_BUCKET_REBUILT))
-  $(call log.debug, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
+  $(call log.info, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
 
 
 # TARGET: newspaper-list-target
