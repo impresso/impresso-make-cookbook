@@ -42,8 +42,10 @@ verify-and-clean::
 	--s3-prefix $(S3_PATH_LANGIDENT_STAGE1:/$(NEWSPAPER)=) \
 	$(if $(VERIFY_EXTENSIONS),--verify-file-extensions $(VERIFY_EXTENSIONS),)
 
-help::
+help-aggregation::
+	@echo "LANGIDENT AGGREGATION:"
 	@echo "  aggregate           # Aggregate language identification results for a newspaper"
+	@echo "  aggregate-for-floret-stats # Build floret statistics aggregate"
 	@echo "  verify-data         # Verify that all language identification data files are readable"
 	@echo "                      # Usage: make verify-data [VERIFY_EXTENSIONS='json jsonl.gz']"
 	@echo "  verify-and-clean    # Verify data and DELETE corrupted files"

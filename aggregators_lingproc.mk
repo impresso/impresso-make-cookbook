@@ -256,6 +256,18 @@ compute-frequencies: compute-frequencies-de
 .PHONY: aggregate-frequencies-de aggregate-frequencies-fr aggregate-frequencies-en
 .PHONY: list-newspapers compute-frequencies
 
+help-aggregation::
+	@echo "LINGPROC FREQUENCY AGGREGATION:"
+	@echo "  compute-frequencies       # Compute German word frequencies for all newspapers"
+	@echo "  compute-frequencies-de    # Compute German word frequencies for all newspapers"
+	@echo "  compute-frequencies-fr    # Compute French word frequencies for all newspapers"
+	@echo "  compute-frequencies-en    # Compute English word frequencies for all newspapers"
+	@echo "  compute-all-frequencies   # Compute all supported language frequencies"
+	@echo "  aggregate-frequencies-de  # Aggregate German newspaper frequencies"
+	@echo "  aggregate-frequencies-fr  # Aggregate French newspaper frequencies"
+	@echo "  aggregate-frequencies-en  # Aggregate English newspaper frequencies"
+	@echo "  list-newspapers           # Show newspapers selected for frequency computation"
+
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_lingproc.mk)

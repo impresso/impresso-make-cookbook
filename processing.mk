@@ -23,6 +23,15 @@ processing-target:: | $(BUILD_DIR)
 
 .PHONY: processing-target
 
+help-processing::
+	@echo "PROCESSING ENTRYPOINTS:"
+	@echo "  processing-target # Abstract processing entry point extended by included processing_*.mk files"
+	@echo ""
+	@echo "GENERIC PROCESSING FLAGS:"
+	@echo "  PROCESSING_S3_OUTPUT_DRY_RUN=$(PROCESSING_S3_OUTPUT_DRY_RUN)"
+	@echo "  PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION=$(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION)"
+	@echo "  PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION=$(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION)"
+
 # Get the current git version
 ifndef git_version
 git_version := $(shell git describe --tags --always)

@@ -90,6 +90,16 @@ ocrqa-target: $(LOCAL_OCRQA_FILES)
 
 .PHONY: ocrqa-target
 
+help-processing::
+	@echo "OCRQA PROCESSING:"
+	@echo "  ocrqa-target     # Generate OCR quality assessment files from rebuilt input"
+	@echo ""
+	@echo "OCRQA VARIABLES:"
+	@echo "  OCRQA_VALIDATE_OPTION=$(OCRQA_VALIDATE_OPTION)"
+	@echo "  OCRQA_QUIET_OPTION=$(OCRQA_QUIET_OPTION)"
+	@echo "  OCRQA_LANGUAGES_OPTION=$(OCRQA_LANGUAGES_OPTION)"
+	@echo "  OCRQA_MIN_SUBTOKENS_OPTION=$(OCRQA_MIN_SUBTOKENS_OPTION)"
+
 # FILE-RULE: $(LOCAL_PATH_OCRQA)/%.jsonl.bz2
 #: Rule to process a single newspaper
 #: Rebuilt stamps match S3 file names exactly (no suffix to strip)

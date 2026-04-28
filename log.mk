@@ -1,6 +1,12 @@
 
-# Set the default logging level to INFO
+# Show the online help when no explicit target is provided.
+.DEFAULT_GOAL := help
+
+# Set the default logging level to INFO.
 LOGGING_LEVEL ?= INFO
+
+# Keep online help readable without changing LOGGING_LEVEL-derived variables.
+LOGGING_SUPPRESSED_FOR_HELP := $(if $(value MAKECMDGOALS),$(filter help% debug-vars,$(value MAKECMDGOALS)),1)
 
 # Check GNU Make version - require at least 4.0 for modern features
 MAKE_MAJOR_VERSION := $(word 1,$(subst ., ,$(MAKE_VERSION)))
@@ -12,7 +18,7 @@ endif
 # log.debug: Prints a debug message if the debug level is set to DEBUG
 # Usage: $(call log.debug, VAR_OR_STRING)
 define log.debug
-	$(if $(filter $(LOGGING_LEVEL),DEBUG), \
+	$(if $(LOGGING_SUPPRESSED_FOR_HELP),,$(if $(filter $(LOGGING_LEVEL),DEBUG), \
 		$(if $(call variable_defined,$1), \
 			$(info DEBUG:: $(strip $1) = "$($(strip $1))"), \
 			$(if $(strip $1), \
@@ -20,13 +26,13 @@ define log.debug
 				$(info DEBUG:: "$(strip $1)") \
 			) \
 		) \
-	)
+	))
 endef
 
 # log.info: Prints an info message if the debug level is set to INFO or DEBUG
 # Usage: $(call log.info, VAR_OR_STRING)
 define log.info
-	$(if $(or $(filter $(LOGGING_LEVEL),INFO),$(filter $(LOGGING_LEVEL),DEBUG)), \
+	$(if $(LOGGING_SUPPRESSED_FOR_HELP),,$(if $(or $(filter $(LOGGING_LEVEL),INFO),$(filter $(LOGGING_LEVEL),DEBUG)), \
 		$(if $(call variable_defined,$1), \
 			$(info INFO:: $(strip $1) = "$($(strip $1))"), \
 			$(if $(strip $1), \
@@ -34,13 +40,13 @@ define log.info
 				$(info INFO:: "$(strip $1)") \
 			) \
 		) \
-	)
+	))
 endef
 
 # log.warning: Prints a warning message if the debug level is set to WARNING, INFO, or DEBUG
 # Usage: $(call log.warning, VAR_OR_STRING)
 define log.warning
-	$(if $(or $(filter $(LOGGING_LEVEL),WARNING),$(filter $(LOGGING_LEVEL),INFO),$(filter $(LOGGING_LEVEL),DEBUG)), \
+	$(if $(LOGGING_SUPPRESSED_FOR_HELP),,$(if $(or $(filter $(LOGGING_LEVEL),WARNING),$(filter $(LOGGING_LEVEL),INFO),$(filter $(LOGGING_LEVEL),DEBUG)), \
 		$(if $(call variable_defined,$1), \
 			$(info WARNING:: $(strip $1) = "$($(strip $1))"), \
 			$(if $(strip $1), \
@@ -48,13 +54,13 @@ define log.warning
 				$(info WARNING:: "$(strip $1)") \
 			) \
 		) \
-	)
+	))
 endef
 
 # log.error: Prints an error message if the debug level is set to ERROR, WARNING, INFO, or DEBUG
 # Usage: $(call log.error, VAR_OR_STRING)
 define log.error
-	$(if $(or $(filter $(LOGGING_LEVEL),ERROR),$(filter $(LOGGING_LEVEL),WARNING),$(filter $(LOGGING_LEVEL),INFO),$(filter $(LOGGING_LEVEL),DEBUG)), \
+	$(if $(LOGGING_SUPPRESSED_FOR_HELP),,$(if $(or $(filter $(LOGGING_LEVEL),ERROR),$(filter $(LOGGING_LEVEL),WARNING),$(filter $(LOGGING_LEVEL),INFO),$(filter $(LOGGING_LEVEL),DEBUG)), \
 		$(if $(call variable_defined,$1), \
 			$(info ERROR:: $(strip $1) = "$($(strip $1))"), \
 			$(if $(strip $1), \
@@ -62,7 +68,7 @@ define log.error
 				$(info ERROR:: "$(strip $1)") \
 			) \
 		) \
-	)
+	))
 endef
 
 # Define a function to check if a variable is defined

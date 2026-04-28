@@ -31,5 +31,12 @@ LOCAL_REBUILT_STAMP_FILES := \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
+help-path-variables::
+	@echo ""
+	@echo "REBUILT INPUT PATHS:"
+	@echo "  S3_BUCKET_REBUILT=$(S3_BUCKET_REBUILT)"
+	@echo "  S3_PATH_REBUILT=$(S3_PATH_REBUILT)"
+	@echo "  LOCAL_PATH_REBUILT=$(LOCAL_PATH_REBUILT)"
+
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/paths_rebuilt.mk)

@@ -10,10 +10,10 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/main_targets.mk)
 ifndef NPROC
 ifeq ($(OS),Darwin)
 # macOS - use sysctl
-NPROC := $(shell sysctl -n hw.ncpu)
+NPROC := $(shell sysctl -n hw.ncpu 2>/dev/null || echo 1)
 else ifeq ($(OS),Linux)
 # Linux - use nproc
-NPROC := $(shell nproc --all)
+NPROC := $(shell nproc --all 2>/dev/null || echo 1)
 else
 # Fallback for other systems
 NPROC := 1
@@ -35,7 +35,7 @@ MAX_LOAD ?= $(NPROC)
 #
 # This variable sets the maximum number of different newspapers to process in parallel.
 # Default: Half of available CPU cores
-COLLECTION_JOBS ?= $(shell expr $(NPROC) / 2)
+COLLECTION_JOBS ?= $(shell v=$$(expr $(NPROC) / 2); [ "$$v" -lt 1 ] && v=1; echo $$v)
   $(call log.info, COLLECTION_JOBS)
 
 # USER-VARIABLE: NEWSPAPER_JOBS
@@ -52,7 +52,7 @@ PARALLEL_DELAY ?= 3
   $(call log.debug, PARALLEL_DELAY)
 
 #: Show detailed orchestration and parallelization help
-help-orchestration:
+help-orchestration::
 	@echo "PARALLELIZATION CONFIGURATION:"
 	@echo "  COLLECTION_JOBS   #  Number of different newspapers to process in parallel ($(COLLECTION_JOBS))"
 	@echo "                    #  Low numbers might not use all system resources effectively if newspapers are small and many CPU cores are available"
@@ -112,9 +112,11 @@ newspaper: | $(BUILD_DIR)
 
 .PHONY: newspaper
 
-help::
-	@echo "  newspaper         #  Process a single newspaper run by the processing pipeline"
-	@echo "  help-orchestration # Show parallelization tuning and examples"
+help-orchestration::
+	@echo ""
+	@echo "CORE RUN TARGETS:"
+	@echo "  newspaper         # Process a single newspaper run by the processing pipeline"
+	@echo "  all               # Resync input/output, then run processing-target"
 
 
 # TARGET: all
@@ -162,10 +164,10 @@ collection: check-parallel newspaper-list-target
 	   $(PARALLEL_HALT) \
 	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k -j --max-load $(MAX_LOAD) all"
 
-help::
-	@echo "  collection-xargs  #  Process collection via xargs (fallback when GNU parallel is unavailable)"
-	@echo "  collection        #  Process full impresso collection with parallel processing"
-	@echo "                     #  Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
+help-orchestration::
+	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
+	@echo "  collection        # Process full impresso collection with parallel processing"
+	@echo "                    # Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
 
 
 .PHONY: collection

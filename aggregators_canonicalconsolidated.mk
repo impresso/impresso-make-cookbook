@@ -26,9 +26,10 @@ verify-and-clean::
 	--s3-prefix $(S3_PATH_LANGIDENT_STAGE1:/$(NEWSPAPER)=) \
 	$(if $(VERIFY_EXTENSIONS),--verify-file-extensions $(VERIFY_EXTENSIONS),)
 
-help::
-	@echo "  aggregate           # Aggregate language identification results for a newspaper"
-	@echo "  verify-data         # Verify that all language identification data files are readable"
+help-aggregation::
+	@echo "CONSOLIDATED CANONICAL VERIFICATION:"
+	@echo "  aggregate           # Aggregate configured results for a newspaper"
+	@echo "  verify-data         # Verify that all data files are readable"
 	@echo "                      # Usage: make verify-data [VERIFY_EXTENSIONS='json jsonl.gz']"
 	@echo "  verify-and-clean    # Verify data and DELETE corrupted files"
 	@echo "                      # Usage: make verify-and-clean [VERIFY_EXTENSIONS='json jsonl.gz']"

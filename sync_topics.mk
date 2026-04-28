@@ -22,6 +22,11 @@ sync-topics : $(LOCAL_TOPICS_SYNC_STAMP_FILE)
 
 .PHONY: sync-topics
 
+help-sync::
+	@echo ""
+	@echo "TOPICS SYNC:"
+	@echo "  sync-topics    # Synchronize topic processing data from/to S3"
+
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_TOPICS).last_synced
 #: Synchronizes topics data from S3 to local stamp files
@@ -49,5 +54,8 @@ clean-sync-topics:
 	rm -rfv $(LOCAL_PATH_TOPICS) $(LOCAL_TOPICS_SYNC_STAMP_FILE) || true
 
 .PHONY: clean-sync-topics
+
+help-clean::
+	@echo "  clean-sync-topics # Remove local topics sync stamp and files"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_topics.mk)

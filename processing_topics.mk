@@ -121,6 +121,17 @@ $(call log.debug, LOCAL_TOPICS_FILES)
 #: Generates topic files from linguistic processing outputs.
 topics-target: $(LOCAL_TOPICS_FILES)
 
+help-processing::
+	@echo "TOPIC PROCESSING:"
+	@echo "  topics-target    # Generate topic files from linguistic processing outputs"
+	@echo ""
+	@echo "TOPICS VARIABLES:"
+	@echo "  TOPICS_LOGGING_LEVEL=$(TOPICS_LOGGING_LEVEL)"
+	@echo "  TOPICS_MIN_P=$(TOPICS_MIN_P)"
+	@echo "  TOPICS_LANGUAGES=$(TOPICS_LANGUAGES)"
+	@echo "  TOPICS_WIP_ENABLED=$(TOPICS_WIP_ENABLED)"
+	@echo "  TOPICS_WIP_MAX_AGE=$(TOPICS_WIP_MAX_AGE)"
+	@echo "  TOPICS_UPLOAD_IF_NEWER_OPTION=$(TOPICS_UPLOAD_IF_NEWER_OPTION)"
 
 # FILE-RULE: Process topics from linguistic processing output
 #: Converts linguistic output into topic-based JSONL files.

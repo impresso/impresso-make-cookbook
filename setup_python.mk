@@ -11,8 +11,8 @@ setup:: setup-python-env
 
 setup-python-env: setup-python setup-pip setup-pipenv
 
-help::
-	@echo "  setup-python-env: Sets up the Python environment including pip and pipenv"
+help-setup::
+	@echo "  setup-python-env # Set up the Python environment including pip and pipenv"
 
 # USER-VARIABLE: PYTHON_MAJOR_VERSION
 PYTHON_MINOR_VERSION ?= 11
@@ -49,8 +49,9 @@ setup-pip:
 
 .PHONY: setup-pip
 
-help::
-	@echo "  setup-pip: Installs pip for the specified Python version if not available"
+help-setup::
+	@echo "  setup-python     # Install Python 3.$(PYTHON_MINOR_VERSION) if not available"
+	@echo "  setup-pip        # Install pip for Python 3.$(PYTHON_MINOR_VERSION) if not available"
 
 
 # TARGET: setup-pipenv
@@ -63,8 +64,8 @@ setup-pipenv:
 
 .PHONY: setup-pipenv
 
-help::
-	@echo "  setup-pipenv: Installs pipenv for the specified Python version if not available"
+help-setup::
+	@echo "  setup-pipenv     # Install pipenv for Python 3.$(PYTHON_MINOR_VERSION) if not available"
 
 
 # TARGET: setup-pip-requirements
@@ -78,7 +79,7 @@ setup-pip-requirements:
 
 .PHONY: setup-pip-requirements
 
-help::
-	@echo "  setup-pip-requirements # Updates pip package requirements.txt from pipenv"
+help-setup::
+	@echo "  setup-pip-requirements # Update requirements.txt from pipenv lock data"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_python.mk)

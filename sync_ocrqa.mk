@@ -29,6 +29,11 @@ sync-ocrqa: $(LOCAL_OCRQA_SYNC_STAMP_FILE)
 
 .PHONY: sync-ocrqa
 
+help-sync::
+	@echo ""
+	@echo "OCRQA SYNC:"
+	@echo "  sync-ocrqa     # Synchronize OCR quality assessment data from/to S3"
+
 # TARGET: clean-sync
 #: Cleans up synchronized OCR quality assessment data
 clean-sync:: clean-sync-ocrqa
@@ -39,5 +44,8 @@ clean-sync-ocrqa:
 	rm -vrf $(LOCAL_OCRQA_SYNC_STAMP_FILE) $(LOCAL_PATH_OCRQA) || true
 
 .PHONY: clean-sync-ocrqa
+
+help-clean::
+	@echo "  clean-sync-ocrqa # Remove local OCRQA sync stamp and files"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_ocrqa.mk)

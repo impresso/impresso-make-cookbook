@@ -87,6 +87,11 @@ sync-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
 .PHONY: sync-canonical
 
+help-sync::
+	@echo ""
+	@echo "CANONICAL INPUT SYNC:"
+	@echo "  sync-canonical # Synchronize canonical pages input data from S3"
+
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp
 #

@@ -16,6 +16,11 @@ sync-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 
 .PHONY: sync-rebuilt
 
+help-sync::
+	@echo ""
+	@echo "REBUILT INPUT SYNC:"
+	@echo "  sync-rebuilt    # Synchronize rebuilt input data from S3 to local stamp files"
+
 
 # Rule to sync the input data from the S3 bucket to the local directory
 # Creates file stamps matching S3 object names exactly (no suffix)

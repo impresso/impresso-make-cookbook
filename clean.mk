@@ -9,8 +9,10 @@ clean :: clean-build
 
 .PHONY: clean
 
-help::
-	@echo "  clean            # Cleans the build directory and all processed data"
+help-clean::
+	@echo "CLEAN TARGETS:"
+	@echo "  clean            # Clean the build directory and all processed data"
+	@echo "  clean-build      # Remove the entire build directory"
 
 
 # TARGET: clean-build
@@ -28,8 +30,10 @@ clean-sync :: clean-sync-input clean-sync-output
 
 .PHONY: clean-sync
 
-help::
-	@echo "  clean-sync         # Removes locally synced materials from S3"
+help-clean::
+	@echo "  clean-sync       # Remove local sync state for input and output data"
+	@echo "  clean-sync-input # Remove local input sync state contributed by included modules"
+	@echo "  clean-sync-output # Remove local output sync state contributed by included modules"
 
 
 # TARGET: clean-sync-input

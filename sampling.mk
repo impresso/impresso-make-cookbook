@@ -13,8 +13,14 @@ sample-target:: | $(BUILD_DIR)
 
 .PHONY: sample-target
 
-help::
-	@echo "  sample-target      #  Abstract sampling entry point (implemented by sampling_*.mk)"
+help-sampling::
+	@echo "SAMPLING TARGETS:"
+	@echo "  sample-target      # Abstract sampling entry point implemented by sampling_*.mk"
+	@echo ""
+	@echo "SAMPLING VARIABLES:"
+	@echo "  SAMPLE_LOG_LEVEL=$(SAMPLE_LOG_LEVEL)"
+	@echo "  SAMPLE_RANDOM_SEED=$(SAMPLE_RANDOM_SEED)"
+	@echo "  SAMPLE_RATE=$(SAMPLE_RATE)"
 
 
 # USER-VARIABLE: SAMPLE_LOG_LEVEL

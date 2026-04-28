@@ -17,7 +17,8 @@ check-s3-credentials:
 		exit 1; \
 	fi
 
-help::
+help-sync::
+	@echo "SYNC PREREQUISITES:"
 	@echo "  check-s3-credentials # Check if the S3 credentials are set in the environment variables"
 
 .PHONY: check-s3-credentials
@@ -35,8 +36,10 @@ sync:: sync-input
 
 .PHONY: sync
 
-help::
-	@echo "  sync            #  Synchronize local files with S3 (input and output) without deleting local files"
+help-sync::
+	@echo ""
+	@echo "GENERIC SYNC TARGETS:"
+	@echo "  sync            # Synchronize local files with S3 (input and output) without deleting local files"
 
 
 # DOUBLE-COLON-TARGET: sync-input
@@ -48,7 +51,7 @@ sync-input:: | $(BUILD_DIR)
 
 .PHONY: sync-input
 
-help::
+help-sync::
 	@echo "  sync-input      # Synchronize input files with S3 without deleting local files"
 
 
@@ -61,7 +64,7 @@ sync-output:: | $(BUILD_DIR)
 
 .PHONY: sync-output
 
-help::
+help-sync::
 	@echo "  sync-output     # Synchronize output files with S3 without deleting local files"
 
 
@@ -74,8 +77,8 @@ resync-output: clean-sync-output
 
 .PHONY: resync-output
 
-help::
-	@echo "  resync-output   # Synchronize local files with S3 output by deleting all local files first"
+help-sync::
+	@echo "  resync-output   # Delete local output sync state, then synchronize output files"
 
 # DOUBLE-COLON-TARGET: resync-input
 #: Synchronize local input with S3 by deleting all local files first
@@ -86,14 +89,17 @@ resync-input: clean-sync-input
 
 .PHONY: resync-input
 
+help-sync::
+	@echo "  resync-input    # Delete local input sync state, then synchronize input files"
+
 # TARGET: resync
 #: Forces complete resynchronization with remote server
 resync: resync-input resync-output
 
 .PHONY: resync
 
-help::
-	@echo "  resync          # Forces complete resynchronization with remote server"
+help-sync::
+	@echo "  resync          # Force complete input and output resynchronization"
 
 
 

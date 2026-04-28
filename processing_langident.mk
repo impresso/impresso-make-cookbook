@@ -561,6 +561,20 @@ langident-target : langident-ensemble-target
 
 .PHONY: langident-target
 
+help-processing::
+	@echo "LANGIDENT PROCESSING:"
+	@echo "  langident-target            # Run all language-identification stages"
+	@echo "  langident-systems-target    # Run stage 1 system-level language identification"
+	@echo "  langident-statistics-target # Compute language-identification statistics"
+	@echo "  langident-ensemble-target   # Build final language-identification ensemble"
+	@echo ""
+	@echo "LANGIDENT VARIABLES:"
+	@echo "  USE_CANONICAL=$(USE_CANONICAL)"
+	@echo "  LANGIDENT_LOGGING_LEVEL=$(LANGIDENT_LOGGING_LEVEL)"
+	@echo "  LANGIDENT_VALIDATE_OPTION=$(LANGIDENT_VALIDATE_OPTION)"
+	@echo "  LANGIDENT_WIP_MAX_AGE=$(LANGIDENT_WIP_MAX_AGE)"
+	@echo "  LANGIDENT_UPLOAD_IF_NEWER_OPTION=$(LANGIDENT_UPLOAD_IF_NEWER_OPTION)"
+
 
 # TARGET: langident-systems-target
 # Apply different language identification systems.

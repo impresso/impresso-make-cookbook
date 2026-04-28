@@ -60,4 +60,7 @@ test-LocalToS3:
 	@echo "Actual Output  : $(call LocalToS3,$(BUILD_DIR)/22-rebuilt-final/marieclaire/file.jsonl.bz2)"
 	@echo
 
+help-debug::
+	@echo "  test-LocalToS3    # Print LocalToS3 conversion test cases"
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/local_to_s3.mk)

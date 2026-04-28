@@ -10,16 +10,13 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/newspaper_list.mk)
 ###############################################################################
 
 
-help::
-	@echo "  newspaper-list-target  # Generate newspaper list to process from the S3 bucket content: '$(NEWSPAPERS_TO_PROCESS_FILE)'"
-
-
 sync:: newspaper-list-target
 
 # USER-VARIABLE: PROVIDER
 # Data provider organization (e.g., BL, SWA, NZZ)
 # Required for canonical data which is organized as PROVIDER/NEWSPAPER/
 #PROVIDER ?= BL
+PROVIDER ?=
   $(call log.info, PROVIDER)
 
 
@@ -57,21 +54,34 @@ NEWSPAPER_HAS_PROVIDER ?= 1
 
 # USER-VARIABLE: NEWSPAPER_PREFIX
 # Additional prefix for newspaper paths to filter specific subsets (e.g. BL/ for processing only BL newspapers)
-NEWSPAPER_PREFIX ?= $(EMPTY)
+NEWSPAPER_PREFIX ?=
   $(call log.debug, NEWSPAPER_PREFIX)
 
 # USER-VARIABLE: NEWSPAPER_FNMATCH
 # Additional pattern for newspaper paths to filter specific subsets (e.g. BL/ for processing only BL newspapers)
-NEWSPAPER_FNMATCH ?= $(EMPTY)
+NEWSPAPER_FNMATCH ?=
   $(call log.info, NEWSPAPER_FNMATCH)
+
+help-orchestration::
+	@echo ""
+	@echo "NEWSPAPER LIST TARGETS:"
+	@echo "  newspaper-list-target # Generate newspaper list from S3 into $(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  clean-newspaper-list-target # Remove generated newspaper list and log"
+	@echo ""
+	@echo "NEWSPAPER SELECTION VARIABLES:"
+	@echo "  NEWSPAPER=$(NEWSPAPER)"
+	@echo "  PROVIDER=$(PROVIDER)"
+	@echo "  NEWSPAPERS_TO_PROCESS_FILE=$(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  NEWSPAPER_PREFIX=$(NEWSPAPER_PREFIX)"
+	@echo "  NEWSPAPER_FNMATCH=$(NEWSPAPER_FNMATCH)"
 
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET
 # S3 bucket prefix containing newspapers for processing
 # For consolidated canonical processing, use the canonical bucket.
 # If it is not defined in the current include set, fall back to rebuilt.
-S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(if $(S3_BUCKET_CANONICAL),$(S3_BUCKET_CANONICAL),$(S3_BUCKET_REBUILT))
-  $(call log.info, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
+S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(or $(value S3_BUCKET_CANONICAL),$(value S3_BUCKET_REBUILT))
+  $(call log.debug, S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)
 
 
 # TARGET: newspaper-list-target

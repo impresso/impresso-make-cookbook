@@ -46,8 +46,9 @@ endif
 .PHONY: warm-langident-cache
 
 
-help::
-	@echo "  warm-langident-cache # Warm Hugging Face model cache for langident/OCRQA (enable with LANGIDENT_WARM_CACHE=1)"
+help-setup::
+	@echo "  warm-langident-cache # Warm Hugging Face model cache for langident/OCRQA"
+	@echo "                       # Controlled by LANGIDENT_WARM_CACHE=$(LANGIDENT_WARM_CACHE)"
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_langident.mk)

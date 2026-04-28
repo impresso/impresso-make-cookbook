@@ -93,5 +93,14 @@ S3_PATH_LINGPROC := s3://$(PATH_LINGPROC)
 LOCAL_PATH_LINGPROC := $(BUILD_DIR)/$(PATH_LINGPROC)
   $(call log.debug, LOCAL_PATH_LINGPROC)
 
+help-path-variables::
+	@echo ""
+	@echo "LINGPROC PATHS:"
+	@echo "  S3_BUCKET_LINGPROC=$(S3_BUCKET_LINGPROC)"
+	@echo "  RUN_ID_LINGPROC=$(RUN_ID_LINGPROC)"
+	@echo "  PATH_LINGPROC_BASE=$(PATH_LINGPROC_BASE)"
+	@echo "  S3_PATH_LINGPROC=$(S3_PATH_LINGPROC)"
+	@echo "  LOCAL_PATH_LINGPROC=$(LOCAL_PATH_LINGPROC)"
+
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/lingproc.mk)

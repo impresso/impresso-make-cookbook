@@ -11,6 +11,10 @@
 # Logging functions
 include log.mk
 
+# INCLUDE-FILES: help.mk
+# Main help index and debug inspection targets
+include help.mk
+
 # INCLUDE-FILES: setup.mk
 # General setup targets
 include setup.mk

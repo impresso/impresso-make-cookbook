@@ -41,6 +41,11 @@ sync-lingproc: $(LOCAL_LINGPROC_SYNC_STAMP_FILE)
 
 .PHONY: sync-lingproc
 
+help-sync::
+	@echo ""
+	@echo "LINGPROC SYNC:"
+	@echo "  sync-lingproc   # Synchronize linguistic processing data from/to S3"
+
 
 # TARGET: clean-sync
 #: Cleans up synchronized linguistic processing data
@@ -53,6 +58,9 @@ clean-sync-lingproc:
 	rm -vrf $(LOCAL_LINGPROC_SYNC_STAMP_FILE) $(LOCAL_PATH_LINGPROC) || true
 
 .PHONY: clean-sync-lingproc
+
+help-clean::
+	@echo "  clean-sync-lingproc # Remove local lingproc sync stamp and files"
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_lingproc.mk)

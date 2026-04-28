@@ -106,6 +106,18 @@ lingproc-target: $(LOCAL_LINGPROC_FILES)
 
 .PHONY: lingproc-target
 
+help-processing::
+	@echo "LINGUISTIC PROCESSING:"
+	@echo "  lingproc-target   # Process rebuilt newspaper content with linguistic analysis"
+	@echo "                    # Also contributes to processing-target"
+	@echo ""
+	@echo "LINGPROC VARIABLES:"
+	@echo "  LINGPROC_LOGGING_LEVEL=$(LINGPROC_LOGGING_LEVEL)"
+	@echo "  LINGPROC_VALIDATE_OPTION=$(LINGPROC_VALIDATE_OPTION)"
+	@echo "  LINGPROC_WIP_ENABLED=$(LINGPROC_WIP_ENABLED)"
+	@echo "  LINGPROC_WIP_MAX_AGE=$(LINGPROC_WIP_MAX_AGE)"
+	@echo "  LINGPROC_UPLOAD_IF_NEWER_OPTION=$(LINGPROC_UPLOAD_IF_NEWER_OPTION)"
+
 LINGPROC_LANGIDENT_NEEDED ?= 1
   $(call log.debug, LINGPROC_LANGIDENT_NEEDED)
 

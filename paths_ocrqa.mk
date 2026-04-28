@@ -84,5 +84,13 @@ S3_PATH_OCRQA := s3://$(PATH_OCRQA)
 LOCAL_PATH_OCRQA := $(BUILD_DIR)/$(PATH_OCRQA)
   $(call log.debug, LOCAL_PATH_OCRQA)
 
+help-path-variables::
+	@echo ""
+	@echo "OCRQA PATHS:"
+	@echo "  S3_BUCKET_OCRQA=$(S3_BUCKET_OCRQA)"
+	@echo "  RUN_ID_OCRQA=$(RUN_ID_OCRQA)"
+	@echo "  S3_PATH_OCRQA=$(S3_PATH_OCRQA)"
+	@echo "  LOCAL_PATH_OCRQA=$(LOCAL_PATH_OCRQA)"
+
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/ocrqa.mk)

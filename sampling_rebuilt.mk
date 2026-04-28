@@ -68,9 +68,11 @@ sampling-rebuilt: sampling-rebuilt-ids sampling-rebuilt-compile
 
 .PHONY: sampling-rebuilt
 
-help::
-	@echo "  sampling-rebuilt       #  Generate ID sample and compiled sample from rebuilt input"
-	@echo "  sampling-rebuilt-ids   #  Generate sampled IDs only"
+help-sampling::
+	@echo ""
+	@echo "REBUILT SAMPLING:"
+	@echo "  sampling-rebuilt         # Generate ID sample and compiled sample from rebuilt input"
+	@echo "  sampling-rebuilt-ids     # Generate sampled IDs only"
 	@echo "  sampling-rebuilt-compile # Compile sampled IDs into full records"
 
 

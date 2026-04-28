@@ -49,8 +49,9 @@ setup:: | $(BUILD_DIR)
 
 .PHONY: setup
 
-help::
-	@echo "  setup           # Create the local directories and run the setup targets"
+help-setup::
+	@echo "SETUP TARGETS:"
+	@echo "  setup           # Create local directories and run active setup targets"
 
 # USER-VARIABLE: GIT_VERSION
 # The current git version of the repository
@@ -71,6 +72,9 @@ update-pip-requirements-file:
 	pipenv requirements > requirements.txt
 
 .PHONY: update-pip-requirements-file
+
+help-setup::
+	@echo "  update-pip-requirements-file # Update requirements.txt from pipenv"
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup.mk)
