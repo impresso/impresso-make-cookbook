@@ -93,6 +93,59 @@ The build system is organized into several make include files:
   - `aggregators_langident.mk`: Language identification statistics
   - `aggregators_bboxqa.mk`: Bounding box QA statistics
 
+### Integrating the Cookbook into Your Project
+
+When using this cookbook in your repository (typically as a git submodule at `cookbook/`), follow these critical patterns in your root `Makefile`:
+
+**Essential Include Order:**
+
+1. **Load `cookbook/log.mk` FIRST** - provides logging functions used everywhere
+2. Load `cookbook/help.mk` - help system
+3. Define config and user variables with `$(call log.info, VARIABLE_NAME)`
+4. Load `cookbook/make_settings.mk` - shell options and make settings
+5. Load `cookbook/setup.mk` - general setup
+6. Load domain-specific includes (`newspaper_list.mk`, `paths_*.mk`, `sync_*.mk`, `processing_*.mk`)
+7. Load utilities (`local_to_s3.mk`)
+8. Load repo-specific addons LAST
+
+**Example minimal integration:**
+
+```makefile
+SHELL := /bin/bash
+
+# Load logging FIRST
+include cookbook/log.mk
+include cookbook/help.mk
+
+# Config with proper logging
+CONFIG_LOCAL_MAKE ?= config.local.mk
+  $(call log.info, CONFIG_LOCAL_MAKE)
+-include $(CONFIG_LOCAL_MAKE)
+
+# Core includes
+include cookbook/make_settings.mk
+include cookbook/setup.mk
+include cookbook/newspaper_list.mk
+include cookbook/local_to_s3.mk
+
+# Repo-specific
+include cookbook-repo-addons/my_processing.mk
+
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help::
+	@echo "Usage: make <target>"
+```
+
+**Key patterns:**
+
+- Use `$(call log.info, VAR_NAME)` instead of `$(info ...)` for variable logging
+- Use `help::` (double colon) so addons can extend help
+- Never define manual `log.info` or `log.debug` - use the functions from `log.mk`
+
+See [AGENT.md](AGENT.md) for detailed integration patterns and common mistakes.
+
 ## Uploading to impresso S3 bucket
 
 Ensure that the environment variables `SE_ACCESS_KEY` and `SE_SECRET_KEY` for access to the S3 impresso infrastructure are set, e.g., by setting them in a local `.env` file.

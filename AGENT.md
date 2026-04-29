@@ -77,6 +77,177 @@ AWS CLI is mainly used for:
 - connectivity checks
 - manual inspection/diagnostics
 
+### 4. Makefile Integration Patterns
+
+When integrating the cookbook into a parent repository's Makefile, follow these **critical** patterns:
+
+#### Include Order (MANDATORY)
+
+The include order matters because Make processes includes sequentially. Always use this order:
+
+```makefile
+# 1. FIRST: Load logging functions
+include cookbook/log.mk
+
+# 2. Load help system
+include cookbook/help.mk
+
+# 3. CONFIG_LOCAL_MAKE with proper logging
+CONFIG_LOCAL_MAKE ?= config.local.mk
+ifdef CFG
+  CONFIG_LOCAL_MAKE := $(CFG)
+  $(info Overriding CONFIG_LOCAL_MAKE to $(CONFIG_LOCAL_MAKE) from CFG variable)
+else
+  $(call log.info, CONFIG_LOCAL_MAKE)
+endif
+-include $(CONFIG_LOCAL_MAKE)
+
+# 4. User variables with logging
+LOGGING_LEVEL ?= INFO
+  $(call log.info, LOGGING_LEVEL)
+
+BUILD_DIR ?= build.d
+  $(call log.info, BUILD_DIR)
+
+# 5. Load shared make settings
+include cookbook/make_settings.mk
+
+# 6. Load general setup
+include cookbook/setup.mk
+
+# 7. Load domain-specific includes (paths, sync, processing)
+include cookbook/newspaper_list.mk
+include cookbook/paths_*.mk
+include cookbook/sync_*.mk
+include cookbook/processing_*.mk
+
+# 8. Load utilities
+include cookbook/local_to_s3.mk
+
+# 9. LAST: Repo-specific addons
+include cookbook-repo-addons/*.mk
+```
+
+**Why this order matters:**
+
+- `log.mk` must be first so `$(call log.info, ...)` works in subsequent includes
+- `help.mk` early so help targets can be extended with `::`
+- `make_settings.mk` before any processing rules (sets shell options)
+- Domain includes before repo addons (allows addons to override/extend)
+
+#### Variable Logging Pattern
+
+**WRONG:**
+
+```makefile
+BUILD_DIR ?= build.d
+$(info BUILD_DIR=$(BUILD_DIR))
+```
+
+**CORRECT:**
+
+```makefile
+BUILD_DIR ?= build.d
+  $(call log.info, BUILD_DIR)
+```
+
+The `log.info` function respects `LOGGING_LEVEL` and provides consistent formatting.
+
+#### Help Target Extensibility
+
+**WRONG:**
+
+```makefile
+.PHONY: help
+help:
+	@echo "Usage: make <target>"
+	@echo "Targets:"
+	@echo "  foo    # Do foo"
+```
+
+**CORRECT:**
+
+```makefile
+.PHONY: help
+help::
+	@echo ""
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Main Targets:"
+	@echo "  foo    # Do foo"
+	@echo ""
+```
+
+Use `help::` (double colon) so addon makefiles can extend help with their own sections.
+
+#### Section Markers
+
+Use consistent section markers for readability:
+
+```makefile
+###############################################################################
+# Top-level project description
+###############################################################################
+
+###
+# SECTION NAME
+#------------------------------------------------------------------------------
+
+# Include or define targets here
+```
+
+#### Common Integration Mistakes
+
+1. **Missing `log.mk` include** → `$(call log.info, ...)` fails silently or errors
+2. **Loading `log.mk` too late** → Early variable definitions don't log properly
+3. **Single-colon help target** → Addons can't extend help
+4. \*\*Manual logging instead of `$(call log.info, ...)` → Ignores `LOGGING_LEVEL`
+5. **Wrong include order** → Dependency errors, undefined functions
+
+#### Minimal Working Example
+
+```makefile
+###############################################################################
+# My Processing Pipeline Makefile
+###############################################################################
+
+SHELL := /bin/bash
+
+# Load logging FIRST
+include cookbook/log.mk
+
+# Load help system
+include cookbook/help.mk
+
+# Config with proper logging
+CONFIG_LOCAL_MAKE ?= config.local.mk
+  $(call log.info, CONFIG_LOCAL_MAKE)
+-include $(CONFIG_LOCAL_MAKE)
+
+# User variables
+BUILD_DIR ?= build.d
+  $(call log.info, BUILD_DIR)
+
+# Core includes
+include cookbook/make_settings.mk
+include cookbook/setup.mk
+include cookbook/newspaper_list.mk
+include cookbook/local_to_s3.mk
+
+# Project-specific
+include cookbook-repo-addons/my_processing.mk
+
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help::
+	@echo ""
+	@echo "Usage: make <target>"
+	@echo ""
+```
+
+This pattern ensures all cookbook features work correctly and addon makefiles can extend the build system safely.
+
 ## Operational Conventions
 
 - `BUILD_DIR ?= build.d`
