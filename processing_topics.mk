@@ -36,6 +36,12 @@ TOPICS_MIN_P ?= 0.05
 TOPICS_LANGUAGES ?= de fr lb
   $(call log.debug, TOPICS_LANGUAGES)
 
+# USER-VARIABLE: TOPICS_MALLET_HOME
+# Optional MALLET runtime directory. Required when the selected model configs declare
+# a runtime that is not vendored in this repository, such as mallet-2.1.0.
+TOPICS_MALLET_HOME ?=
+  $(call log.debug, TOPICS_MALLET_HOME)
+
 # USER-VARIABLE: TOPICS_DE_CONFIG
 # German topic-model config path.
 TOPICS_DE_CONFIG ?= models/tm/tm-de-all-v2.0.config.json
@@ -50,6 +56,11 @@ TOPICS_FR_CONFIG ?= models/tm/tm-fr-all-v2.0.config.json
 # Luxembourgish topic-model config path.
 TOPICS_LB_CONFIG ?= models/tm/tm-lb-all-v2.1.config.json
   $(call log.debug, TOPICS_LB_CONFIG)
+
+# USER-VARIABLE: TOPICS_EN_CONFIG
+# English topic-model config path.
+TOPICS_EN_CONFIG ?= models/tm/tm-en-all-v3.0.config.json
+  $(call log.debug, TOPICS_EN_CONFIG)
 
 # USER-VARIABLE: TOPICS_WIP_ENABLED
 # Option to enable S3 WIP locks for topic processing.
@@ -158,6 +169,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	      case $$status in 0) exit 0 ;; 1) ;; *) exit $$status ;; esac ; \
 	    fi ; \
 	  fi ; \
+		  $(if $(TOPICS_MALLET_HOME),MALLET_HOME=$(TOPICS_MALLET_HOME),) \
 		  python -m lib.mallet_topic_inferencer \
 		    --input $(call LocalToS3,$<) \
 		    --input-format impresso \
@@ -167,6 +179,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 		    --languages $(TOPICS_LANGUAGES) \
 		    --de_config $(TOPICS_DE_CONFIG) \
 		    --fr_config $(TOPICS_FR_CONFIG) \
+		    --en_config $(TOPICS_EN_CONFIG) \
 		    --lb_config $(TOPICS_LB_CONFIG) \
 		    --git-version $(GIT_VERSION) \
 		    --lingproc-run_id $(RUN_ID_LINGPROC) \
