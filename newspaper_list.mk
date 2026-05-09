@@ -129,6 +129,8 @@ clean-newspaper-list-target:
 # Reads the canonical list of newspaper identifiers from the newspapers file.
 # Uses Make's file function to read the contents without spawning a shell.
 ALL_NEWSPAPERS := $(file < $(NEWSPAPERS_TO_PROCESS_FILE))
-  $(call log.info, ALL_NEWSPAPERS)
+ALL_NEWSPAPERS_COUNT := $(words $(ALL_NEWSPAPERS))
+ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$(ALL_NEWSPAPERS)) ... $(lastword $(ALL_NEWSPAPERS)) ($(ALL_NEWSPAPERS_COUNT) newspapers),$(ALL_NEWSPAPERS))
+  $(if $(LOGGING_SUPPRESSED_FOR_HELP),,$(if $(filter $(LOGGING_LEVEL),DEBUG),$(call log.debug, ALL_NEWSPAPERS),$(if $(filter $(LOGGING_LEVEL),INFO),$(info INFO:: ALL_NEWSPAPERS = "$(ALL_NEWSPAPERS_INFO_PREVIEW)"))))
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/newspaper_list.mk)
