@@ -26,6 +26,34 @@ help-sync::
 	@echo ""
 	@echo "TOPICS SYNC:"
 	@echo "  sync-topics    # Synchronize topic processing data from/to S3"
+	@echo "  upload-topic-descriptions # Upload gzip-compressed topic descriptions to the topic run root"
+
+
+# VARIABLE: S3_PATH_TOPICS_RUN_ROOT
+# S3 prefix for run-level topic metadata, without newspaper-specific suffixes.
+S3_PATH_TOPICS_RUN_ROOT := s3://$(S3_BUCKET_TOPICS)/$(PROCESS_LABEL_TOPICS)/$(RUN_ID_TOPICS)
+  $(call log.debug, S3_PATH_TOPICS_RUN_ROOT)
+
+
+# USER-VARIABLE: TOPICS_DESCRIPTIONS_DRY_RUN_OPTION
+# Set to --dry-run to print topic-description uploads without writing to S3.
+TOPICS_DESCRIPTIONS_DRY_RUN_OPTION ?=
+  $(call log.debug, TOPICS_DESCRIPTIONS_DRY_RUN_OPTION)
+
+
+# TARGET: upload-topic-descriptions
+#: Uploads topic model descriptions as jsonl.gz run metadata files
+upload-topic-descriptions: | .aws/credentials .aws/config
+	AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials \
+	python3 lib/upload_topic_descriptions.py \
+	  --s3-prefix $(S3_PATH_TOPICS_RUN_ROOT) \
+	  $(TOPICS_DESCRIPTIONS_DRY_RUN_OPTION) \
+	  $(if $(TOPICS_DE_CONFIG),--language-config de=$(TOPICS_DE_CONFIG),) \
+	  $(if $(TOPICS_FR_CONFIG),--language-config fr=$(TOPICS_FR_CONFIG),) \
+	  $(if $(TOPICS_EN_CONFIG),--language-config en=$(TOPICS_EN_CONFIG),) \
+	  $(if $(TOPICS_LB_CONFIG),--language-config lb=$(TOPICS_LB_CONFIG),)
+
+.PHONY: upload-topic-descriptions
 
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_TOPICS).last_synced
