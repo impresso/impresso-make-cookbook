@@ -43,8 +43,7 @@ TOPICS_DESCRIPTIONS_DRY_RUN_OPTION ?=
 
 # TARGET: upload-topic-descriptions
 #: Uploads topic model descriptions as jsonl.gz run metadata files
-upload-topic-descriptions: | .aws/credentials .aws/config
-	AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials \
+upload-topic-descriptions:
 	python3 lib/upload_topic_descriptions.py \
 	  --s3-prefix $(S3_PATH_TOPICS_RUN_ROOT) \
 	  $(TOPICS_DESCRIPTIONS_DRY_RUN_OPTION) \
