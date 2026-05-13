@@ -102,6 +102,7 @@ print-debug-vars:
 	$(call help.print_var,MAKEFILE_LIST)
 	$(call help.print_var,BUILD_DIR)
 	$(call help.print_var,OS)
+	$(call help.print_var_if_known,PYTHON)
 	@echo ""
 	@echo "ORCHESTRATION:"
 	$(call help.print_var_if_known,NPROC)

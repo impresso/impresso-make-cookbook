@@ -18,6 +18,9 @@ help-setup::
 PYTHON_MINOR_VERSION ?= 11
   $(call log.debug, PYTHON_MINOR_VERSION)
 
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3.$(PYTHON_MINOR_VERSION))
+  $(call log.info, PYTHON)
+
 
 # TARGET: setup-python
 #: Installs Python 3.$(PYTHON_MINOR_VERSION) based on the operating system

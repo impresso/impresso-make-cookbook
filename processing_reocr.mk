@@ -21,9 +21,15 @@ LOCAL_reocr_DONE_FILES := \
   $(call log.debug, LOCAL_reocr_DONE_FILES)
 
 reocr-target: sync-reocr-input
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) reocr-files-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) reocr-files-target
 
 .PHONY: reocr-target
+
+help-processing::
+	@echo ""
+	@echo "RE-OCR PROCESSING TARGETS:"
+	@echo "  reocr-target       # Sync input state, then process all missing re-OCR issue archives"
+	@echo "  reocr-files-target # Process local re-OCR input stamps into page outputs and done markers"
 
 reocr-files-target: $(LOCAL_reocr_DONE_FILES)
 
@@ -32,7 +38,7 @@ reocr-files-target: $(LOCAL_reocr_DONE_FILES)
 $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) $(dir $(LOCAL_PATH_reocr_LOGS)/$*.log.gz) $(LOCAL_PATH_reocr_WORK) && \
-	python3 lib/cli_reocr.py \
+	$(PYTHON) lib/cli_reocr.py \
 	  --input $(call LocalToS3,$<) \
 	  --output-prefix $(S3_PATH_reocr) \
 	  --work-root $(LOCAL_PATH_reocr_WORK) \
@@ -45,7 +51,7 @@ $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	  --log-level $(LOGGING_LEVEL) \
 	  --log-file $(LOCAL_PATH_reocr_LOGS)/$*.log.gz \
 	    && \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      $(LOCAL_PATH_reocr_LOGS)/$*.log.gz $(S3_PATH_reocr_LOGS)/$*.log.gz \
 	      $@ $(S3_PATH_reocr_STAMPS)/$*.done \
 	    || { rm -vf $@ ; exit 1 ; }

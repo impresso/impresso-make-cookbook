@@ -35,7 +35,9 @@ MAX_LOAD ?= $(NPROC)
 #
 # This variable sets the maximum number of different newspapers to process in parallel.
 # Default: Half of available CPU cores
-COLLECTION_JOBS ?= $(shell v=$$(expr $(NPROC) / 2); [ "$$v" -lt 1 ] && v=1; echo $$v)
+COLLECTION_JOBS_DEFAULT := $(shell v=$$(expr $(NPROC) / 2); [ "$$v" -lt 1 ] && v=1; echo $$v)
+COLLECTION_JOBS_RAW := $(value COLLECTION_JOBS)
+override COLLECTION_JOBS := $(or $(strip $(COLLECTION_JOBS_RAW)),$(COLLECTION_JOBS_DEFAULT))
   $(call log.info, COLLECTION_JOBS)
 
 # USER-VARIABLE: NEWSPAPER_JOBS
@@ -44,7 +46,9 @@ COLLECTION_JOBS ?= $(shell v=$$(expr $(NPROC) / 2); [ "$$v" -lt 1 ] && v=1; echo
 # This variable sets the maximum number of parallel jobs to run when processing a
 # single newspaper. Auto-calculated to balance with COLLECTION_JOBS.
 # If COLLECTION_JOBS exceeds NPROC, this is clamped to 1 to avoid -j 0 (unlimited jobs).
-NEWSPAPER_JOBS ?= $(shell if [ "$(COLLECTION_JOBS)" -gt 0 ]; then v=$$(expr $(NPROC) / $(COLLECTION_JOBS)); [ "$$v" -lt 1 ] && v=1; echo $$v; else echo 1; fi)
+NEWSPAPER_JOBS_DEFAULT := $(shell if [ "$(COLLECTION_JOBS)" -gt 0 ]; then v=$$(expr $(NPROC) / $(COLLECTION_JOBS)); [ "$$v" -lt 1 ] && v=1; echo $$v; else echo 1; fi)
+NEWSPAPER_JOBS_RAW := $(value NEWSPAPER_JOBS)
+override NEWSPAPER_JOBS := $(or $(strip $(NEWSPAPER_JOBS_RAW)),$(NEWSPAPER_JOBS_DEFAULT))
   $(call log.info, NEWSPAPER_JOBS)
 
 # PARALLEL_DELAY: Delay in seconds between starting parallel jobs
@@ -107,8 +111,8 @@ endif
 # - processing-target: Performs the actual processing
 newspaper: | $(BUILD_DIR)
 	# MAKEFLAGS= $(MAKEFLAGS) 
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) sync
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) sync
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) processing-target
 
 .PHONY: newspaper
 
@@ -126,8 +130,8 @@ help-orchestration::
 # 2. Process data (parallel)
 # Note: The two Make invocations are separate to ensure sync completes before processing starts
 all:
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -j 1 sync-input resync-output
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 sync-input resync-output
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
 
 .PHONY: all
 
@@ -138,7 +142,7 @@ all:
 collection-xargs: newspaper-list-target
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k --max-load $(MAX_LOAD) all 
+		sh -c 'NEWSPAPER="$$1" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) all' sh {}
 
 
 check-parallel:
@@ -162,7 +166,7 @@ collection: check-parallel newspaper-list-target
 	   --memfree 1G \
 	   --load $(MAX_LOAD) \
 	   $(PARALLEL_HALT) \
-	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) -k -j --max-load $(MAX_LOAD) all"
+	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) all"
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
