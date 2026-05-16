@@ -3,19 +3,20 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_reocr.mk)
 # SYNC reocr processing TARGETS
 ###############################################################################
 
-LOCAL_REOCR_INPUT_SYNC_STAMP_FILE := $(LOCAL_PATH_REOCR_INPUT).last_synced
-  $(call log.debug, LOCAL_REOCR_INPUT_SYNC_STAMP_FILE)
-
-LOCAL_reocr_SYNC_STAMP_FILE := $(LOCAL_PATH_reocr_STAMPS).last_synced
-  $(call log.debug, LOCAL_reocr_SYNC_STAMP_FILE)
-
-LOCAL_reocr_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_reocr_PAGES).last_synced
-  $(call log.debug, LOCAL_reocr_PAGES_SYNC_STAMP_FILE)
-
 $(LOCAL_PATH_REOCR_INPUT).last_synced:
 	mkdir -p $(@D) && \
 	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_REOCR_INPUT) \
+	   --local-dir $(BUILD_DIR) \
+	   --stamp-mode per-file \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& touch $@
+
+$(LOCAL_PATH_REOCR_INPUT)/%.last_synced:
+	mkdir -p $(@D) && \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	   $(S3_PATH_REOCR_INPUT)/$* \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \
 	   --logfile $@.log.gz \
@@ -28,6 +29,19 @@ $(LOCAL_PATH_reocr_STAMPS).last_synced:
 	   $(S3_PATH_reocr_STAMPS) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \
+	   --file-extensions done \
+	   --remove-dangling-stamps \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& touch $@
+
+$(LOCAL_PATH_reocr_STAMPS)/%.last_synced:
+	mkdir -p $(@D) && \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	   $(S3_PATH_reocr_STAMPS)/$* \
+	   --local-dir $(BUILD_DIR) \
+	   --stamp-mode per-file \
+	   --file-extensions done \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
@@ -39,12 +53,25 @@ $(LOCAL_PATH_reocr_PAGES).last_synced:
 	   $(S3_PATH_reocr_PAGES) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \
+	   --file-extensions json \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& touch $@
 
-sync-reocr-input: $(LOCAL_REOCR_INPUT_SYNC_STAMP_FILE)
+$(LOCAL_PATH_reocr_PAGES)/%.last_synced:
+	mkdir -p $(@D) && \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	   $(S3_PATH_reocr_PAGES)/$* \
+	   --local-dir $(BUILD_DIR) \
+	   --stamp-mode per-file \
+	   --file-extensions json \
+	   --remove-dangling-stamps \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& touch $@
+
+sync-reocr-input: $(LOCAL_REOCR_INPUT_SYNC_STAMP_FILES)
 
 .PHONY: sync-reocr-input
 
@@ -52,8 +79,9 @@ help-sync::
 	@echo ""
 	@echo "RE-OCR INPUT SYNC:"
 	@echo "  sync-reocr-input # Synchronize re-OCR input issue archives from S3 to local stamp files"
+	@echo "                   # Set REOCR_YEARS=1814 to limit sync/processing to one or more years"
 
-sync-reocr: $(LOCAL_reocr_SYNC_STAMP_FILE)
+sync-reocr: $(LOCAL_reocr_SYNC_STAMP_FILES)
 
 .PHONY: sync-reocr
 
@@ -61,8 +89,9 @@ help-sync::
 	@echo ""
 	@echo "RE-OCR OUTPUT STATE SYNC:"
 	@echo "  sync-reocr       # Synchronize remote re-OCR done markers to local stamp files"
+	@echo "                   # Set REOCR_YEARS=1814 to limit output-state sync to selected years"
 
-sync-reocr-pages: $(LOCAL_reocr_PAGES_SYNC_STAMP_FILE)
+sync-reocr-pages: $(LOCAL_reocr_PAGES_SYNC_STAMP_FILES)
 
 .PHONY: sync-reocr-pages
 
