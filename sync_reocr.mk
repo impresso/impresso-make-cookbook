@@ -71,7 +71,31 @@ $(LOCAL_PATH_reocr_PAGES)/%.last_synced:
 	   --log-level $(LOGGING_LEVEL) \
 	&& touch $@
 
+define CheckReocrInputFilesAfterSync
+	@set -e; \
+	for dir in $(if $(REOCR_INPUT_YEAR_DIRS),$(REOCR_INPUT_YEAR_DIRS),.); do \
+	  if [ "$$dir" = "." ]; then \
+	    pattern="$(LOCAL_PATH_REOCR_INPUT)/*/*.jsonl.bz2"; \
+	    stamp="$(LOCAL_PATH_REOCR_INPUT).last_synced"; \
+	  else \
+	    pattern="$(LOCAL_PATH_REOCR_INPUT)/$$dir/*.jsonl.bz2"; \
+	    stamp="$(LOCAL_PATH_REOCR_INPUT)/$$dir.last_synced"; \
+	  fi; \
+	  if ! ls $$pattern >/dev/null 2>&1; then \
+	    echo "No local re-OCR input files found for $$dir after sync; refreshing $$stamp"; \
+	    rm -f "$$stamp"; \
+	    $(MAKE) -f $(firstword $(MAKEFILE_LIST)) "$$stamp"; \
+	  fi; \
+	  if ! ls $$pattern >/dev/null 2>&1; then \
+	    echo "ERROR: No re-OCR input files found for $$dir after refreshing input sync"; \
+	    rm -f "$$stamp"; \
+	    exit 1; \
+	  fi; \
+	done
+endef
+
 sync-reocr-input: $(LOCAL_REOCR_INPUT_SYNC_STAMP_FILES)
+	$(CheckReocrInputFilesAfterSync)
 
 .PHONY: sync-reocr-input
 
