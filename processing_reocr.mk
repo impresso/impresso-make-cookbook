@@ -50,6 +50,16 @@ $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	  $(if $(HF_FONT_REPO_reocr),--font-repo $(HF_FONT_REPO_reocr)) \
 	  $(if $(HF_FONT_MODEL_reocr),--font-model $(HF_FONT_MODEL_reocr)) \
 	  --run-id $(RUN_ID_reocr) \
+	  --sleep-after $(REOCR_SLEEP_AFTER) \
+	  --fallback-confidence $(REOCR_FALLBACK_CONFIDENCE) \
+	  --fallback-diff-ratio $(REOCR_FALLBACK_DIFF_RATIO) \
+	  --skew-threshold $(REOCR_SKEW_THRESHOLD) \
+	  --line-margin-extend $(REOCR_LINE_MARGIN_EXTEND) \
+	  --vertical-margin-reduce $(REOCR_VERTICAL_MARGIN_REDUCE) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_NO_SKEW)),--no-skew) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_NO_PSM)),--no-psm) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_MASK_TOKENS)),--mask-tokens) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_DEBUG)),--debug) \
 	  --log-level $(LOGGING_LEVEL) \
 	  --log-file $(LOCAL_PATH_reocr_LOGS)/$*.log.gz \
 	    && \

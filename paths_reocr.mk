@@ -39,6 +39,36 @@ HF_FONT_MODEL_reocr ?=
 REOCR_YEARS ?=
   $(call log.debug, REOCR_YEARS)
 
+REOCR_SLEEP_AFTER ?= 1.0
+  $(call log.debug, REOCR_SLEEP_AFTER)
+
+REOCR_FALLBACK_CONFIDENCE ?= 0
+  $(call log.debug, REOCR_FALLBACK_CONFIDENCE)
+
+REOCR_FALLBACK_DIFF_RATIO ?= 0.5
+  $(call log.debug, REOCR_FALLBACK_DIFF_RATIO)
+
+REOCR_SKEW_THRESHOLD ?= 1.5
+  $(call log.debug, REOCR_SKEW_THRESHOLD)
+
+REOCR_LINE_MARGIN_EXTEND ?= 0
+  $(call log.debug, REOCR_LINE_MARGIN_EXTEND)
+
+REOCR_VERTICAL_MARGIN_REDUCE ?= 0
+  $(call log.debug, REOCR_VERTICAL_MARGIN_REDUCE)
+
+REOCR_NO_SKEW ?= 0
+  $(call log.debug, REOCR_NO_SKEW)
+
+REOCR_NO_PSM ?= 0
+  $(call log.debug, REOCR_NO_PSM)
+
+REOCR_MASK_TOKENS ?= 0
+  $(call log.debug, REOCR_MASK_TOKENS)
+
+REOCR_DEBUG ?= 0
+  $(call log.debug, REOCR_DEBUG)
+
 RUN_VERSION_reocr ?= v1-0-0
   $(call log.debug, RUN_VERSION_reocr)
 
@@ -165,5 +195,17 @@ help-path-variables::
 	@echo "  TESSERACT_MODEL_URL_reocr=$(TESSERACT_MODEL_URL_reocr)"
 	@echo "  HF_FONT_REPO_reocr=$(HF_FONT_REPO_reocr)"
 	@echo "  HF_FONT_MODEL_reocr=$(HF_FONT_MODEL_reocr)"
+	@echo ""
+	@echo "RE-OCR PROCESSING SETTINGS:"
+	@echo "  REOCR_SLEEP_AFTER=$(REOCR_SLEEP_AFTER)"
+	@echo "  REOCR_FALLBACK_CONFIDENCE=$(REOCR_FALLBACK_CONFIDENCE)"
+	@echo "  REOCR_FALLBACK_DIFF_RATIO=$(REOCR_FALLBACK_DIFF_RATIO)"
+	@echo "  REOCR_SKEW_THRESHOLD=$(REOCR_SKEW_THRESHOLD)"
+	@echo "  REOCR_LINE_MARGIN_EXTEND=$(REOCR_LINE_MARGIN_EXTEND)"
+	@echo "  REOCR_VERTICAL_MARGIN_REDUCE=$(REOCR_VERTICAL_MARGIN_REDUCE)"
+	@echo "  REOCR_NO_SKEW=$(REOCR_NO_SKEW)"
+	@echo "  REOCR_NO_PSM=$(REOCR_NO_PSM)"
+	@echo "  REOCR_MASK_TOKENS=$(REOCR_MASK_TOKENS)"
+	@echo "  REOCR_DEBUG=$(REOCR_DEBUG)"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/paths_reocr.mk)
