@@ -39,6 +39,7 @@ reocr-files-target: $(LOCAL_reocr_DONE_FILES)
 $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) $(dir $(LOCAL_PATH_reocr_LOGS)/$*.log.gz) $(LOCAL_PATH_reocr_WORK) && \
+	set +e; \
 	$(PYTHON) lib/cli_reocr.py \
 	  --input $(call LocalToS3,$<) \
 	  --output-prefix $(S3_PATH_reocr) \
@@ -61,11 +62,18 @@ $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	  $(if $(filter 1 true TRUE yes YES,$(REOCR_MASK_TOKENS)),--mask-tokens) \
 	  $(if $(filter 1 true TRUE yes YES,$(REOCR_DEBUG)),--debug) \
 	  --log-level $(LOGGING_LEVEL) \
-	  --log-file $(LOCAL_PATH_reocr_LOGS)/$*.log.gz \
-	    && \
-	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
-	      $(LOCAL_PATH_reocr_LOGS)/$*.log.gz $(S3_PATH_reocr_LOGS)/$*.log.gz \
-	      $@ $(S3_PATH_reocr_STAMPS)/$*.done \
-	    || { rm -vf $@ ; exit 1 ; }
+	  --log-file $(LOCAL_PATH_reocr_LOGS)/$*.log.gz ; \
+	status=$$?; \
+	set -e; \
+	if [ $$status -eq 2 ]; then \
+	  echo "No new re-OCR pages computed for $*; keeping local done marker and skipping log/done S3 sync"; \
+	elif [ $$status -eq 0 ]; then \
+	  $(PYTHON) -m impresso_cookbook.local_to_s3 \
+	    $(LOCAL_PATH_reocr_LOGS)/$*.log.gz $(S3_PATH_reocr_LOGS)/$*.log.gz \
+	    $@ $(S3_PATH_reocr_STAMPS)/$*.done ; \
+	else \
+	  rm -vf $@ ; \
+	  exit $$status ; \
+	fi
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_reocr.mk)
