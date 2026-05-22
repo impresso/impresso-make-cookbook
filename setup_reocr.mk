@@ -3,13 +3,22 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_reocr.mk)
 # SETUP TARGETS
 ###############################################################################
 
-setup:: check-reocr-tools
+setup:: check-reocr-tools setup-reocr-tesseract-model
 
 check-reocr-tools:
 	@command -v tesseract >/dev/null 2>&1 || (echo "Missing required command: tesseract"; exit 1)
 	@command -v ssh >/dev/null 2>&1 || (echo "Missing required command: ssh"; exit 1)
 
 .PHONY: check-reocr-tools
+
+setup-reocr-tesseract-model:
+	$(PYTHON) lib/cli_reocr_setup.py \
+	  --tesseract-repo $(HF_TESSERACT_REPO_reocr) \
+	  --tesseract-model $(HF_TESSERACT_MODEL_reocr) \
+	  $(if $(TESSERACT_MODEL_URL_reocr),--tesseract-model-url $(TESSERACT_MODEL_URL_reocr)) \
+	  --log-level $(LOGGING_LEVEL)
+
+.PHONY: setup-reocr-tesseract-model
 
 check-reocr-tunnel-env:
 	@test -n "$$IMPRESSO_CANTALOUPE_USER" || (echo "Missing IMPRESSO_CANTALOUPE_USER"; exit 1)
@@ -30,6 +39,7 @@ check-reocr-tunnel: check-reocr-tools check-reocr-tunnel-env
 .PHONY: check-reocr-tunnel
 
 help-setup::
+	@echo "  setup-reocr-tesseract-model # Download/cache the configured HF Tesseract model"
 	@echo "  reocr-tunnel       # Open and keep the IIIF SSH tunnel alive for parallel re-OCR"
 	@echo "  check-reocr-tunnel # Check whether the local IIIF tunnel port is already open"
 

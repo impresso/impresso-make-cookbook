@@ -21,7 +21,7 @@ TASK_reocr ?= page-tesseract
 MODEL_ID_reocr ?= german_print_20
   $(call log.debug, MODEL_ID_reocr)
 
-HF_TESSERACT_REPO_reocr ?= impresso-project/ocr-models
+HF_TESSERACT_REPO_reocr ?= impresso-project/german_print_20
   $(call log.debug, HF_TESSERACT_REPO_reocr)
 
 HF_TESSERACT_MODEL_reocr ?= german_print_20.traineddata
