@@ -19,4 +19,18 @@ check-reocr-tunnel-env:
 
 .PHONY: check-reocr-tunnel-env
 
+reocr-tunnel: check-reocr-tools check-reocr-tunnel-env
+	$(PYTHON) lib/cli_iiif_tunnel.py
+
+.PHONY: reocr-tunnel
+
+check-reocr-tunnel: check-reocr-tools check-reocr-tunnel-env
+	$(PYTHON) lib/cli_iiif_tunnel.py --check
+
+.PHONY: check-reocr-tunnel
+
+help-setup::
+	@echo "  reocr-tunnel       # Open and keep the IIIF SSH tunnel alive for parallel re-OCR"
+	@echo "  check-reocr-tunnel # Check whether the local IIIF tunnel port is already open"
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_reocr.mk)
