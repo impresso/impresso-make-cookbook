@@ -76,21 +76,37 @@ NEWSPAPER_FNMATCH ?=
 LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_synced
   $(call log.debug, LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
+# VARIABLE: LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE
+# Local synchronization stamp file for canonical audio input data.
+LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_AUDIOS).last_synced
+  $(call log.debug, LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
+
+# VARIABLE: LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES
+# Selected canonical synchronization stamps. In auto mode, sync both record
+# layouts and let the discovered stamps decide which files feed processing.
+ifeq ($(CANONICAL_INPUT_KIND),audios)
+LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES := $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
+else ifeq ($(CANONICAL_INPUT_KIND),pages)
+LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES := $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+else
+LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES := $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE) $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
+endif
+  $(call log.debug, LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
 
 # TARGET: sync-canonical
-#: Synchronize canonical pages input data from S3 to local storage
+#: Synchronize canonical pages/audio input data from S3 to local storage
 #
-# This target ensures that the canonical pages data is available locally
+# This target ensures that the canonical record data is available locally
 # by triggering the synchronization process if needed. It depends on the
 # stamp file to determine if synchronization is required.
-sync-canonical: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+sync-canonical: $(LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
 
 .PHONY: sync-canonical
 
 help-sync::
 	@echo ""
 	@echo "CANONICAL INPUT SYNC:"
-	@echo "  sync-canonical # Synchronize canonical pages input data from S3"
+	@echo "  sync-canonical # Synchronize canonical pages/audio input data from S3"
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp
@@ -102,7 +118,7 @@ help-sync::
 # without downloading actual page data - the langident processing reads pages directly
 # from S3 using the year directory as a prefix pattern.
 $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
-	# creating $@ 
+	# creating $@
 	mkdir -p $(@D) \
 	&& \
 	python -m impresso_cookbook.s3_to_local_stamps  \
@@ -117,5 +133,27 @@ $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
 	touch $@
 
   $(call log.debug,LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+
+# STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_AUDIOS).last_synced
+#: Sync canonical audio data from S3 and create synchronization stamp
+#
+# Creates directory-level stamp files (with .stamp suffix) to track synchronization
+# of yearly audio record collections.
+$(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE):
+	# creating $@
+	mkdir -p $(@D) \
+	&& \
+	python -m impresso_cookbook.s3_to_local_stamps  \
+	   $(S3_PATH_CANONICAL_AUDIOS) \
+	   --local-dir $(BUILD_DIR) \
+	   --stamp-mode per-directory \
+	   --directory-level 1 \
+	   --remove-dangling-stamps \
+	   --logfile $@.log.gz \
+	   --log-level $(LOGGING_LEVEL) \
+	&& \
+	touch $@
+
+  $(call log.debug,LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_canonical.mk)

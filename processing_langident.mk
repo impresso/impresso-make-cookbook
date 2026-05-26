@@ -454,20 +454,26 @@ $(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2
 endef
 
 
-# FUNCTION: LocalCanonicalStampToLangidentSystemsFile
-# Converts a canonical stamp file name to a local langident stage1 file name.
+# FUNCTION: LocalCanonicalInputStampToLangidentSystemsFile
+# Converts a canonical pages/audio stamp file name to a local langident stage1 file name.
 #
 # Canonical stamps have hard-coded .stamp suffix for yearly directories.
-define LocalCanonicalStampToLangidentSystemsFile
-$(1:$(LOCAL_PATH_CANONICAL_PAGES)/%.stamp=$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2)
+define LocalCanonicalInputStampToLangidentSystemsFile
+$(patsubst $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp,$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2,$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2,$(1)))
 endef
 
-# FUNCTION: CanonicalPagesToIssuesPath
-# Converts a canonical pages path to the corresponding issues metadata path.
+# FUNCTION: CanonicalInputToIssuesPath
+# Converts a canonical pages/audio path to the corresponding issues metadata path.
 #
 # Example: build.d/112-canonical-final/BL/AATA/pages/AATA-1846 -> build.d/112-canonical-final/BL/AATA/issues/AATA-1846-issues.jsonl.bz2
-define CanonicalPagesToIssuesPath
-$(subst /pages/,/issues/,$(1))-issues.jsonl.bz2
+define CanonicalInputToIssuesPath
+$(subst /audios/,/issues/,$(subst /pages/,/issues/,$(1)))-issues.jsonl.bz2
+endef
+
+# FUNCTION: CanonicalInputKindFromPath
+# Resolves canonical input kind from a local canonical stamp path.
+define CanonicalInputKindFromPath
+$(if $(findstring /audios/,$(1)),audios,pages)
 endef
 
 
@@ -513,7 +519,7 @@ endef
 # Stores the list of language identification stage1 files based on rebuilt or canonical stamp files.
 ifeq ($(USE_CANONICAL),1)
 LOCAL_LANGIDENT_SYSTEMS_FILES := \
-    $(call LocalCanonicalStampToLangidentSystemsFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST))
+    $(call LocalCanonicalInputStampToLangidentSystemsFile,$(LOCAL_CANONICAL_INPUT_STAMP_FILE_LIST))
 else
 LOCAL_LANGIDENT_SYSTEMS_FILES := \
     $(call LocalRebuiltToLangidentStage1File,$(LOCAL_REBUILT_STAMP_FILES))
@@ -582,7 +588,7 @@ help-processing::
 # Uses recursive make to recompute file lists after sync creates new stamp files.
 ifeq ($(USE_CANONICAL),1)
 
-langident-systems-target : $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+langident-systems-target : sync-canonical
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) langident-systems-files-target
 
 else
@@ -686,8 +692,56 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 	&& \
 	python3 lib/impresso_langident_systems.py \
 		$(LANGIDENT_FORMAT_OPTION) \
+		--canonical-input-kind $(call CanonicalInputKindFromPath,$<) \
 		--infile $(call LocalToS3,$(basename $<)) \
-		--issue-file $(call LocalToS3,$(call CanonicalPagesToIssuesPath,$(basename $<))) \
+		--issue-file $(call LocalToS3,$(call CanonicalInputToIssuesPath,$(basename $<))) \
+		--outfile $@ \
+		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
+		--impresso-ft $(LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
+		--wp-ft $(LANGIDENT_SYSTEMS_WP_FASTTEXT_MODEL_OPTION) \
+		--minimal-text-length $(LANGIDENT_SYSTEMS_MINIMAL_TEXT_LENGTH_OPTION) \
+		--alphabetical-ratio-threshold $(LANGIDENT_SYSTEMS_ALPHABETICAL_THRESHOLD_OPTION) \
+		--round-ndigits $(LANGIDENT_ROUND_NDIGITS_OPTION) \
+		--git-describe $(GIT_VERSION) \
+		--log-file $@.log.gz \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		$(LANGIDENT_LOCAL_FILES_ONLY_OPTION) \
+		$(LANGIDENT_OCRQA_OPTION) \
+		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
+		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
+	&& python3 -m impresso_cookbook.local_to_s3 \
+		--set-timestamp --log-level $(LANGIDENT_LOGGING_LEVEL) \
+		$(LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION) \
+		$@ $(call LocalToS3,$@) \
+		$@.log.gz $(call LocalToS3,$@).log.gz \
+	&& python3 -m impresso_cookbook.manage_s3_wip release \
+		--s3-target $(call LocalToS3,$@) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+	|| { rm -vf $@ ; \
+	     python3 -m impresso_cookbook.manage_s3_wip release \
+	         --s3-target $(call LocalToS3,$@) \
+	         --log-level $(LANGIDENT_LOGGING_LEVEL) || true ; \
+	     exit 1 ; }
+
+# FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 (canonical audio version)
+#: Rule to process a single radio source from canonical audio format.
+$(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+	python3 -m impresso_cookbook.manage_s3_wip acquire \
+		--s3-target $(call LocalToS3,$@) \
+		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
+		--log-level $(LANGIDENT_LOGGING_LEVEL) \
+		--local-target $@ \
+		--files $@ $@.log.gz \
+		$(LANGIDENT_WIP_FORCE_STAGE1) \
+	|| { status=$$?; case $$status in 2|3) exit 0 ;; *) exit $$status ;; esac; } \
+	&& \
+	python3 lib/impresso_langident_systems.py \
+		$(LANGIDENT_FORMAT_OPTION) \
+		--canonical-input-kind $(call CanonicalInputKindFromPath,$<) \
+		--infile $(call LocalToS3,$(basename $<)) \
+		--issue-file $(call LocalToS3,$(call CanonicalInputToIssuesPath,$(basename $<))) \
 		--outfile $@ \
 		--lids $(LANGIDENT_SYSTEMS_LIDS_OPTION) \
 		--impresso-ft $(LANGIDENT_SYSTEMS_IMPPRESSO_FASTTEXT_MODEL_OPTION) \
