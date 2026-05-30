@@ -103,10 +103,25 @@ sync-canonical: $(LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
 
 .PHONY: sync-canonical
 
+clean-sync-input:: clean-sync-canonical
+
+clean-sync-canonical:
+	rm -vf \
+	  $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE) \
+	  $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE).log.gz \
+	  $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE) \
+	  $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE).log.gz \
+	  || true
+
+.PHONY: clean-sync-canonical
+
 help-sync::
 	@echo ""
 	@echo "CANONICAL INPUT SYNC:"
 	@echo "  sync-canonical # Synchronize canonical pages/audio input data from S3"
+
+help-clean::
+	@echo "  clean-sync-canonical # Remove local canonical input sync stamp files"
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp

@@ -1,27 +1,26 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_consolidatedcanonical.mk)
 ###############################################################################
 # consolidatedcanonical TARGETS
-# Targets for processing newspaper content with language identification
+# Targets for processing canonical content with language identification
 # and OCR quality assessment consolidation
 #
-# This module consolidates canonical newspaper data with langident/OCRQA
+# This module consolidates canonical issue data with langident/OCRQA
 # enrichments to produce consolidated canonical format with all
 # consolidated_* properties as defined in issue.schema.json
 #
 # Input Requirements:
 # - Canonical issues from s3://112-canonical-final/ (JSONL format)
-# - Canonical pages from s3://112-canonical-final/ (JSONL format)
+# - Canonical pages or audios from s3://112-canonical-final/ (JSONL format)
 # - Langident/OCRQA enrichments from s3://115-canonical-processed-final/
-# - Exact 1:1 correspondence between content items required
 #
 # Processing:
 # - Issues: Renames lg → lg_original, adds consolidated_* fields
-# - Pages: Copies from canonical to consolidated bucket (future: data mixing)
+# - Records: Copies pages/audios from canonical to consolidated bucket
 # - Sets consolidated=true and updates timestamps
 #
 # Output:
 # - Consolidated canonical issues (JSONL format)
-# - Consolidated canonical pages (JSONL format, copied)
+# - Consolidated canonical pages/audios (JSONL format, copied)
 ###############################################################################
 
 # USER-VARIABLE: CONSOLIDATEDCANONICAL_VALIDATE_OPTION
@@ -60,22 +59,11 @@ sync-input :: sync-consolidatedcanonical-input
 # Main processing target for consolidatedcanonical
 processing-target :: consolidatedcanonical-target
 
-# VARIABLE: LOCAL_CANONICAL_ISSUES_STAMP_FILES
-# Stores all locally available canonical issue stamp files for dependency tracking
-# Note: We sync canonical pages which include yearly stamps, but we need issue files
-# Looks for stamp files with hard-coded .stamp suffix
-LOCAL_CANONICAL_ISSUES_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_ISSUES)/*.stamp 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
-  $(call log.debug, LOCAL_CANONICAL_ISSUES_STAMP_FILES)
-
-# VARIABLE: LOCAL_CANONICAL_PAGES_STAMP_FILES
-# Stores all locally available canonical pages stamp files for dependency tracking
-# These are yearly stamps with hard-coded .stamp suffix (e.g., NEWSPAPER-YEAR.stamp) that track page sync status
-LOCAL_CANONICAL_PAGES_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*.stamp 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
-  $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_FILES)
+# VARIABLE: LOCAL_CANONICAL_RECORD_STAMP_FILES
+# Stores selected locally available canonical record stamp files for dependency tracking.
+# Values come from paths_canonical.mk and may include pages, audios, or both in auto mode.
+LOCAL_CANONICAL_RECORD_STAMP_FILES := $(LOCAL_CANONICAL_INPUT_STAMP_FILE_LIST)
+  $(call log.debug, LOCAL_CANONICAL_RECORD_STAMP_FILES)
 
 # VARIABLE: LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES
 # Stores all locally available langident enrichment stamp files for dependency tracking
@@ -85,69 +73,67 @@ LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES := \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_LANGIDENT_ENRICHMENT_STAMP_FILES)
 
-# FUNCTION: LocalCanonicalIssuesToConsolidatedIssueFile
-# Converts a local canonical pages stamp file to the corresponding consolidated issues file
-# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
+# FUNCTION: LocalCanonicalRecordToConsolidatedIssueFile
+# Converts a local canonical page/audio record stamp file to the corresponding consolidated issues file
+# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages-or-audios/NEWSPAPER-YEAR.stamp
 # Output: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/NEWSPAPER-YEAR-issues.jsonl.bz2
-# Note: Uses pages stamps as proxy since sync-canonical only syncs pages (issues are yearly, same granularity)
-define LocalCanonicalIssuesToConsolidatedIssueFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(1))
+define LocalCanonicalRecordToConsolidatedIssueFile
+$(patsubst $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2,$(1)))
 endef
 
-# FUNCTION: LocalCanonicalToEnrichmentFile
-# Converts a local canonical stamp file to the corresponding enrichment file
-# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
+# FUNCTION: LocalCanonicalRecordToEnrichmentFile
+# Converts a local canonical page/audio stamp file to the corresponding enrichment file
+# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages-or-audios/NEWSPAPER-YEAR.stamp
 # Output: build.d/115-canonical-processed-final/langident/RUN_ID/CANONICAL_PATH_SEGMENT/NEWSPAPER-YEAR.jsonl.bz2
 # Note: Canonical stamps have hard-coded .stamp suffix, output is .jsonl.bz2 (the actual enrichment file)
-define LocalCanonicalToEnrichmentFile
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(1))
+define LocalCanonicalRecordToEnrichmentFile
+$(patsubst $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp,$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2,$(1)))
 endef
 
-# FUNCTION: LocalCanonicalPagesToConsolidatedStamp
-# Converts a local canonical pages stamp file to a consolidated pages stamp file
-# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
-# Output: build.d/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages/NEWSPAPER-YEAR.stamp
+# FUNCTION: LocalCanonicalRecordToConsolidatedRecordStamp
+# Converts a local canonical page/audio stamp file to a consolidated record stamp file
+# Input: build.d/112-canonical-final/CANONICAL_PATH_SEGMENT/pages-or-audios/NEWSPAPER-YEAR.stamp
+# Output: build.d/118-canonical-consolidated-final/VERSION/CANONICAL_PATH_SEGMENT/pages-or-audios/NEWSPAPER-YEAR.stamp
 # Note: Both input and output use hard-coded .stamp suffix for tracking sync status
-define LocalCanonicalPagesToConsolidatedStamp
-$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp,$(1))
+define LocalCanonicalRecordToConsolidatedRecordStamp
+$(patsubst $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/%.stamp,$(patsubst $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp,$(1)))
 endef
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES
-# Stores the list of consolidated canonical issues files based on canonical pages stamp files
-# Note: Uses pages stamps since sync-canonical only syncs pages (issues are yearly, same as pages stamps)
+# Stores the list of consolidated canonical issues files based on canonical record stamp files
 LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES := \
-    $(call LocalCanonicalIssuesToConsolidatedIssueFile,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
+    $(call LocalCanonicalRecordToConsolidatedIssueFile,$(LOCAL_CANONICAL_RECORD_STAMP_FILES))
   $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES)
 
-# VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS
-# Stores the list of consolidated pages stamp files based on canonical pages stamps
-# These track the copy/processing status of pages data
-LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS := \
-    $(call LocalCanonicalPagesToConsolidatedStamp,$(LOCAL_CANONICAL_PAGES_STAMP_FILES))
-  $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS)
+# VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_RECORD_STAMPS
+# Stores the list of consolidated record stamp files based on canonical record stamps.
+# These track the copy/processing status of pages/audio data.
+LOCAL_CONSOLIDATEDCANONICAL_RECORD_STAMPS := \
+    $(call LocalCanonicalRecordToConsolidatedRecordStamp,$(LOCAL_CANONICAL_RECORD_STAMP_FILES))
+  $(call log.info, LOCAL_CONSOLIDATEDCANONICAL_RECORD_STAMPS)
 
 # TARGET: consolidatedcanonical-target
-#: Processes newspaper content with consolidated canonical format
+#: Processes canonical content with consolidated canonical format
 #
-# Merges canonical issues with langident/OCRQA enrichments and copies pages.
+# Merges canonical issues with langident/OCRQA enrichments and copies records.
 # Uses recursive make to ensure input data is synced before building file list.
 # Depends on:
-#   - sync-canonical: Syncs canonical pages data
-#   - sync-langident: Syncs langident enrichment data for consolidation
-consolidatedcanonical-target: sync-canonical sync-langident
+#   - sync-canonical: Syncs canonical pages/audio data
+#   - sync-consolidatedcanonical-langident: Syncs final langident enrichment data
+consolidatedcanonical-target: sync-canonical sync-consolidatedcanonical-langident
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) consolidatedcanonical-files-target
 
 .PHONY: consolidatedcanonical-target
 
 # TARGET: consolidatedcanonical-files-target
-#: Internal target that builds the actual consolidated files (issues and pages)
+#: Internal target that builds the actual consolidated files (issues and records)
 # Called recursively after sync to ensure stamp files are available
-consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_STAMPS)
+consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $(LOCAL_CONSOLIDATEDCANONICAL_RECORD_STAMPS)
 
 .PHONY: consolidatedcanonical-files-target
 
 # FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2
-#: Rule to process a single newspaper year
+#: Rule to process a single year from canonical page stamps
 #
 # Pattern matches consolidated canonical output files for the current newspaper.
 # 
@@ -163,19 +149,42 @@ consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $
 # - Uploads to S3
 $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp \
-    $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
+    $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_consolidatedcanonical.py \
+    $(PYTHON) lib/cli_consolidatedcanonical.py \
       --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
-      --enrichment-input $(call LocalToS3,$(word 2,$^)) \
+      --enrichment-input $(S3_PATH_LANGIDENT)/$*.jsonl.bz2 \
       --output $@ \
       --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
       $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
       --log-level $(LOGGING_LEVEL) \
       --log-file $@.log.gz \
     && \
-    python3 -m impresso_cookbook.local_to_s3 \
+    $(PYTHON) -m impresso_cookbook.local_to_s3 \
+    --set-timestamp --log-level $(LOGGING_LEVEL) \
+	  --keep-timestamp-only $(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION) \
+      $@        $(call LocalToS3,$@,'') \
+      $@.log.gz $(call LocalToS3,$@,'').log.gz \
+    || { rm -vf $@ ; exit 1; }
+
+# FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2
+#: Rule to process a single year from canonical audio stamps
+$(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
+    $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp \
+    $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+    $(PYTHON) lib/cli_consolidatedcanonical.py \
+      --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
+      --enrichment-input $(S3_PATH_LANGIDENT)/$*.jsonl.bz2 \
+      --output $@ \
+      --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
+      $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
+      --log-level $(LOGGING_LEVEL) \
+      --log-file $@.log.gz \
+    && \
+    $(PYTHON) -m impresso_cookbook.local_to_s3 \
     --set-timestamp --log-level $(LOGGING_LEVEL) \
 	  --keep-timestamp-only $(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION) \
       $@        $(call LocalToS3,$@,'') \
@@ -205,6 +214,23 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp: \
 		--endpoint-url $(SE_HOST_URL) \
 		$(S3_PATH_CANONICAL_PAGES)/$*/ \
 		$(S3_PATH_CONSOLIDATEDCANONICAL_PAGES)/$*/ \
+	&& touch $@
+
+# FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/%.stamp
+#: Rule to copy audio data from canonical to consolidated bucket
+#
+# Pattern matches consolidated canonical audio stamps for the current source.
+# Dependencies:
+# - Canonical audios stamp (.stamp file from sync)
+$(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/%.stamp: \
+    $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp
+	$(MAKE_SILENCE_RECIPE) \
+	mkdir -p $(@D) && \
+	AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws s3 cp \
+		--recursive \
+		--endpoint-url $(SE_HOST_URL) \
+		$(S3_PATH_CANONICAL_AUDIOS)/$*/ \
+		$(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/$*/ \
 	&& touch $@
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_consolidatedcanonical.mk)

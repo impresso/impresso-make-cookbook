@@ -130,7 +130,7 @@ help-orchestration::
 # 2. Process data (parallel)
 # Note: The two Make invocations are separate to ensure sync completes before processing starts
 all:
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 sync-input resync-output
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 resync-input resync-output
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
 
 .PHONY: all

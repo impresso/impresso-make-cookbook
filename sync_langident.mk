@@ -346,8 +346,17 @@ help-sync::
 	@echo "  sync-langident # Synchronize langident stage1 and ensemble data from/to S3"
 
 # TARGET: clean-sync-langident
+clean-sync-input:: clean-sync-langident
+
 clean-sync-langident:
-	rm -fv $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
+	rm -fv \
+	  $(LOCAL_LANGIDENT_SYNC_STAMP_FILE) \
+	  $(LOCAL_LANGIDENT_SYNC_STAMP_FILE).log.gz \
+	  $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) \
+	  $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE).log.gz \
+	  || true
+
+.PHONY: clean-sync-langident
 
 help-clean::
 	@echo "  clean-sync-langident # Remove local langident sync stamp files"
