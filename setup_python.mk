@@ -99,4 +99,16 @@ update-pip-requirements-file:
 help-setup::
 	@echo "  update-pip-requirements-file # Lock deps and regenerate requirements.txt"
 
+
+# TARGET: clean-setup
+#: Remove local Python setup/cache artifacts
+clean-setup::
+	# Removing Python bytecode caches...
+	rm -rvf lib/__pycache__ || true
+
+.PHONY: clean-setup
+
+help-setup::
+	@echo "  clean-setup     # Remove local Python setup/cache artifacts"
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_python.mk)
