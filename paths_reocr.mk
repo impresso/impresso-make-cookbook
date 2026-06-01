@@ -69,6 +69,18 @@ REOCR_MASK_TOKENS ?= 0
 REOCR_DEBUG ?= 0
   $(call log.debug, REOCR_DEBUG)
 
+PROCESS_COLLECTED_LABEL_reocr ?= reocr-collected
+  $(call log.debug, PROCESS_COLLECTED_LABEL_reocr)
+
+REOCR_COLLECT_YEARS ?= $(REOCR_YEARS)
+  $(call log.debug, REOCR_COLLECT_YEARS)
+
+REOCR_NORMALIZATION_PROFILE ?= hyphen-ascii
+  $(call log.debug, REOCR_NORMALIZATION_PROFILE)
+
+REOCR_SYNTHESIZE_FALLBACK_LINES ?= 1
+  $(call log.debug, REOCR_SYNTHESIZE_FALLBACK_LINES)
+
 RUN_VERSION_reocr ?= v1-0-0
   $(call log.debug, RUN_VERSION_reocr)
 
@@ -89,6 +101,9 @@ REOCR_INPUT_TITLE := $(notdir $(CANONICAL_PATH_SEGMENT))
 
 REOCR_INPUT_YEAR_DIRS := $(foreach year,$(REOCR_YEARS),$(REOCR_INPUT_TITLE)-$(year))
   $(call log.debug, REOCR_INPUT_YEAR_DIRS)
+
+REOCR_COLLECT_YEAR_DIRS := $(foreach year,$(REOCR_COLLECT_YEARS),$(REOCR_INPUT_TITLE)-$(year))
+  $(call log.debug, REOCR_COLLECT_YEAR_DIRS)
 
 REOCR_INPUT_SINGLE_YEAR_DIR := $(if $(filter 1,$(words $(REOCR_INPUT_YEAR_DIRS))),$(firstword $(REOCR_INPUT_YEAR_DIRS)))
   $(call log.debug, REOCR_INPUT_SINGLE_YEAR_DIR)
@@ -153,6 +168,42 @@ LOCAL_PATH_reocr_LOGS := $(LOCAL_PATH_reocr)/logs
 LOCAL_PATH_reocr_WORK := $(LOCAL_PATH_reocr)/work
   $(call log.debug, LOCAL_PATH_reocr_WORK)
 
+PATH_reocr_COLLECTED := $(S3_BUCKET_reocr)/$(PROCESS_COLLECTED_LABEL_reocr)/$(RUN_ID_reocr)/$(CANONICAL_PATH_SEGMENT)
+  $(call log.debug, PATH_reocr_COLLECTED)
+
+S3_PATH_reocr_COLLECTED := s3://$(PATH_reocr_COLLECTED)
+  $(call log.debug, S3_PATH_reocr_COLLECTED)
+
+S3_PATH_reocr_COLLECTED_PAGES := $(S3_PATH_reocr_COLLECTED)/pages
+  $(call log.debug, S3_PATH_reocr_COLLECTED_PAGES)
+
+S3_PATH_reocr_COLLECTED_STATS := $(S3_PATH_reocr_COLLECTED)/stats
+  $(call log.debug, S3_PATH_reocr_COLLECTED_STATS)
+
+S3_PATH_reocr_COLLECTED_LOGS := $(S3_PATH_reocr_COLLECTED)/logs
+  $(call log.debug, S3_PATH_reocr_COLLECTED_LOGS)
+
+S3_PATH_reocr_COLLECTED_STAMPS := $(S3_PATH_reocr_COLLECTED)/stamps
+  $(call log.debug, S3_PATH_reocr_COLLECTED_STAMPS)
+
+LOCAL_PATH_reocr_COLLECTED := $(BUILD_DIR)/$(PATH_reocr_COLLECTED)
+  $(call log.debug, LOCAL_PATH_reocr_COLLECTED)
+
+LOCAL_PATH_reocr_COLLECTED_PAGES := $(LOCAL_PATH_reocr_COLLECTED)/pages
+  $(call log.debug, LOCAL_PATH_reocr_COLLECTED_PAGES)
+
+LOCAL_PATH_reocr_COLLECTED_STATS := $(LOCAL_PATH_reocr_COLLECTED)/stats
+  $(call log.debug, LOCAL_PATH_reocr_COLLECTED_STATS)
+
+LOCAL_PATH_reocr_COLLECTED_LOGS := $(LOCAL_PATH_reocr_COLLECTED)/logs
+  $(call log.debug, LOCAL_PATH_reocr_COLLECTED_LOGS)
+
+LOCAL_PATH_reocr_COLLECTED_STAMPS := $(LOCAL_PATH_reocr_COLLECTED)/stamps
+  $(call log.debug, LOCAL_PATH_reocr_COLLECTED_STAMPS)
+
+LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE := $(LOCAL_PATH_reocr_COLLECTED).last_synced
+  $(call log.debug, LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE)
+
 help-path-variables::
 	@echo ""
 	@echo "RE-OCR INPUT PATHS:"
@@ -188,6 +239,24 @@ help-path-variables::
 	@echo "  LOCAL_reocr_SYNC_STAMP_FILE=$(LOCAL_reocr_SYNC_STAMP_FILE)"
 	@echo "  LOCAL_PATH_reocr_LOGS=$(LOCAL_PATH_reocr_LOGS)"
 	@echo "  LOCAL_PATH_reocr_WORK=$(LOCAL_PATH_reocr_WORK)"
+	@echo ""
+	@echo "RE-OCR COLLECTED OUTPUT PATHS:"
+	@echo "  PROCESS_COLLECTED_LABEL_reocr=$(PROCESS_COLLECTED_LABEL_reocr)"
+	@echo "  REOCR_COLLECT_YEARS=$(REOCR_COLLECT_YEARS)"
+	@echo "  REOCR_NORMALIZATION_PROFILE=$(REOCR_NORMALIZATION_PROFILE)"
+	@echo "  REOCR_SYNTHESIZE_FALLBACK_LINES=$(REOCR_SYNTHESIZE_FALLBACK_LINES)"
+	@echo "  REOCR_COLLECT_YEAR_DIRS=$(REOCR_COLLECT_YEAR_DIRS)"
+	@echo "  S3_PATH_reocr_COLLECTED=$(S3_PATH_reocr_COLLECTED)"
+	@echo "  S3_PATH_reocr_COLLECTED_PAGES=$(S3_PATH_reocr_COLLECTED_PAGES)"
+	@echo "  S3_PATH_reocr_COLLECTED_STATS=$(S3_PATH_reocr_COLLECTED_STATS)"
+	@echo "  S3_PATH_reocr_COLLECTED_LOGS=$(S3_PATH_reocr_COLLECTED_LOGS)"
+	@echo "  S3_PATH_reocr_COLLECTED_STAMPS=$(S3_PATH_reocr_COLLECTED_STAMPS)"
+	@echo "  LOCAL_PATH_reocr_COLLECTED=$(LOCAL_PATH_reocr_COLLECTED)"
+	@echo "  LOCAL_PATH_reocr_COLLECTED_PAGES=$(LOCAL_PATH_reocr_COLLECTED_PAGES)"
+	@echo "  LOCAL_PATH_reocr_COLLECTED_STATS=$(LOCAL_PATH_reocr_COLLECTED_STATS)"
+	@echo "  LOCAL_PATH_reocr_COLLECTED_LOGS=$(LOCAL_PATH_reocr_COLLECTED_LOGS)"
+	@echo "  LOCAL_PATH_reocr_COLLECTED_STAMPS=$(LOCAL_PATH_reocr_COLLECTED_STAMPS)"
+	@echo "  LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE=$(LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE)"
 	@echo ""
 	@echo "RE-OCR MODEL SETTINGS:"
 	@echo "  HF_TESSERACT_REPO_reocr=$(HF_TESSERACT_REPO_reocr)"
