@@ -22,6 +22,9 @@ REOCR_AGGREGATE_NEWSPAPER ?=
 REOCR_AGGREGATE_PROGRESS_EVERY ?= 10000
   $(call log.debug, REOCR_AGGREGATE_PROGRESS_EVERY)
 
+REOCR_AGGREGATE_SKIP_DONE_MARKERS ?= 0
+  $(call log.debug, REOCR_AGGREGATE_SKIP_DONE_MARKERS)
+
 # TARGET: aggregate-reocr-stats
 #: Traverse existing re-OCR output on S3 and aggregate run coverage statistics.
 aggregate-reocr-stats:
@@ -33,6 +36,7 @@ aggregate-reocr-stats:
 	  --run-id $(RUN_ID_reocr) \
 	  $(if $(REOCR_AGGREGATE_NEWSPAPER),--newspaper $(REOCR_AGGREGATE_NEWSPAPER)) \
 	  $(if $(REOCR_AGGREGATE_YEARS),--years $(REOCR_AGGREGATE_YEARS)) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_AGGREGATE_SKIP_DONE_MARKERS)),--skip-done-markers) \
 	  --progress-every $(REOCR_AGGREGATE_PROGRESS_EVERY) \
 	  --log-level $(LOGGING_LEVEL) \
 	  --log-file $(LOCAL_PATH_reocr_AGGREGATED)/stats.log.gz \
@@ -52,5 +56,6 @@ help-aggregation::
 	@echo "RE-OCR AGGREGATION:"
 	@echo "  aggregate-reocr-stats # Traverse existing re-OCR S3 outputs and aggregate page/done-marker counts"
 	@echo "                        # Set REOCR_AGGREGATE_NEWSPAPER=SNL/FZG or REOCR_AGGREGATE_YEARS='1865 1866' to filter"
+	@echo "                        # Set REOCR_AGGREGATE_SKIP_DONE_MARKERS=1 for a faster page-JSON-only scan"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_reocr.mk)
