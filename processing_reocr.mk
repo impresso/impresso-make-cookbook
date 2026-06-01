@@ -20,12 +20,16 @@ LOCAL_reocr_DONE_FILES := \
     $(call LocalReocrInputToDoneFile,$(LOCAL_REOCR_INPUT_STAMP_FILES))
   $(call log.debug, LOCAL_reocr_DONE_FILES)
 
+LOCAL_REOCR_COLLECT_YEAR_DIRS := \
+    $(if $(REOCR_COLLECT_YEAR_DIRS),$(REOCR_COLLECT_YEAR_DIRS),$(sort $(notdir $(patsubst %/,%,$(dir $(patsubst $(LOCAL_PATH_REOCR_INPUT)/%,%,$(LOCAL_REOCR_INPUT_STAMP_FILES)))))))
+  $(call log.debug, LOCAL_REOCR_COLLECT_YEAR_DIRS)
+
 LOCAL_reocr_COLLECTED_YEAR_FILES := \
-    $(foreach dir,$(REOCR_COLLECT_YEAR_DIRS),$(LOCAL_PATH_reocr_COLLECTED_PAGES)/$(dir).jsonl.bz2)
+    $(foreach dir,$(LOCAL_REOCR_COLLECT_YEAR_DIRS),$(LOCAL_PATH_reocr_COLLECTED_PAGES)/$(dir).jsonl.bz2)
   $(call log.debug, LOCAL_reocr_COLLECTED_YEAR_FILES)
 
 LOCAL_reocr_COLLECTED_STATS_FILES := \
-    $(foreach dir,$(REOCR_COLLECT_YEAR_DIRS),$(LOCAL_PATH_reocr_COLLECTED_STATS)/$(dir).stats.json)
+    $(foreach dir,$(LOCAL_REOCR_COLLECT_YEAR_DIRS),$(LOCAL_PATH_reocr_COLLECTED_STATS)/$(dir).stats.json)
   $(call log.debug, LOCAL_reocr_COLLECTED_STATS_FILES)
 
 reocr-target: sync-reocr-input
@@ -40,16 +44,17 @@ help-processing::
 	@echo "  reocr-files-target # Process local re-OCR input stamps into page outputs and done markers"
 	@echo "                     # Set REOCR_YEARS=1814 to process only selected canonical page years"
 	@echo "  collect-reocr-year # Collect page-level re-OCR JSON into newspaper-year JSONL.bz2 files"
-	@echo "                     # Set REOCR_COLLECT_YEARS=1814, or reuse REOCR_YEARS"
+	@echo "                     # Set REOCR_COLLECT_YEARS=1814, or reuse REOCR_YEARS; empty means all local synced years"
 	@echo "  collect-reocr-stats # Report page integration counts without writing collected page archives"
+	@echo "  collection-reocr-stats # Report re-OCR coverage stats for all listed newspapers"
 
 reocr-files-target: $(LOCAL_reocr_DONE_FILES)
 
 .PHONY: reocr-files-target
 
 collect-reocr-year: sync-reocr-input
-	@if [ -z "$(strip $(REOCR_COLLECT_YEAR_DIRS))" ]; then \
-	  echo "ERROR: Set REOCR_COLLECT_YEARS or REOCR_YEARS before running collect-reocr-year"; \
+	@if [ -z "$(strip $(LOCAL_REOCR_COLLECT_YEAR_DIRS))" ]; then \
+	  echo "ERROR: No re-OCR input years available for collect-reocr-year"; \
 	  exit 1; \
 	fi
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) reocr-collect-files-target
@@ -65,8 +70,8 @@ reocr-collect-files-target: $(LOCAL_reocr_COLLECTED_YEAR_FILES)
 .PHONY: reocr-collect-files-target
 
 collect-reocr-stats: sync-reocr-input
-	@if [ -z "$(strip $(REOCR_COLLECT_YEAR_DIRS))" ]; then \
-	  echo "ERROR: Set REOCR_COLLECT_YEARS or REOCR_YEARS before running collect-reocr-stats"; \
+	@if [ -z "$(strip $(LOCAL_REOCR_COLLECT_YEAR_DIRS))" ]; then \
+	  echo "ERROR: No re-OCR input years available for collect-reocr-stats"; \
 	  exit 1; \
 	fi
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) reocr-collect-stats-target
@@ -76,6 +81,21 @@ collect-reocr-stats: sync-reocr-input
 reocr-collect-stats-target: $(LOCAL_reocr_COLLECTED_STATS_FILES)
 
 .PHONY: reocr-collect-stats-target
+
+collection-reocr-stats: check-parallel newspaper-list-target
+	# tail -f $(BUILD_DIR)/collection-reocr-stats.joblog to monitor per newspaper progress summary
+	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	parallel  --tag -v \
+	   --progress \
+	   --joblog $(BUILD_DIR)/collection-reocr-stats.joblog \
+	   --jobs $(COLLECTION_JOBS) \
+	   --delay $(PARALLEL_DELAY) \
+	   --memfree 1G \
+	   --load $(MAX_LOAD) \
+	   $(PARALLEL_HALT) \
+	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) collect-reocr-stats"
+
+.PHONY: collection-reocr-stats
 
 $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
