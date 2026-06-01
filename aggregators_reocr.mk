@@ -19,6 +19,9 @@ REOCR_AGGREGATE_YEARS ?= $(REOCR_YEARS)
 REOCR_AGGREGATE_NEWSPAPER ?=
   $(call log.debug, REOCR_AGGREGATE_NEWSPAPER)
 
+REOCR_AGGREGATE_PROGRESS_EVERY ?= 10000
+  $(call log.debug, REOCR_AGGREGATE_PROGRESS_EVERY)
+
 # TARGET: aggregate-reocr-stats
 #: Traverse existing re-OCR output on S3 and aggregate run coverage statistics.
 aggregate-reocr-stats:
@@ -30,6 +33,7 @@ aggregate-reocr-stats:
 	  --run-id $(RUN_ID_reocr) \
 	  $(if $(REOCR_AGGREGATE_NEWSPAPER),--newspaper $(REOCR_AGGREGATE_NEWSPAPER)) \
 	  $(if $(REOCR_AGGREGATE_YEARS),--years $(REOCR_AGGREGATE_YEARS)) \
+	  --progress-every $(REOCR_AGGREGATE_PROGRESS_EVERY) \
 	  --log-level $(LOGGING_LEVEL) \
 	  --log-file $(LOCAL_PATH_reocr_AGGREGATED)/stats.log.gz \
 	&& \
