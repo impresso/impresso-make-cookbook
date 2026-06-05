@@ -9,9 +9,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_newsagencies.mk)
 setup:: check-newsagencies-dummy
 
 
-# TARGET: check-template-dummy
+# TARGET: check-newsagencies-dummy
 check-newsagencies-dummy:
 	@echo "newsagencies setup done"
-.PHONY: check-template-dummy
+.PHONY: check-newsagencies-dummy
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_newsagencies.mk)

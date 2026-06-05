@@ -1,7 +1,7 @@
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_newsagencies.mk)
 ###############################################################################
 # newsagencies TARGETS
-# Targets for processing newspaper content with OCR quality assessment
+# Targets for processing newspaper content with newsagencies NER
 ###############################################################################
 
 # DOUBLE-COLON-TARGET: sync-output
@@ -34,14 +34,14 @@ endef
 
 
 # VARIABLE: LOCAL_NEWSAGENCIES_FILES
-# Stores the list of OCR quality assessment files based on rebuilt stamp files
+# Stores the list of newsagencies output files based on rebuilt stamp files
 LOCAL_NEWSAGENCIES_FILES := \
     $(call LocalRebuiltTonewsagenciesFile,$(LOCAL_REBUILT_STAMP_FILES))
 
   $(call log.debug, LOCAL_NEWSAGENCIES_FILES)
 
 # TARGET: newsagencies-target
-#: Processes newspaper content with OCR quality assessment
+#: Processes newspaper content with news agency NER
 #
 # Just uses the local data that is there, does not enforce synchronization
 newsagencies-target: $(LOCAL_NEWSAGENCIES_FILES)
