@@ -38,11 +38,22 @@ TASK_NEWSAGENCIES ?= nel
 
 
 # USER-VARIABLE: MODEL_ID_NEWSAGENCIES
-# The model identifier
+# The model identifier (path-safe label used in S3 paths)
 #
-# Specifies the model used for newsagencies processing.
+# Short identifier combining model name and commit hash, used in output path construction.
+# Format: <model-short-name>_<commit-short-hash>  e.g. ner-newsagency-bert-multilingual_0b5d750
 MODEL_ID_NEWSAGENCIES ?= ner-newsagency-bert-multilingual_0b5d750
   $(call log.debug, MODEL_ID_NEWSAGENCIES)
+
+
+# USER-VARIABLE: HF_MODEL_NEWSAGENCIES
+# The HuggingFace model ID passed to NewsAgenciesPipeline
+#
+# Full HuggingFace repository ID, optionally with a revision suffix (@commit or @branch).
+# Example: impresso-project/ner-newsagency-bert-multilingual
+#          impresso-project/ner-newsagency-bert-multilingual@0b5d75000b6a2db33f0598cca532c103404fd523
+HF_MODEL_NEWSAGENCIES ?= impresso-project/ner-newsagency-bert-multilingual
+  $(call log.debug, HF_MODEL_NEWSAGENCIES)
 
 
 # USER-VARIABLE: RUN_VERSION_NEWSAGENCIES

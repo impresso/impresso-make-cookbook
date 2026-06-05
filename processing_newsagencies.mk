@@ -59,6 +59,7 @@ $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
       --output $@ \
       --log-file $@.log.gz \
       --log-level $(LOGGING_LEVEL) \
+      --hf-model $(HF_MODEL_NEWSAGENCIES) \
     && \
     python3 -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@) \
