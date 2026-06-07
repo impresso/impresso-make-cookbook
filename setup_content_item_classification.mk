@@ -6,7 +6,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_content_item_classifica
 ###############################################################################
 
 
-setup:: check-content_item_classification-dummy
+setup:: check-content_item_classification-dummy newspaper-list-target
 
 
 # TARGET: check-template-dummy
