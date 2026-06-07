@@ -9,7 +9,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_python.mk)
 
 setup:: setup-python-env
 
-setup-python-env: setup-python setup-pip setup-pipenv
+setup-python-env: setup-python setup-pip setup-pipenv check-venv-filesystem
 
 help-setup::
 	@echo "  setup-python-env # Set up the Python environment including pip and pipenv"
@@ -72,6 +72,47 @@ setup-pipenv:
 
 help-setup::
 	@echo "  setup-pipenv     # Install pipenv for Python 3.$(PYTHON_MINOR_VERSION) if not available"
+
+
+# TARGET: check-venv-filesystem
+#: Checks if virtual environment is on a network filesystem and warns about PyTorch issues
+check-venv-filesystem:
+ifeq ($(OS),Linux)
+	@VENV_DIR="$(VENV_PATH)"; \
+	if [ ! -d "$$VENV_DIR" ]; then \
+		VENV_DIR="$$(dirname "$$VENV_DIR")"; \
+	fi; \
+	FS_TYPE=$$(df -T "$$VENV_DIR" 2>/dev/null | tail -1 | awk '{print $$2}'); \
+	case "$$FS_TYPE" in \
+		nfs|nfs4|cifs|smb|smbfs|fuse.sshfs) \
+			echo ""; \
+			echo "WARNING: Virtual environment path is on a network filesystem ($$FS_TYPE)"; \
+			echo "         Path: $$VENV_DIR"; \
+			echo ""; \
+			echo "         PyTorch and other libraries with shared objects may fail with:"; \
+			echo "         'OSError: failed to map segment from shared object'"; \
+			echo ""; \
+			echo "         RECOMMENDED SOLUTIONS:"; \
+			echo "         1. Create venv on local disk:"; \
+			echo "            python3.$(PYTHON_MINOR_VERSION) -m venv /tmp/.venv-impresso"; \
+			echo "            /tmp/.venv-impresso/bin/pip install -r requirements.txt"; \
+			echo "            gmake VENV_PATH=/tmp/.venv-impresso ..."; \
+			echo ""; \
+			echo "         2. Or add to .env or config.local.mk:"; \
+			echo "            VENV_PATH = /tmp/.venv-impresso"; \
+			echo ""; \
+			echo "         3. Or use symlink:"; \
+			echo "            mv $(VENV_PATH) /tmp/.venv-impresso"; \
+			echo "            ln -s /tmp/.venv-impresso $(VENV_PATH)"; \
+			echo ""; \
+			;; \
+	esac
+endif
+
+.PHONY: check-venv-filesystem
+
+help-setup::
+	@echo "  check-venv-filesystem # Check if venv is on network filesystem (Linux only)"
 
 
 # TARGET: setup-pip-requirements
