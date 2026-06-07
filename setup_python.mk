@@ -21,6 +21,9 @@ PYTHON_MINOR_VERSION ?= 11
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3.$(PYTHON_MINOR_VERSION))
   $(call log.info, PYTHON)
 
+# Export PYTHON so it's available in recursive make calls and subshells
+export PYTHON
+
 
 # TARGET: setup-python
 #: Installs Python 3.$(PYTHON_MINOR_VERSION) based on the operating system

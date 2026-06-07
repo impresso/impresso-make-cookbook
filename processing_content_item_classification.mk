@@ -55,12 +55,12 @@ content_item_classification-target: $(LOCAL_content_item_classification_FILES)
 $(LOCAL_PATH_content_item_classification)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_content_item_classification.py \
+    $(PYTHON) lib/cli_content_item_classification.py \
       --input $(call LocalToS3,$<) \
       --output $@ \
       --log-file $@.log.gz \
     && \
-    python3 -m impresso_cookbook.local_to_s3 \
+    $(PYTHON) -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@) \
       $@.log.gz $(call LocalToS3,$@).log.gz \
     || { rm -vf $@ ; exit 1 ; }
