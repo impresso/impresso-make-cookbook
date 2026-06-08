@@ -48,11 +48,11 @@ MODEL_ID_content_item_classification ?= multilingual
 # USER-VARIABLE: HF_MODEL_CONTENT_ITEM_CLASSIFICATION
 # HuggingFace model identifier for ad classification
 #
-# Specifies the full HuggingFace model repository path.
-# To use a specific version/revision, you may need to update the impresso-pipelines package
-# to support the 'revision' parameter, or use a model name that includes the version.
-# Default: impresso-project/impresso-multilingual-ad-classification
-HF_MODEL_CONTENT_ITEM_CLASSIFICATION ?= impresso-project/impresso-multilingual-ad-classification
+# Specifies the full HuggingFace model repository path with optional :revision suffix.
+# Format: model-name or model-name:revision
+# Example: impresso-project/impresso-multilingual-ad-classification:v2.0
+# Default: impresso-project/impresso-multilingual-ad-classification:v2.0
+HF_MODEL_CONTENT_ITEM_CLASSIFICATION ?= impresso-project/impresso-multilingual-ad-classification:v2.0
   $(call log.debug, HF_MODEL_CONTENT_ITEM_CLASSIFICATION)
 
 
