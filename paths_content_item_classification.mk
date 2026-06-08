@@ -50,9 +50,9 @@ MODEL_ID_content_item_classification ?= multilingual
 #
 # Specifies the full HuggingFace model repository path with optional :revision suffix.
 # Format: model-name or model-name:revision
-# Example: impresso-project/impresso-multilingual-ad-classification:v2.0
-# Default: impresso-project/impresso-multilingual-ad-classification:v2.0
-HF_MODEL_CONTENT_ITEM_CLASSIFICATION ?= impresso-project/impresso-multilingual-ad-classification:v2.0
+# Example: impresso-project/impresso-ad-classification-xlm-one-class:v2.0
+# Default: impresso-project/impresso-ad-classification-xlm-one-class:v2.0
+HF_MODEL_CONTENT_ITEM_CLASSIFICATION ?= impresso-project/impresso-ad-classification-xlm-one-class:v2.0
   $(call log.debug, HF_MODEL_CONTENT_ITEM_CLASSIFICATION)
 
 
