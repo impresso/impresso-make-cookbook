@@ -45,6 +45,15 @@ MODEL_ID_content_item_classification ?= multilingual
   $(call log.debug, MODEL_ID_content_item_classification)
 
 
+# USER-VARIABLE: HF_MODEL_CONTENT_ITEM_CLASSIFICATION
+# HuggingFace model identifier for ad classification
+#
+# Specifies the full HuggingFace model path/tag including version.
+# Default uses v2.0 of the impresso ad classifier.
+HF_MODEL_CONTENT_ITEM_CLASSIFICATION ?= impresso-project/impresso-multilingual-ad-classification:v2.0
+  $(call log.debug, HF_MODEL_CONTENT_ITEM_CLASSIFICATION)
+
+
 # USER-VARIABLE: RUN_VERSION_content_item_classification
 # The version of the processing run
 #

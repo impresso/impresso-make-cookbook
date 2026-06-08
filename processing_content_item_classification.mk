@@ -59,6 +59,7 @@ $(LOCAL_PATH_content_item_classification)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.j
       --input $(call LocalToS3,$<) \
       --output $@ \
       --log-file $@.log.gz \
+      --model-id $(HF_MODEL_CONTENT_ITEM_CLASSIFICATION) \
     && \
     $(PYTHON) -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@) \
