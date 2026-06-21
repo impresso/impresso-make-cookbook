@@ -149,6 +149,7 @@ $(LOCAL_PATH_reocr_COLLECTED_PAGES)/%.jsonl.bz2: $(LOCAL_PATH_REOCR_INPUT)/%.las
 	  --year-segment $* \
 	  --run-id $(RUN_ID_reocr) \
 	  --normalization-profile $(REOCR_NORMALIZATION_PROFILE) \
+	  $(if $(REOCR_NORMALIZATION_CONFIG),--normalization-config $(REOCR_NORMALIZATION_CONFIG)) \
 	  $(if $(filter 0 false FALSE no NO,$(REOCR_SYNTHESIZE_FALLBACK_LINES)),--no-synthesize-fallback-lines) \
 	  --log-level $(LOGGING_LEVEL) \
 	  --log-file $(LOCAL_PATH_reocr_COLLECTED_LOGS)/$*.log.gz \
@@ -172,6 +173,7 @@ $(LOCAL_PATH_reocr_COLLECTED_STATS)/%.stats.json: $(LOCAL_PATH_REOCR_INPUT)/%.la
 	  --year-segment $* \
 	  --run-id $(RUN_ID_reocr) \
 	  --normalization-profile $(REOCR_NORMALIZATION_PROFILE) \
+	  $(if $(REOCR_NORMALIZATION_CONFIG),--normalization-config $(REOCR_NORMALIZATION_CONFIG)) \
 	  $(if $(filter 0 false FALSE no NO,$(REOCR_SYNTHESIZE_FALLBACK_LINES)),--no-synthesize-fallback-lines) \
 	  --log-level $(LOGGING_LEVEL) \
 	  --log-file $(LOCAL_PATH_reocr_COLLECTED_LOGS)/$*.stats.log.gz \
