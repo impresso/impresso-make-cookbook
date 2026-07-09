@@ -82,15 +82,4 @@ endif
 export GIT_VERSION
 
 
-# TARGET: update-pip-requirements-file
-#: Updates pip package requirements.txt by pipenv
-update-pip-requirements-file:
-	pipenv requirements > requirements.txt
-
-.PHONY: update-pip-requirements-file
-
-help-setup::
-	@echo "  update-pip-requirements-file # Update requirements.txt from pipenv"
-
-
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup.mk)
