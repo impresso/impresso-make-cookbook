@@ -69,7 +69,7 @@ RUN_ID_LANGIDENT_STAGE1 ?= $(PROCESS_LABEL_LANGIDENT)-$(TASK_LANGIDENT_STAGE1)-$
 # Path for language identification processing data
 #
 # Defines the suffix path for linguistic processing data.
-ifeq ($(USE_CANONICAL),1)
+ifeq ($(value USE_CANONICAL),1)
 LANGIDENT_PATH_SEGMENT := $(CANONICAL_PATH_SEGMENT)
 else
 LANGIDENT_PATH_SEGMENT := $(NEWSPAPER)

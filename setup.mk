@@ -11,6 +11,11 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup.mk)
 # The content of BUILD_DIR can be removed anytime without issues regarding s3
 BUILD_DIR ?= build.d
 
+# USER-VARIABLE: CFG
+# Optional Make configuration file used by downstream project recipes.
+# When provided for setup, it must point to an existing regular file.
+CFG_VALUE := $(strip $(value CFG))
+
 
 # USER-VARIABLE: OS
 # Detect the operating system if not set from outside
@@ -45,13 +50,24 @@ endif
 
 # DOUBLE-COLON-TARGET: setup
 #: Sets up the build directory and runs the active setup-<TARGET> targets
-setup:: | $(BUILD_DIR)
+setup:: check-cfg-file | $(BUILD_DIR)
 
 .PHONY: setup
+
+# TARGET: check-cfg-file
+#: Validate that CFG points to an existing file when CFG is provided
+check-cfg-file:
+	@if [ -n "$(CFG_VALUE)" ] && [ ! -f "$(CFG_VALUE)" ]; then \
+		echo "ERROR: CFG is set to '$(CFG_VALUE)', but that file does not exist." >&2; \
+		exit 1; \
+	fi
+
+.PHONY: check-cfg-file
 
 help-setup::
 	@echo "SETUP TARGETS:"
 	@echo "  setup           # Create local directories and run active setup targets"
+	@echo "  check-cfg-file  # Validate that CFG points to an existing file when provided"
 
 # USER-VARIABLE: GIT_VERSION
 # The current git version of the repository
