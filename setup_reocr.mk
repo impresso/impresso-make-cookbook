@@ -16,6 +16,8 @@ setup-reocr-tesseract-model:
 	  --tesseract-repo $(HF_TESSERACT_REPO_reocr) \
 	  --tesseract-model $(HF_TESSERACT_MODEL_reocr) \
 	  $(if $(TESSERACT_MODEL_URL_reocr),--tesseract-model-url $(TESSERACT_MODEL_URL_reocr)) \
+	  $(if $(HF_FONT_REPO_reocr),--font-repo $(HF_FONT_REPO_reocr)) \
+	  $(if $(HF_FONT_MODEL_reocr),--font-model $(HF_FONT_MODEL_reocr)) \
 	  --log-level $(LOGGING_LEVEL)
 
 .PHONY: setup-reocr-tesseract-model
@@ -39,7 +41,7 @@ check-reocr-tunnel: check-reocr-tools check-reocr-tunnel-env
 .PHONY: check-reocr-tunnel
 
 help-setup::
-	@echo "  setup-reocr-tesseract-model # Download/cache the configured HF Tesseract model"
+	@echo "  setup-reocr-tesseract-model # Download/cache configured HF Tesseract and font models"
 	@echo "  reocr-tunnel       # Open and keep the IIIF SSH tunnel alive for parallel re-OCR"
 	@echo "  check-reocr-tunnel # Check whether the local IIIF tunnel port is already open"
 
