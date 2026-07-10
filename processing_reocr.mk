@@ -100,6 +100,7 @@ collection-reocr-stats: check-parallel newspaper-list-target
 $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) $(dir $(LOCAL_PATH_reocr_LOGS)/$*.log.gz) $(LOCAL_PATH_reocr_WORK) && \
+	echo "Starting re-OCR issue $*: input=$(call LocalToS3,$<) done=$@ log=$(LOCAL_PATH_reocr_LOGS)/$*.log.gz output=$(S3_PATH_reocr)" && \
 	set +e; \
 	$(PYTHON) lib/cli_reocr.py \
 	  --input $(call LocalToS3,$<) \

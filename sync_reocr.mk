@@ -87,18 +87,18 @@ define CheckReocrInputFilesAfterSync
 	@set -e; \
 	for dir in $(if $(REOCR_INPUT_YEAR_DIRS),$(REOCR_INPUT_YEAR_DIRS),.); do \
 	  if [ "$$dir" = "." ]; then \
-	    pattern="$(LOCAL_PATH_REOCR_INPUT)/*/*.jsonl.bz2"; \
 	    stamp="$(LOCAL_PATH_REOCR_INPUT).last_synced"; \
+	    has_files() { find "$(LOCAL_PATH_REOCR_INPUT)" -mindepth 2 -maxdepth 2 -name '*.jsonl.bz2' -print -quit | grep -q .; }; \
 	  else \
-	    pattern="$(LOCAL_PATH_REOCR_INPUT)/$$dir/*.jsonl.bz2"; \
 	    stamp="$(LOCAL_PATH_REOCR_INPUT)/$$dir.last_synced"; \
+	    has_files() { find "$(LOCAL_PATH_REOCR_INPUT)/$$dir" -maxdepth 1 -name '*.jsonl.bz2' -print -quit | grep -q .; }; \
 	  fi; \
-	  if ! ls $$pattern >/dev/null 2>&1; then \
+	  if ! has_files; then \
 	    echo "No local re-OCR input files found for $$dir after sync; refreshing $$stamp"; \
 	    rm -f "$$stamp"; \
 	    $(MAKE) -f $(firstword $(MAKEFILE_LIST)) "$$stamp"; \
 	  fi; \
-	  if ! ls $$pattern >/dev/null 2>&1; then \
+	  if ! has_files; then \
 	    echo "ERROR: No re-OCR input files found for $$dir after refreshing input sync"; \
 	    rm -f "$$stamp"; \
 	    exit 1; \
