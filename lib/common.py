@@ -288,6 +288,45 @@ def yield_s3_objects(bucket: str, prefix: str) -> Generator[str, None, None]:
     logging.info(f"Found {count} objects with prefix {prefix}")
 
 
+def yield_s3_common_prefixes(bucket: str, prefix: str) -> Generator[str, None, None]:
+    """Yield common prefixes in an S3 bucket for a given prefix.
+
+    Args:
+        bucket (str): S3 bucket name.
+        prefix (str): Prefix to filter objects.
+
+    Yields:
+        str: Each common prefix returned by S3 with ``Delimiter='/'``.
+    """
+    s3 = get_s3_client()
+    continuation_token = None
+    count = 0
+    while True:
+        response = (
+            s3.list_objects_v2(
+                Bucket=bucket,
+                Prefix=prefix,
+                Delimiter="/",
+                ContinuationToken=continuation_token,
+            )
+            if continuation_token
+            else s3.list_objects_v2(Bucket=bucket, Prefix=prefix, Delimiter="/")
+        )
+
+        for common_prefix in response.get("CommonPrefixes", []):
+            value = common_prefix.get("Prefix")
+            if not value:
+                continue
+            count += 1
+            yield value
+
+        if response.get("IsTruncated"):
+            continuation_token = response.get("NextContinuationToken")
+        else:
+            break
+    logging.info(f"Found {count} common prefixes with prefix {prefix}")
+
+
 def setup_logging(
     log_level: str,
     log_file: Optional[str],

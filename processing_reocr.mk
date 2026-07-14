@@ -149,6 +149,8 @@ $(LOCAL_PATH_reocr_COLLECTED_PAGES)/%.jsonl.bz2: $(LOCAL_PATH_REOCR_INPUT)/%.las
 	  --done-marker $(LOCAL_PATH_reocr_COLLECTED_STAMPS)/$*.done \
 	  --year-segment $* \
 	  --run-id $(RUN_ID_reocr) \
+	  $(if $(HF_FONT_REPO_reocr),--font-repo $(HF_FONT_REPO_reocr)) \
+	  $(if $(HF_FONT_MODEL_reocr),--font-model $(HF_FONT_MODEL_reocr)) \
 	  --normalization-profile $(REOCR_NORMALIZATION_PROFILE) \
 	  $(if $(REOCR_NORMALIZATION_CONFIG),--normalization-config $(REOCR_NORMALIZATION_CONFIG)) \
 	  $(if $(filter 0 false FALSE no NO,$(REOCR_SYNTHESIZE_FALLBACK_LINES)),--no-synthesize-fallback-lines) \
@@ -173,6 +175,8 @@ $(LOCAL_PATH_reocr_COLLECTED_STATS)/%.stats.json: $(LOCAL_PATH_REOCR_INPUT)/%.la
 	  --stats-output $@ \
 	  --year-segment $* \
 	  --run-id $(RUN_ID_reocr) \
+	  $(if $(HF_FONT_REPO_reocr),--font-repo $(HF_FONT_REPO_reocr)) \
+	  $(if $(HF_FONT_MODEL_reocr),--font-model $(HF_FONT_MODEL_reocr)) \
 	  --normalization-profile $(REOCR_NORMALIZATION_PROFILE) \
 	  $(if $(REOCR_NORMALIZATION_CONFIG),--normalization-config $(REOCR_NORMALIZATION_CONFIG)) \
 	  $(if $(filter 0 false FALSE no NO,$(REOCR_SYNTHESIZE_FALLBACK_LINES)),--no-synthesize-fallback-lines) \
