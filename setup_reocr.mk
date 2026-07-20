@@ -7,6 +7,7 @@ setup:: check-reocr-tools setup-reocr-tesseract-model
 
 check-reocr-tools:
 	@command -v tesseract >/dev/null 2>&1 || (echo "Missing required command: tesseract"; exit 1)
+	@tesseract --version >/dev/null 2>&1 || (echo "Tesseract is installed but cannot run"; exit 1)
 	@command -v ssh >/dev/null 2>&1 || (echo "Missing required command: ssh"; exit 1)
 
 .PHONY: check-reocr-tools

@@ -449,6 +449,8 @@ LANGIDENT_WIP_MAX_AGE := 2
 
 ### Installation
 
+GNU Make 4+ is required. On macOS, the system `/usr/bin/make` is too old; use Homebrew GNU Make (`gmake`) unless your shell is already configured so `make` resolves to the Homebrew version.
+
 1. **Clone the repository:**
 
    ```bash
@@ -474,6 +476,8 @@ LANGIDENT_WIP_MAX_AGE := 2
    # On macOS
    brew install make git-lfs parallel coreutils openjdk@17
    ```
+
+If `make --version` does not report GNU Make 4+, use `gmake` for the commands below.
 
 4. **Set up Python environment:**
 
