@@ -30,6 +30,7 @@ $(LOCAL_PATH_reocr_STAMPS).last_synced:
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \
 	   --file-extensions done \
+	   --write-content \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \
@@ -42,6 +43,7 @@ $(LOCAL_PATH_reocr_STAMPS)/%.last_synced:
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \
 	   --file-extensions done \
+	   --write-content \
 	   --remove-dangling-stamps \
 	   --logfile $@.log.gz \
 	   --log-level $(LOGGING_LEVEL) \

@@ -7,8 +7,11 @@ sync-output :: sync-reocr sync-reocr-collected
 sync-input :: sync-reocr-input
 processing-target :: reocr-target
 
+REOCR_INPUT_FIND_ROOTS := $(if $(REOCR_INPUT_YEAR_DIRS),$(foreach dir,$(REOCR_INPUT_YEAR_DIRS),$(LOCAL_PATH_REOCR_INPUT)/$(dir)),$(LOCAL_PATH_REOCR_INPUT))
+REOCR_INPUT_FIND_DEPTH := $(if $(REOCR_INPUT_YEAR_DIRS),-maxdepth 1,-mindepth 2 -maxdepth 2)
+
 LOCAL_REOCR_INPUT_STAMP_FILES := \
-    $(shell ls $(REOCR_INPUT_FILE_GLOBS) 2> /dev/null \
+    $(shell find $(REOCR_INPUT_FIND_ROOTS) $(REOCR_INPUT_FIND_DEPTH) -type f -name '*.jsonl.bz2' -print 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
   $(call log.debug, LOCAL_REOCR_INPUT_STAMP_FILES)
 
@@ -49,6 +52,11 @@ help-processing::
 	@echo "  collection-reocr-stats # Report re-OCR coverage stats for all listed newspapers"
 
 reocr-files-target: $(LOCAL_reocr_DONE_FILES)
+	@if [ -z "$(strip $(LOCAL_REOCR_INPUT_STAMP_FILES))" ]; then \
+	  echo "ERROR: No re-OCR issue archives discovered after input sync (REOCR_YEARS=$(REOCR_YEARS))"; \
+	  exit 1; \
+	fi
+	@echo "Re-OCR issue archives selected: $(words $(LOCAL_REOCR_INPUT_STAMP_FILES)) (REOCR_YEARS=$(if $(REOCR_YEARS),$(REOCR_YEARS),all))"
 
 .PHONY: reocr-files-target
 
