@@ -117,7 +117,7 @@ help-sync::
 	@echo "  sync-reocr-input # Synchronize re-OCR input issue archives from S3 to local stamp files"
 	@echo "                   # Set REOCR_YEARS=1814 to limit sync/processing to one or more years"
 
-sync-reocr: $(LOCAL_reocr_SYNC_STAMP_FILES) validate-reocr-done-markers
+sync-reocr: validate-reocr-done-markers
 
 .PHONY: sync-reocr
 

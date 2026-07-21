@@ -82,7 +82,7 @@ reocr-collect-stats-target: $(LOCAL_reocr_COLLECTED_STATS_FILES)
 
 .PHONY: reocr-collect-stats-target
 
-validate-reocr-done-markers: sync-reocr-pages
+validate-reocr-done-markers: $(LOCAL_reocr_SYNC_STAMP_FILES) sync-reocr-pages
 	$(MAKE_SILENCE_RECIPE) \
 	if [ -d "$(LOCAL_PATH_reocr_STAMPS)" ]; then \
 	  $(PYTHON) lib/validate_reocr_done_markers.py \
