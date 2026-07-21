@@ -32,7 +32,7 @@ LOCAL_reocr_COLLECTED_STATS_FILES := \
     $(foreach dir,$(LOCAL_REOCR_COLLECT_YEAR_DIRS),$(LOCAL_PATH_reocr_COLLECTED_STATS)/$(dir).stats.json)
   $(call log.debug, LOCAL_reocr_COLLECTED_STATS_FILES)
 
-reocr-target: sync-reocr-input
+reocr-target: sync-reocr-input sync-reocr
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) reocr-files-target
 
 .PHONY: reocr-target
@@ -40,7 +40,7 @@ reocr-target: sync-reocr-input
 help-processing::
 	@echo ""
 	@echo "RE-OCR PROCESSING TARGETS:"
-	@echo "  reocr-target       # Sync input state, then process all missing re-OCR issue archives"
+	@echo "  reocr-target       # Sync input/output state, validate stale done markers, then process missing issue archives"
 	@echo "  reocr-files-target # Process local re-OCR input stamps into page outputs and done markers"
 	@echo "                     # Set REOCR_YEARS=1814 to process only selected canonical page years"
 	@echo "  collect-reocr-year # Collect page-level re-OCR JSON into newspaper-year JSONL.bz2 files"
@@ -81,6 +81,18 @@ collect-reocr-stats: sync-reocr-input
 reocr-collect-stats-target: $(LOCAL_reocr_COLLECTED_STATS_FILES)
 
 .PHONY: reocr-collect-stats-target
+
+validate-reocr-done-markers: sync-reocr-pages
+	$(MAKE_SILENCE_RECIPE) \
+	if [ -d "$(LOCAL_PATH_reocr_STAMPS)" ]; then \
+	  $(PYTHON) lib/validate_reocr_done_markers.py \
+	    --done-root $(LOCAL_PATH_reocr_STAMPS) \
+	    --pages-root $(LOCAL_PATH_reocr_PAGES) \
+	    $(foreach dir,$(REOCR_INPUT_YEAR_DIRS),--year-segment $(dir)) \
+	    --log-level $(LOGGING_LEVEL); \
+	fi
+
+.PHONY: validate-reocr-done-markers
 
 collection-reocr-stats: check-parallel newspaper-list-target
 	# tail -f $(BUILD_DIR)/collection-reocr-stats.joblog to monitor per newspaper progress summary
