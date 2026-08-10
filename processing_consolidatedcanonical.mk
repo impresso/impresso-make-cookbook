@@ -43,6 +43,32 @@ CONSOLIDATEDCANONICAL_VALIDATE_OPTION ?= --validate
 CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION ?=
   $(call log.debug, CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION)
 
+# USER-VARIABLE: CONSOLIDATEDCANONICAL_WIP_ENABLED
+# Option to enable S3 work-in-progress locks for issue consolidation.
+#
+# Set to 1 to check S3 immediately before expensive processing. The check skips
+# processing when the output already exists on S3 or another worker owns a fresh
+# .wip lock. This complements local sync stamps for multimachine processing.
+CONSOLIDATEDCANONICAL_WIP_ENABLED ?= 1
+  $(call log.debug, CONSOLIDATEDCANONICAL_WIP_ENABLED)
+
+# USER-VARIABLE: CONSOLIDATEDCANONICAL_WIP_MAX_AGE
+# Maximum age in hours before a consolidatedcanonical WIP file is treated as stale.
+CONSOLIDATEDCANONICAL_WIP_MAX_AGE ?= 24
+  $(call log.debug, CONSOLIDATEDCANONICAL_WIP_MAX_AGE)
+
+# USER-VARIABLE: CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION
+# Option to force S3 overwrite of existing consolidatedcanonical outputs.
+#
+# Set to --force-overwrite to process and upload even when S3 output exists.
+CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION ?=
+  $(call log.debug, CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION)
+
+# VARIABLE: CONSOLIDATEDCANONICAL_WIP_FORCE_OPTION
+# Internal flag to force WIP acquisition when force-overwrite is enabled.
+CONSOLIDATEDCANONICAL_WIP_FORCE_OPTION := $(if $(CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION),--force,)
+  $(call log.debug, CONSOLIDATEDCANONICAL_WIP_FORCE_OPTION)
+
 # DOUBLE-COLON-TARGET: sync-output
 # Synchronizes consolidatedcanonical processing output data from S3 to local
 # Downloads existing consolidated canonical files for resume/inspection
@@ -132,6 +158,63 @@ consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $
 
 .PHONY: consolidatedcanonical-files-target
 
+# RECIPE: ConsolidatedCanonicalIssueRecipe
+# Process and upload one consolidated issue file. The S3 WIP preflight is an
+# online guard for distributed runs where another machine may have produced the
+# output after this worker's local sync.
+define ConsolidatedCanonicalIssueRecipe
+$(MAKE_SILENCE_RECIPE) \
+mkdir -p $(@D) && \
+{ set +e ; \
+  if [ -n "$(CONSOLIDATEDCANONICAL_WIP_ENABLED)" ] ; then \
+    $(PYTHON) -m impresso_cookbook.manage_s3_wip acquire \
+      --s3-target $(call LocalToS3,$@,'') \
+      --wip-max-age $(CONSOLIDATEDCANONICAL_WIP_MAX_AGE) \
+      --log-level $(LOGGING_LEVEL) \
+      --local-target $@ \
+      --files $@ $@.log.gz \
+      $(CONSOLIDATEDCANONICAL_WIP_FORCE_OPTION) ; \
+    status=$$? ; \
+    case $$status in 0) ;; 2|3) exit 0 ;; *) exit $$status ;; esac ; \
+  fi ; \
+  $(PYTHON) lib/cli_consolidatedcanonical.py \
+    --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
+    --enrichment-input $(S3_PATH_LANGIDENT)/$*.jsonl.bz2 \
+    --output $@ \
+    --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
+    $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
+    --log-level $(LOGGING_LEVEL) \
+    --log-file $@.log.gz ; \
+  status=$$? ; \
+  if [ $$status -ne 0 ] ; then \
+    rm -f $@ ; \
+    if [ -n "$(CONSOLIDATEDCANONICAL_WIP_ENABLED)" ] ; then \
+      $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
+        --s3-target $(call LocalToS3,$@,'') \
+        --log-level $(LOGGING_LEVEL) || true ; \
+    fi ; \
+    exit $$status ; \
+  fi ; \
+  $(PYTHON) -m impresso_cookbook.local_to_s3 \
+    --set-timestamp --log-level $(LOGGING_LEVEL) \
+    --keep-timestamp-only \
+    $(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION) \
+    $(CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION) \
+    $@        $(call LocalToS3,$@,'') \
+    $@.log.gz $(call LocalToS3,$@,'').log.gz ; \
+  status=$$? ; \
+  if [ -n "$(CONSOLIDATEDCANONICAL_WIP_ENABLED)" ] ; then \
+    $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
+      --s3-target $(call LocalToS3,$@,'') \
+      --log-level $(LOGGING_LEVEL) || true ; \
+  fi ; \
+  if [ $$status -ne 0 ] ; then \
+    rm -f $@ ; \
+    exit $$status ; \
+  fi ; \
+}
+endef
+
 # FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2
 #: Rule to process a single year from canonical page stamps
 #
@@ -151,23 +234,7 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp \
     $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 \
     | $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) && \
-    $(PYTHON) lib/cli_consolidatedcanonical.py \
-      --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
-      --enrichment-input $(S3_PATH_LANGIDENT)/$*.jsonl.bz2 \
-      --output $@ \
-      --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
-      $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
-      --log-level $(LOGGING_LEVEL) \
-      --log-file $@.log.gz \
-    && \
-    $(PYTHON) -m impresso_cookbook.local_to_s3 \
-    --set-timestamp --log-level $(LOGGING_LEVEL) \
-	  --keep-timestamp-only $(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION) \
-      $@        $(call LocalToS3,$@,'') \
-      $@.log.gz $(call LocalToS3,$@,'').log.gz \
-    || { rm -vf $@ ; exit 1; }
+	$(ConsolidatedCanonicalIssueRecipe)
 
 # FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2
 #: Rule to process a single year from canonical audio stamps
@@ -175,23 +242,7 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp \
     $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 \
     | $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) && \
-    $(PYTHON) lib/cli_consolidatedcanonical.py \
-      --canonical-input $(S3_PATH_CANONICAL_ISSUES)/$*-issues.jsonl.bz2 \
-      --enrichment-input $(S3_PATH_LANGIDENT)/$*.jsonl.bz2 \
-      --output $@ \
-      --langident-run-id $(LANGIDENT_ENRICHMENT_RUN_ID) \
-      $(CONSOLIDATEDCANONICAL_VALIDATE_OPTION) \
-      --log-level $(LOGGING_LEVEL) \
-      --log-file $@.log.gz \
-    && \
-    $(PYTHON) -m impresso_cookbook.local_to_s3 \
-    --set-timestamp --log-level $(LOGGING_LEVEL) \
-	  --keep-timestamp-only $(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION) \
-      $@        $(call LocalToS3,$@,'') \
-      $@.log.gz $(call LocalToS3,$@,'').log.gz \
-    || { rm -vf $@ ; exit 1; }
+	$(ConsolidatedCanonicalIssueRecipe)
 
 # FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)/%.stamp
 #: Rule to process/copy pages data from canonical to consolidated bucket

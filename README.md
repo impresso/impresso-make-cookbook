@@ -321,11 +321,14 @@ $(OUTPUT_FILE): $(INPUT_FILE)
 
 - **Local Parallelization**: Each machine uses Make's parallel build feature to maximize CPU utilization.
 - **Distributed Parallelization**: Machines process separate subsets of data independently (e.g., by newspaper or date range) and write results to S3 without coordination.
+- **Collection Runs**: `make collection` runs the `newspaper` target for each selected newspaper. This avoids forced resync churn for every collection item while still letting each newspaper sync its local S3-derived stamps before processing.
 
 #### Multi-Machine Build Isolation
 
 - **Stateless Processing**: Scripts rely only on S3 and local configurations, avoiding shared state.
 - **Custom Configurations**: Each machine uses local configuration files or environment variables to tailor processing behavior.
+- **Online Output Guards**: Long-running recipes should check the target S3 object immediately before expensive processing. Local sync stamps are useful for Make dependency planning, but an online check catches work completed by another machine after the last local sync.
+- **WIP Locks for Overlap**: When machines may process overlapping newspapers or years, use WIP-enabled recipes so only one worker starts a missing target. An existence-only check skips already completed output, but a WIP lock also covers the race where two workers start at nearly the same time.
 
 #### Work-In-Progress (WIP) File Management
 
@@ -333,15 +336,17 @@ The cookbook supports optional **WIP file management** to prevent concurrent pro
 
 - **WIP Files**: Temporary marker files (`.wip`) created on S3 when processing begins
 - **Concurrent Processing Prevention**: Before starting work, the system checks for existing WIP files to avoid duplicate processing
-- **Stale Lock Cleanup**: WIP files older than a configurable age (default: 2 hours) are automatically removed, preventing orphaned locks from crashed processes
+- **Stale Lock Cleanup**: WIP files older than a recipe-specific configurable age are automatically removed, preventing orphaned locks from crashed processes
 - **Process Visibility**: WIP files contain metadata about the processing machine (hostname, IP address, username, PID, start time)
 - **Automatic Cleanup**: WIP files are automatically removed after successful completion
 
 **When to Use WIP Management:**
 
 - Enable WIP for language identification when multiple machines might process overlapping datasets
+- Enable WIP for expensive per-target processing where output may already exist on S3
 - Particularly useful in distributed environments where coordination is difficult
-- Can be disabled (default) for faster processing when coordination is managed externally
+- Can be disabled for faster processing when coordination is managed externally; check the processing fragment for each recipe's default
+- Prefer `make newspaper` or `make collection` for long processing runs. Use `make all` when you explicitly want to force-refresh local sync state before processing one configured run.
 
 ** More WIP Explanations **
 
@@ -406,9 +411,14 @@ The cookbook supports optional **WIP file management** to prevent concurrent pro
 # Enable WIP management for language identification
 make langident-target LANGIDENT_WIP_ENABLED=1 LANGIDENT_WIP_MAX_AGE=2
 
+# Enable WIP management for consolidated canonical issue generation
+make consolidatedcanonical-target CONSOLIDATEDCANONICAL_WIP_ENABLED=1 CONSOLIDATEDCANONICAL_WIP_MAX_AGE=24
+
 # Or set in your config file
 LANGIDENT_WIP_ENABLED := 1
 LANGIDENT_WIP_MAX_AGE := 2
+CONSOLIDATEDCANONICAL_WIP_ENABLED := 1
+CONSOLIDATEDCANONICAL_WIP_MAX_AGE := 24
 ```
 
 ## Setup Guide
@@ -585,7 +595,13 @@ The cookbook provides several categories of makefile targets:
 - `make setup`: Initialize environment and create necessary directories
 - `make newspaper`: Process a single newspaper (uses NEWSPAPER variable)
 - `make collection`: Process multiple newspapers in parallel
-- `make all`: Complete processing pipeline with fresh data sync
+- `make all`: Force resync input/output, then process one configured run
+
+For long distributed runs, prefer `make newspaper` or `make collection`. The
+normal sync step prepares local dependency stamps, and WIP-enabled recipes do an
+online S3 check immediately before expensive processing so they can skip output
+that another machine already completed. Use `make all` when you intentionally
+want to discard and rebuild local sync state first.
 
 ### Parallel Processing Control
 
@@ -629,9 +645,9 @@ The build system automatically detects CPU cores and configures parallel process
 
 ### Data Synchronization Targets
 
-- `make sync`: Synchronize both input and output data with S3
-- `make sync-input`: Download input data from S3
-- `make sync-output`: Upload output data to S3
+- `make sync`: Synchronize local input and output stamps from S3
+- `make sync-input`: Synchronize input stamps from S3
+- `make sync-output`: Synchronize output stamps from S3
 - `make resync`: Force complete resynchronization
 - `make resync-input`: Force input data resynchronization
 - `make resync-output`: Force output data resynchronization

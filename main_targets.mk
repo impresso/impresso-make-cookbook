@@ -119,8 +119,9 @@ newspaper: | $(BUILD_DIR)
 help-orchestration::
 	@echo ""
 	@echo "CORE RUN TARGETS:"
-	@echo "  newspaper         # Process a single newspaper run by the processing pipeline"
-	@echo "  all               # Resync input/output, then run processing-target"
+	@echo "  newspaper         # Sync normally, then process one newspaper"
+	@echo "  all               # Force resync input/output, then run processing-target"
+	@echo "                    # Prefer newspaper/collection for long runs with per-target S3 WIP checks"
 
 
 # TARGET: all
@@ -142,7 +143,8 @@ all:
 #: Process multiple newspapers with specified parallel processing
 # Uses xargs for parallel execution with COLLECTION_JOBS limit.
 # Each item runs newspaper, not all, so collection refreshes S3-derived stamps
-# through normal sync without deleting local sync state for every newspaper.
+# through normal sync and relies on per-target online S3/WIP checks before
+# expensive processing.
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
@@ -160,7 +162,8 @@ check-parallel:
 # Note: Requires GNU parallel installed
 # Dependencies: newspaper-list-target
 # Each item runs newspaper, not all, so collection refreshes S3-derived stamps
-# through normal sync without deleting local sync state for every newspaper.
+# through normal sync and relies on per-target online S3/WIP checks before
+# expensive processing.
 collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
@@ -177,6 +180,7 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
 	@echo "  collection        # Process full impresso collection with parallel processing"
+	@echo "                    # Runs newspaper for each item; recipes do online S3/WIP checks before expensive work"
 	@echo "                    # Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
 
 

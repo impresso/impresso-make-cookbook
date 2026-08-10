@@ -147,5 +147,9 @@ print-debug-vars:
 	$(call help.print_var_if_known,TOPICS_LOGGING_LEVEL)
 	$(call help.print_var_if_known,TOPICS_MIN_P)
 	$(call help.print_var_if_known,TOPICS_WIP_ENABLED)
+	$(call help.print_var_if_known,CONSOLIDATEDCANONICAL_WIP_ENABLED)
+	$(call help.print_var_if_known,CONSOLIDATEDCANONICAL_WIP_MAX_AGE)
+	$(call help.print_var_if_known,CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION)
+	$(call help.print_var_if_known,CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION)
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/help.mk)
