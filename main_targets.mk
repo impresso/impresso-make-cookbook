@@ -129,6 +129,8 @@ help-orchestration::
 # 1. Resync data (serial)
 # 2. Process data (parallel)
 # Note: The two Make invocations are separate to ensure sync completes before processing starts
+# Use this target when a forced local sync-state refresh is desired, for example
+# before explicit single-newspaper multimachine coordination checks.
 all:
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 resync-input resync-output
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
@@ -138,11 +140,13 @@ all:
 
 # TARGET: collection
 #: Process multiple newspapers with specified parallel processing
-# Uses xargs for parallel execution with COLLECTION_JOBS limit
-collection-xargs: newspaper-list-target
+# Uses xargs for parallel execution with COLLECTION_JOBS limit.
+# Each item runs newspaper, not all, so collection refreshes S3-derived stamps
+# through normal sync without deleting local sync state for every newspaper.
+collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'NEWSPAPER="$$1" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) all' sh {}
+		sh -c 'NEWSPAPER="$$1" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) newspaper' sh {}
 
 
 check-parallel:
@@ -155,7 +159,9 @@ check-parallel:
 # Uses GNU parallel for better control over job execution
 # Note: Requires GNU parallel installed
 # Dependencies: newspaper-list-target
-collection: check-parallel newspaper-list-target
+# Each item runs newspaper, not all, so collection refreshes S3-derived stamps
+# through normal sync without deleting local sync state for every newspaper.
+collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v \
@@ -166,7 +172,7 @@ collection: check-parallel newspaper-list-target
 	   --memfree 1G \
 	   --load $(MAX_LOAD) \
 	   $(PARALLEL_HALT) \
-	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) all"
+	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) newspaper"
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"

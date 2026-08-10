@@ -109,7 +109,8 @@ $(LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE):
 
 # TARGET: sync-consolidatedcanonical-langident
 #: Synchronizes final langident/OCRQA enrichments required for consolidation
-sync-consolidatedcanonical-langident: $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+sync-consolidatedcanonical-langident:
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 
 .PHONY: sync-consolidatedcanonical-langident
 
@@ -123,7 +124,8 @@ sync-consolidatedcanonical-input: sync-canonical sync-consolidatedcanonical-lang
 
 # TARGET: sync-consolidatedcanonical
 #: Synchronizes consolidatedcanonical processing data from/to S3
-sync-consolidatedcanonical: $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) $(LOCAL_CONSOLIDATEDCANONICAL_RECORD_SYNC_STAMP_FILES)
+sync-consolidatedcanonical:
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) $(LOCAL_CONSOLIDATEDCANONICAL_RECORD_SYNC_STAMP_FILES)
 
 .PHONY: sync-consolidatedcanonical
 

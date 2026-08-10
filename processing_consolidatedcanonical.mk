@@ -116,11 +116,11 @@ LOCAL_CONSOLIDATEDCANONICAL_RECORD_STAMPS := \
 #: Processes canonical content with consolidated canonical format
 #
 # Merges canonical issues with langident/OCRQA enrichments and copies records.
-# Uses recursive make to ensure input data is synced before building file list.
+# Uses recursive make to ensure input stamp files exist before building file list.
 # Depends on:
-#   - sync-canonical: Syncs canonical pages/audio data
-#   - sync-consolidatedcanonical-langident: Syncs final langident enrichment data
-consolidatedcanonical-target: sync-canonical sync-consolidatedcanonical-langident
+#   - canonical pages/audio stamp sync files
+#   - final langident enrichment sync file
+consolidatedcanonical-target: $(LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) consolidatedcanonical-files-target
 
 .PHONY: consolidatedcanonical-target
@@ -149,7 +149,8 @@ consolidatedcanonical-files-target: $(LOCAL_CONSOLIDATEDCANONICAL_ISSUE_FILES) $
 # - Uploads to S3
 $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp \
-    $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+    $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 \
+    | $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
     $(PYTHON) lib/cli_consolidatedcanonical.py \
@@ -172,7 +173,8 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
 #: Rule to process a single year from canonical audio stamps
 $(LOCAL_PATH_CONSOLIDATEDCANONICAL)/issues/%-issues.jsonl.bz2: \
     $(LOCAL_PATH_CANONICAL_AUDIOS)/%.stamp \
-    $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+    $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2 \
+    | $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
     $(PYTHON) lib/cli_consolidatedcanonical.py \

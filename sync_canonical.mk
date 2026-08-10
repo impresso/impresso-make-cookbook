@@ -99,7 +99,8 @@ endif
 # This target ensures that the canonical record data is available locally
 # by triggering the synchronization process if needed. It depends on the
 # stamp file to determine if synchronization is required.
-sync-canonical: $(LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
+sync-canonical:
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
 
 .PHONY: sync-canonical
 

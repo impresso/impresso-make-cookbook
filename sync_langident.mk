@@ -337,7 +337,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 # NOTE:
 #   This is a phony target - it always checks dependencies even if the
 #   .last_synced files exist, ensuring fresh sync status verification.
-sync-langident: $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+sync-langident:
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 .PHONY: sync-langident
 
 help-sync::
