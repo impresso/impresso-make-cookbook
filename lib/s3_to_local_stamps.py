@@ -215,6 +215,7 @@ class LocalStampCreator(object):
         self.s3_resource = get_s3_resource()
         self.stats = {
             "files_created": 0,
+            "files_unchanged": 0,
             "files_removed": 0,
         }  # Initialize the statistics dictionary
         # Splitting the s3-path into bucket name and prefix
@@ -258,8 +259,10 @@ class LocalStampCreator(object):
                 )
                 self.create_stamp_files_per_directory(self.bucket_name, self.prefix)
             log.info(
-                "Stamp file creation completed. Files created: %d, Files removed: %d",
+                "Stamp file creation completed. Files created: %d, "
+                "Files unchanged: %d, Files removed: %d",
                 self.stats["files_created"],
+                self.stats["files_unchanged"],
                 self.stats["files_removed"],
             )
         else:
@@ -409,7 +412,17 @@ class LocalStampCreator(object):
             # Ensure the parent directory exists
             os.makedirs(os.path.dirname(local_stamp_path), exist_ok=True)
 
-            # Create the stamp file
+            if self.is_local_stamp_current(local_stamp_path, latest_ts):
+                self.stats["files_unchanged"] += 1
+                log.debug(
+                    "Stamp file '%s' already current with timestamp %s.",
+                    local_stamp_path,
+                    latest_ts.isoformat(),
+                )
+                expected_stamp_files.add(local_stamp_path)
+                continue
+
+            # Create or update the stamp file
             with open(local_stamp_path, "w", encoding="utf-8") as f:
                 f.write("")  # Empty content for the stamp file
 
@@ -476,6 +489,15 @@ class LocalStampCreator(object):
 
         os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
 
+        if content is None and self.is_local_stamp_current(local_file_path, last_modified):
+            self.stats["files_unchanged"] += 1
+            log.debug(
+                "Stamp file '%s' already current with timestamp %s.",
+                local_file_path,
+                last_modified.isoformat(),
+            )
+            return local_file_path
+
         with smart_open.open(local_file_path, "w", encoding="utf-8") as f:
             f.write(content if content is not None else "")
 
@@ -486,6 +508,14 @@ class LocalStampCreator(object):
         self.stats["files_created"] += 1
         log.info(f"'{local_file_path}' created. Last modification: {last_modified}")
         return local_file_path
+
+    @staticmethod
+    def is_local_stamp_current(local_file_path: str, expected_mtime: datetime) -> bool:
+        """Return True when an existing stamp already has the expected mtime."""
+        if not os.path.exists(local_file_path):
+            return False
+
+        return abs(os.path.getmtime(local_file_path) - expected_mtime.timestamp()) < 0.001
 
     def remove_dangling_stamps(
         self, expected_stamp_files: set[str], use_exact_names: bool = True

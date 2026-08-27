@@ -372,13 +372,13 @@ LANGIDENT_FORCE_UPLOAD_STAGE1_OPTION ?=
 
 
 # USER-VARIABLE: LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION
-# Option to force upload of Stage 2 statistics files even if S3 version is newer.
+# Option to force upload of Stage 2 statistics files even if S3 output exists.
 #
-# DANGER: Set to --force-overwrite to always upload locally-computed stats.json to S3.
-# Default: empty (no forced upload). Only enable when you explicitly want to replace
-# the S3 statistics with freshly-computed values.
-# LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION ?= --force-overwrite
-LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION ?=
+# stats.json is a newspaper-level aggregate over all Stage 1 year files. When a
+# missing Stage 1 year is created later, the existing S3 stats.json is stale even
+# though it exists. Default to forced replacement for Stage 2 so the explicit
+# statistics stage can recompute and upload the aggregate after Stage 1 changes.
+LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION ?= --force-overwrite
   $(call log.debug, LANGIDENT_FORCE_UPLOAD_STAGE2_OPTION)
 
 
