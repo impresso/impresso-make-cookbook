@@ -164,20 +164,28 @@ LOCAL_LANGIDENT_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT).last_synced
 #   --stamp-mode per-file: Create one stamp per S3 file with exact filename
 #   --remove-dangling-stamps: Clean up stamps for non-existent S3 objects
 #   --logfile: Compressed log of sync operation
+# Persistent marker updated after successful synchronization. Used by
+# downstream targets for dependency/timestamp tracking. Requesting this marker
+# directly only ensures it exists; use sync-langident or sync-langident-final
+# to force a fresh S3 query.
 $(LOCAL_PATH_LANGIDENT).last_synced:
+	$(MAKE) sync-langident-final
+
+# Phony operation: always queries S3 when explicitly requested.
+sync-langident-final:
 	# Syncing the processed data from $(S3_PATH_LANGIDENT)
 	# to $(LOCAL_PATH_LANGIDENT)
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps \
+	mkdir -p $(dir $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)) && \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
 	   $(S3_PATH_LANGIDENT) \
 	   --local-dir $(BUILD_DIR) \
 	   --file-extensions jsonl.bz2 json \
 	   --stamp-mode per-file \
 	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
+	   --logfile $(LOCAL_LANGIDENT_SYNC_STAMP_FILE).log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& \
-	touch $@
+	touch $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
 
 # VARIABLE: LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE
 # Local synchronization stamp file for Stage 1a/1b component data.
@@ -271,21 +279,29 @@ LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE := $(LOCAL_PATH_LANGIDENT_STAGE1).last_sy
 #   --stamp-mode per-file: Create one stamp per S3 file with exact filename
 #   --file-extensions: Only sync these file types (filters S3 listing)
 #   --remove-dangling-stamps: Clean up orphaned stamps
+# Persistent marker updated after successful synchronization. Used by
+# downstream targets for dependency/timestamp tracking. Requesting this marker
+# directly only ensures it exists; use sync-langident or sync-langident-stage1
+# to force a fresh S3 query.
 $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
+	$(MAKE) sync-langident-stage1
+
+# Phony operation: always queries S3 when explicitly requested.
+sync-langident-stage1:
 	# Syncing the processed data from $(S3_PATH_LANGIDENT_STAGE1)
 	#
 	# to $(LOCAL_PATH_LANGIDENT_STAGE1)
-	mkdir -p $(@D) \
+	mkdir -p $(dir $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)) \
 	&& \
-	python -m impresso_cookbook.s3_to_local_stamps \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
 		$(S3_PATH_LANGIDENT_STAGE1) \
 		--local-dir $(BUILD_DIR) \
 		--stamp-mode per-file \
 		--file-extensions jsonl.bz2 json \
 		--remove-dangling-stamps \
-		--logfile $@.log.gz \
+		--logfile $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE).log.gz \
 		--log-level $(LOGGING_LEVEL) \
-	&& touch $@
+	&& touch $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
 
 
 
@@ -298,18 +314,19 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 #   from S3 to local stamp files. This is typically used when resuming work or
 #   when multiple machines need to coordinate on distributed processing.
 #
-# DEPENDENCIES:
-#   1. $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-#      - Syncs Ensemble stage output (final LID decisions)
-#      - Depends on Stage 1a predictions and Stage 1b statistics
-#      - Path: $(LOCAL_PATH_LANGIDENT).last_synced
+# OPERATION TARGETS:
+#   1. sync-langident-stage1
+#      - Always syncs Stage 1a/1b component data when requested.
 #   
-#   2. $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
-#      - Syncs Stage 1a/1b component data:
-#        * Stage 1a: Individual LID system predictions per newspaper-year
-#        * Stage 1b: Newspaper-level aggregation statistics (stats.json)
-#      - The stats.json provides overall language distribution used by Ensemble
-#      - Path: $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced
+#   2. sync-langident-final
+#      - Always syncs Ensemble stage output when requested.
+#
+# PERSISTENT MARKERS:
+#   - $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)
+#   - $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
+#   These are updated after successful synchronization and remain available for
+#   downstream dependency/timestamp tracking. They do not control whether an
+#   explicit sync-langident request queries S3.
 #
 # PROCESSING DEPENDENCIES:
 #   Stage 1a → Stage 1b → Ensemble
@@ -334,12 +351,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 #   - Input canonical data (use sync-canonical for that)
 #   - Other processing stages (lingproc, ocrqa, etc.)
 #
-# NOTE:
-#   This is a phony target - it always checks dependencies even if the
-#   .last_synced files exist, ensuring fresh sync status verification.
-sync-langident:
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE) $(LOCAL_LANGIDENT_SYNC_STAMP_FILE)
-.PHONY: sync-langident
+sync-langident: sync-langident-stage1 sync-langident-final
+.PHONY: sync-langident sync-langident-stage1 sync-langident-final
 
 help-sync::
 	@echo ""

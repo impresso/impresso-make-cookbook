@@ -86,23 +86,25 @@ LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_AUDIOS).last_sy
 # layouts and let the discovered stamps decide which files feed processing.
 ifeq ($(CANONICAL_INPUT_KIND),audios)
 LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES := $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
+LOCAL_CANONICAL_INPUT_SYNC_TARGETS := sync-canonical-audios
 else ifeq ($(CANONICAL_INPUT_KIND),pages)
 LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES := $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+LOCAL_CANONICAL_INPUT_SYNC_TARGETS := sync-canonical-pages
 else
 LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES := $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE) $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
+LOCAL_CANONICAL_INPUT_SYNC_TARGETS := sync-canonical-pages sync-canonical-audios
 endif
   $(call log.debug, LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
+  $(call log.debug, LOCAL_CANONICAL_INPUT_SYNC_TARGETS)
 
 # TARGET: sync-canonical
 #: Synchronize canonical pages/audio input data from S3 to local storage
 #
-# This target ensures that the canonical record data is available locally
-# by triggering the synchronization process if needed. It depends on the
-# stamp file to determine if synchronization is required.
-sync-canonical:
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES)
+# Phony operation: always queries S3 when explicitly requested. The selected
+# child operation targets are controlled by CANONICAL_INPUT_KIND.
+sync-canonical: $(LOCAL_CANONICAL_INPUT_SYNC_TARGETS)
 
-.PHONY: sync-canonical
+.PHONY: sync-canonical sync-canonical-pages sync-canonical-audios
 
 clean-sync-input:: clean-sync-canonical
 
@@ -127,49 +129,65 @@ help-clean::
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp
 #
-# Creates directory-level stamp files (with .stamp suffix) to track synchronization 
-# of yearly page collections. One stamp file is created per year (e.g., AATA-1846.stamp),
-# with its modification timestamp set to the most recent modification time among all
-# page files within that year's directory on S3. This allows Make to detect updates
-# without downloading actual page data - the langident processing reads pages directly
-# from S3 using the year directory as a prefix pattern.
+# Persistent marker updated after successful synchronization. Used by
+# downstream targets for dependency/timestamp tracking. Requesting this marker
+# directly only ensures it exists; use sync-canonical or sync-canonical-pages
+# to force a fresh S3 query.
 $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
-	# creating $@
-	mkdir -p $(@D) \
+	$(MAKE) sync-canonical-pages
+
+# Phony operation: always queries S3 when explicitly requested.
+sync-canonical-pages:
+	# creating $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
+	mkdir -p $(dir $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)) \
 	&& \
-	python -m impresso_cookbook.s3_to_local_stamps  \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_CANONICAL_PAGES) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-directory \
 	   --directory-level 1 \
 	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
+	   --logfile $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE).log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& \
-	touch $@
+	touch $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
+# Creates directory-level stamp files (with .stamp suffix) to track synchronization
+# of yearly page collections. One stamp file is created per year (e.g., AATA-1846.stamp),
+# with its modification timestamp set to the most recent modification time among all
+# page files within that year's directory on S3. This allows Make to detect updates
+# without downloading actual page data - the langident processing reads pages directly
+# from S3 using the year directory as a prefix pattern.
   $(call log.debug,LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_AUDIOS).last_synced
 #: Sync canonical audio data from S3 and create synchronization stamp
 #
-# Creates directory-level stamp files (with .stamp suffix) to track synchronization
-# of yearly audio record collections.
+# Persistent marker updated after successful synchronization. Used by
+# downstream targets for dependency/timestamp tracking. Requesting this marker
+# directly only ensures it exists; use sync-canonical or sync-canonical-audios
+# to force a fresh S3 query.
 $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE):
-	# creating $@
-	mkdir -p $(@D) \
+	$(MAKE) sync-canonical-audios
+
+# Phony operation: always queries S3 when explicitly requested.
+sync-canonical-audios:
+	# creating $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
+	mkdir -p $(dir $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)) \
 	&& \
-	python -m impresso_cookbook.s3_to_local_stamps  \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_CANONICAL_AUDIOS) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-directory \
 	   --directory-level 1 \
 	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
+	   --logfile $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE).log.gz \
 	   --log-level $(LOGGING_LEVEL) \
 	&& \
-	touch $@
+	touch $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 
+# Creates directory-level stamp files (with .stamp suffix) to track synchronization
+# of yearly audio record collections.
   $(call log.debug,LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_canonical.mk)
