@@ -532,7 +532,7 @@ endif
 # VARIABLE: LOCAL_LANGIDENT_STATISTICS_FILES
 # Stores the list of langident stage1b statistics files based on stage1 files.
 LOCAL_LANGIDENT_STATISTICS_FILES := \
-    $(sort $(call LocalLangIdentSystemsToStatisticsFile,$(LOCAL_LANGIDENT_SYSTEMS_FILES)))
+    $(if $(strip $(LOCAL_LANGIDENT_SYSTEMS_FILES)),$(sort $(call LocalLangIdentSystemsToStatisticsFile,$(LOCAL_LANGIDENT_SYSTEMS_FILES))))
 
   $(call log.debug, LOCAL_LANGIDENT_STATISTICS_FILES)
 
@@ -634,6 +634,7 @@ langident-statistics-target : langident-systems-target
 # Internal target that builds the actual statistics file.
 #
 # This is called recursively after systems stage to ensure files are available.
+#
 langident-statistics-files-target : $(LOCAL_LANGIDENT_STATISTICS_FILES)
 
 .PHONY: langident-statistics-files-target
@@ -827,10 +828,15 @@ endif
 # FILE-RULE: $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json
 # Rule to generate statistics for a single newspaper from systems results.
 #
-# If stats.json stamp already exists (from sync), this rule won't run.
-# Otherwise generates new statistics from systems files.
-# Uses stamp file for stats.json to track S3 synchronization state.
-$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES)
+# This file can be created by synchronization as the local mirror/stamp for
+# S3 stats.json. The phony langident-statistics-files-target forces this rule
+# when the statistics stage is explicitly reached so newly-created stage1 years
+# are incorporated even if stats.json already exists.
+# Phony prerequisite: make the newspaper-level aggregate refresh whenever the
+# stats target is considered, without forcing stage1 year files themselves.
+.PHONY: FORCE_LANGIDENT_STATISTICS
+
+$(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) FORCE_LANGIDENT_STATISTICS
 	$(MAKE_SILENCE_RECIPE) \
 	python3 scripts/check_stage1_newspaper_ready.py \
 		--wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
