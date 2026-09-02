@@ -16,6 +16,7 @@ processing-target :: mediasources-target
 BATCH_SIZE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin BATCH_SIZE_MEDIASOURCES)),not configured,$(BATCH_SIZE_MEDIASOURCES))
 OUTER_BATCH_SIZE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin OUTER_BATCH_SIZE_MEDIASOURCES)),not configured,$(OUTER_BATCH_SIZE_MEDIASOURCES))
 DEVICE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin DEVICE_MEDIASOURCES)),not configured,$(DEVICE_MEDIASOURCES))
+FILTER_ANACHRONISTIC_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin FILTER_ANACHRONISTIC_MEDIASOURCES)),not configured,$(FILTER_ANACHRONISTIC_MEDIASOURCES))
 DIAGNOSTICS_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin DIAGNOSTICS_MEDIASOURCES)),not configured,$(DIAGNOSTICS_MEDIASOURCES))
 
 help-processing::
@@ -30,6 +31,7 @@ help-processing::
 help-processing:: ; @echo "  BATCH_SIZE_MEDIASOURCES=$(BATCH_SIZE_MEDIASOURCES_HELP)"
 help-processing:: ; @echo "  OUTER_BATCH_SIZE_MEDIASOURCES=$(OUTER_BATCH_SIZE_MEDIASOURCES_HELP)"
 help-processing:: ; @echo "  DEVICE_MEDIASOURCES=$(DEVICE_MEDIASOURCES_HELP)"
+help-processing:: ; @echo "  FILTER_ANACHRONISTIC_MEDIASOURCES=$(FILTER_ANACHRONISTIC_MEDIASOURCES_HELP)"
 help-processing:: ; @echo "  DIAGNOSTICS_MEDIASOURCES=$(DIAGNOSTICS_MEDIASOURCES_HELP)"
 
 
@@ -70,6 +72,7 @@ $(LOCAL_PATH_MEDIASOURCES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
       --batch-size $(BATCH_SIZE_MEDIASOURCES) \
       --outer-batch-size $(OUTER_BATCH_SIZE_MEDIASOURCES) \
       --device $(DEVICE_MEDIASOURCES) \
+      $(FILTER_ANACHRONISTIC_MEDIASOURCES) \
       $(DIAGNOSTICS_MEDIASOURCES) \
     && \
     $(PYTHON) -m impresso_cookbook.local_to_s3 \
