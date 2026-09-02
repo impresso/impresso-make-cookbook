@@ -15,6 +15,8 @@ processing-target :: mediasources-target
 
 BATCH_SIZE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin BATCH_SIZE_MEDIASOURCES)),not configured,$(BATCH_SIZE_MEDIASOURCES))
 OUTER_BATCH_SIZE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin OUTER_BATCH_SIZE_MEDIASOURCES)),not configured,$(OUTER_BATCH_SIZE_MEDIASOURCES))
+DEVICE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin DEVICE_MEDIASOURCES)),not configured,$(DEVICE_MEDIASOURCES))
+DIAGNOSTICS_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin DIAGNOSTICS_MEDIASOURCES)),not configured,$(DIAGNOSTICS_MEDIASOURCES))
 
 help-processing::
 	@echo ""
@@ -27,6 +29,8 @@ help-processing::
 
 help-processing:: ; @echo "  BATCH_SIZE_MEDIASOURCES=$(BATCH_SIZE_MEDIASOURCES_HELP)"
 help-processing:: ; @echo "  OUTER_BATCH_SIZE_MEDIASOURCES=$(OUTER_BATCH_SIZE_MEDIASOURCES_HELP)"
+help-processing:: ; @echo "  DEVICE_MEDIASOURCES=$(DEVICE_MEDIASOURCES_HELP)"
+help-processing:: ; @echo "  DIAGNOSTICS_MEDIASOURCES=$(DIAGNOSTICS_MEDIASOURCES_HELP)"
 
 
 LOCAL_REBUILT_STAMP_FILES := \
@@ -56,7 +60,7 @@ mediasources-target: $(LOCAL_MEDIASOURCES_FILES)
 $(LOCAL_PATH_MEDIASOURCES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_mediasources.py \
+    $(PYTHON) lib/cli_mediasources.py \
       --input $(call LocalToS3,$<) \
       --output $@ \
       --log-file $@.log.gz \
@@ -65,8 +69,10 @@ $(LOCAL_PATH_MEDIASOURCES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
       --revision $(HF_MODEL_REVISION_MEDIASOURCES) \
       --batch-size $(BATCH_SIZE_MEDIASOURCES) \
       --outer-batch-size $(OUTER_BATCH_SIZE_MEDIASOURCES) \
+      --device $(DEVICE_MEDIASOURCES) \
+      $(DIAGNOSTICS_MEDIASOURCES) \
     && \
-    python3 -m impresso_cookbook.local_to_s3 \
+    $(PYTHON) -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@) \
       $@.log.gz $(call LocalToS3,$@).log.gz \
     || { rm -vf $@ ; exit 1 ; }

@@ -31,7 +31,10 @@ help-setup::
 #: Download/cache the media-source Hugging Face model and run a smoke test
 setup-mediasources:
 ifeq ($(MEDIASOURCES_WARM_CACHE),1)
-	$(PYTHON) -c 'from impresso_pipelines.mediasources import MediaSourcesPipeline; pipe = MediaSourcesPipeline(model="$(HF_MODEL_MEDIASOURCES)", revision="$(HF_MODEL_REVISION_MEDIASOURCES)", batch_size=1, local_files_only=False); result = pipe(["$(MEDIASOURCES_SETUP_TEST_TEXT)"]); assert isinstance(result, list) and len(result) == 1, result; print("mediasources setup smoke test ok")'
+	HF_MODEL_MEDIASOURCES="$(HF_MODEL_MEDIASOURCES)" \
+	HF_MODEL_REVISION_MEDIASOURCES="$(HF_MODEL_REVISION_MEDIASOURCES)" \
+	MEDIASOURCES_SETUP_TEST_TEXT="$(MEDIASOURCES_SETUP_TEST_TEXT)" \
+	$(PYTHON) -c 'import os; from huggingface_hub import snapshot_download; from impresso_pipelines.mediasources import MediaSourcesPipeline; model = os.environ["HF_MODEL_MEDIASOURCES"]; revision = os.environ["HF_MODEL_REVISION_MEDIASOURCES"]; model_path = snapshot_download(repo_id=model, revision=revision, local_files_only=False); print(f"mediasources model cache: {model_path}"); pipe = MediaSourcesPipeline(model=model, revision=revision, batch_size=1, local_files_only=False); result = pipe([os.environ["MEDIASOURCES_SETUP_TEST_TEXT"]]); assert isinstance(result, list) and len(result) == 1, result; print("mediasources setup smoke test ok")'
 else
 	@echo "Skipping media-source Hugging Face cache warmup (set MEDIASOURCES_WARM_CACHE=1 to enable)."
 endif
