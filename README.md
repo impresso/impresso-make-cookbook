@@ -246,7 +246,12 @@ All input and output data reside on S3, allowing multiple machines to access sha
 
 #### Local Stamp Files
 
-Local **stamp files** mirror S3 metadata, enabling machines to independently track and manage processing tasks without downloading full datasets. This prevents interference between machines, as builds are verified against S3 before processing starts, ensuring no overwrites or duplicate results.
+Local **stamp files** mirror S3 metadata, enabling machines to independently track and manage processing tasks without downloading full datasets. There are two distinct kinds of local markers:
+
+- `*.last_synced` files record synchronization state: this S3 scope was successfully checked.
+- Data stamps, such as `GDL-1875.jsonl.bz2` or `GDL-1875.stamp`, record data-existence state: the corresponding object or directory was found on S3.
+
+Those facts are independent. For example, `GDL.1875.last_synced` may exist while `GDL-1875.jsonl.bz2` does not. That means the year-scoped S3 check completed successfully, no matching output object was found, and Make should still consider the missing output eligible for processing.
 
 **Stamp API v2 and Directory-Level Stamps:**
 
@@ -273,7 +278,7 @@ The Makefile orchestrates the pipeline by defining independent targets and depen
 
 #### Running Local Commands
 
-Processing scripts operate independently, handling data in a randomized order. Inputs are read from S3, outputs are uploaded back to S3, and no synchronization is required between machines. Additional machines can join or leave without disrupting ongoing tasks.
+Processing scripts operate independently, handling data in a randomized order. Machines do not synchronize directly with each other. S3 is the shared authoritative state: local sync reconstructs S3-derived dependency markers for Make, online S3 existence checks prevent overwriting completed output, and WIP objects prevent overlapping machines from starting the same expensive work. This is why `sync-output` can be useful on a fresh host or before a distributed run, but synchronization itself is not the multi-machine locking mechanism.
 
 #### Uploading Results to S3
 
@@ -320,7 +325,7 @@ $(OUTPUT_FILE): $(INPUT_FILE)
 #### Parallelization
 
 - **Local Parallelization**: Each machine uses Make's parallel build feature to maximize CPU utilization.
-- **Distributed Parallelization**: Machines process separate subsets of data independently (e.g., by newspaper or date range) and write results to S3 without coordination.
+- **Distributed Parallelization**: Machines process separate subsets of data independently (e.g., by newspaper or date range) and use S3 as the shared coordination point through output-existence checks and, where enabled, WIP markers.
 - **Collection Runs**: `make collection` runs the `newspaper` target for each selected newspaper. This avoids forced resync churn for every collection item while still letting each newspaper sync its local S3-derived stamps before processing.
 
 #### Multi-Machine Build Isolation
@@ -875,14 +880,32 @@ For generated lists, set `NEWSPAPER_LIST_INCLUDE_YEARS=1`. To sample a sparse
 collection run, combine it with `NEWSPAPER_LIST_YEAR_STEP`. For each newspaper,
 the generated list keeps the first available year, then repeatedly keeps the
 earliest available year at least `NEWSPAPER_LIST_YEAR_STEP` years after the
-previous selected year. `NEWSPAPER_LIST_YEARS` can restrict generation to
-explicit years. If a newspaper has available years but none match the explicit
-year filter, the first available year is still included so every discovered
-newspaper contributes at least one processing item.
+previous selected year. This automatic sampling mode includes at least one year
+for every discovered newspaper with available years. `NEWSPAPER_LIST_YEARS`
+strictly restricts generation to explicit years; newspapers without a matching
+requested year do not contribute a year-aware processing item.
 
-During collection execution, a year-aware entry sets `NEWSPAPER_YEARS` for the
-child `newspaper` run. Processing fragments that derive work from canonical or
-rebuilt per-year file lists then select only matching year files.
+During collection execution, a year-aware entry sets the plural selector
+`NEWSPAPER_YEARS` for the child `newspaper` run. Processing fragments that
+derive work from canonical or rebuilt per-year file lists then select only
+matching year files.
+
+Sync expands `NEWSPAPER_YEARS` into independent singular `NEWSPAPER_YEAR` work
+units. Each work unit queries one exact S3 year prefix and writes one exact
+`*.last_synced` marker. That marker records successful completion of the S3
+check; it does not assert that matching objects were found. Objects that were
+actually found are represented independently by their file or directory stamps.
+
+For example, `NEWSPAPER_YEARS="1850 1875"` requires
+`BNL/luxwort.1850.last_synced` and `BNL/luxwort.1875.last_synced`; it does not
+create a combined marker for the set of years. `BNL/luxwort.last_synced`
+continues to represent the full-newspaper sync scope. Re-OCR maps
+`NEWSPAPER_YEARS` to `REOCR_YEARS` by default, so its input and output-state
+sync targets use the same year scope.
+
+Clean targets follow the same scope. With `NEWSPAPER_YEARS` set, they remove
+only the selected year sync markers. Without `NEWSPAPER_YEARS`, they remove the
+full-newspaper marker and per-year markers for the current newspaper sync scope.
 
 ## Configuration and Customization
 

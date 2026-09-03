@@ -32,17 +32,20 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_consolidatedcanonical.mk
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed consolidatedcanonical processing data
-LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE := $(LOCAL_PATH_CONSOLIDATEDCANONICAL).last_synced
+LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_CONSOLIDATEDCANONICAL))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_CONSOLIDATEDCANONICAL))
   $(call log.debug, LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE)
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of consolidated pages data
-LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES).last_synced
+LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES))
   $(call log.debug, LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE)
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of consolidated audios data
-LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE := $(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS).last_synced
+LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS))
   $(call log.debug, LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE)
 
 # VARIABLE: LOCAL_CONSOLIDATEDCANONICAL_RECORD_SYNC_STAMP_FILES
@@ -64,47 +67,20 @@ endif
 #: at the exact target paths for remote issue objects, while pages continue to use per-directory
 #: .stamp files in the separate pages sync rule below.
 $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CONSOLIDATEDCANONICAL) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-file \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_CONSOLIDATEDCANONICAL),$@,--remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES).last_synced
 #: Synchronizes consolidated pages output data from S3 to the local directory (for resume scenarios)
 #: Creates directory stamps with .stamp suffix (hard-coded) for yearly page directories
 $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CONSOLIDATEDCANONICAL_PAGES) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
+	$(call sync_year_aware_per_directory_stamps,$(S3_PATH_CONSOLIDATEDCANONICAL_PAGES),$@,$(notdir $(NEWSPAPER)),--remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS).last_synced
 #: Synchronizes consolidated audio output data from S3 to the local directory (for resume scenarios)
 #: Creates directory stamps with .stamp suffix (hard-coded) for yearly audio directories
 $(LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
+	$(call sync_year_aware_per_directory_stamps,$(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS),$@,$(notdir $(NEWSPAPER)),--remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 
 # TARGET: sync-consolidatedcanonical-langident
@@ -139,12 +115,9 @@ clean-sync:: clean-sync-consolidatedcanonical
 #: so downstream targets are not needlessly invalidated.
 clean-sync-consolidatedcanonical:
 	rm -vf \
-	  $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE) \
-	  $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE).log.gz \
-	  $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE) \
-	  $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE).log.gz \
-	  $(LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE) \
-	  $(LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE).log.gz \
+	  $(call newspaper_sync_clean_files,$(LOCAL_PATH_CONSOLIDATEDCANONICAL)) \
+	  $(call newspaper_sync_clean_files,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES)) \
+	  $(call newspaper_sync_clean_files,$(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS)) \
 	  || true
 
 # Optional hard reset target

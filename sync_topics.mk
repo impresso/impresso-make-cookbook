@@ -12,7 +12,8 @@ sync-output :: sync-topics
 
 # VARIABLE: LOCAL_TOPICS_SYNC_STAMP_FILE
 # Local stamp file to track synchronization status
-LOCAL_TOPICS_SYNC_STAMP_FILE := $(LOCAL_PATH_TOPICS).last_synced
+LOCAL_TOPICS_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_TOPICS))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_TOPICS))
   $(call log.debug, LOCAL_TOPICS_SYNC_STAMP_FILE)
 
 
@@ -59,30 +60,20 @@ upload-topic-descriptions:
 #: Synchronizes topics data from S3 to local stamp files
 #: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_TOPICS_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps \
-	   $(S3_PATH_TOPICS) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-file \
-	   --file-extensions jsonl.bz2 json log.gz \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_TOPICS),$@,--file-extensions jsonl.bz2 json log.gz --remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 
 # TARGET: clean-sync-topics
-#: Removes synchronized topic data from local storage
+#: Removes local topics sync state for the selected scope
 clean-sync:: clean-sync-topics
 clean-sync-output:: clean-sync-topics
 
 clean-sync-topics:
-	rm -rfv $(LOCAL_PATH_TOPICS) $(LOCAL_TOPICS_SYNC_STAMP_FILE) || true
+	rm -rfv $(call newspaper_sync_clean_files,$(LOCAL_PATH_TOPICS)) $(if $(strip $(NEWSPAPER_YEARS)),,$(LOCAL_PATH_TOPICS)) || true
 
 .PHONY: clean-sync-topics
 
 help-clean::
-	@echo "  clean-sync-topics # Remove local topics sync stamp and files"
+	@echo "  clean-sync-topics # Remove local topics sync state for the selected scope"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_topics.mk)

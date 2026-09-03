@@ -49,6 +49,12 @@ NEWSPAPER_YEAR_SORTING ?= shuf
 NEWSPAPER_YEARS ?=
   $(call log.debug, NEWSPAPER_YEARS)
 
+# INTERNAL VARIABLE: NEWSPAPER_YEAR
+# Sync work-unit year set by Make target-specific variable assignments.
+# Users should set NEWSPAPER_YEARS instead.
+NEWSPAPER_YEAR ?=
+  $(call log.debug, NEWSPAPER_YEAR)
+
 # USER-VARIABLE: NEWSPAPER_LIST_INCLUDE_YEARS
 # If set to 1, generate collection items as PROVIDER/NEWSPAPER/YEAR instead of
 # newspaper-only identifiers.
@@ -56,8 +62,9 @@ NEWSPAPER_LIST_INCLUDE_YEARS ?= 0
   $(call log.debug, NEWSPAPER_LIST_INCLUDE_YEARS)
 
 # USER-VARIABLE: NEWSPAPER_LIST_YEAR_STEP
-# When generating year-aware collection items, select one available year from
-# each interval of this size. For example, 25 samples one year per 25-year bin.
+# When generating year-aware collection items, select the first available year,
+# then the earliest available year at least this many years after the previous
+# selected year.
 NEWSPAPER_LIST_YEAR_STEP ?=
   $(call log.debug, NEWSPAPER_LIST_YEAR_STEP)
 
@@ -185,7 +192,90 @@ ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$
 
 # FUNCTION: filter_newspaper_year_files
 # Filters a whitespace-separated file list to files matching NEWSPAPER_YEARS.
-# Matches both NEWSPAPER-YYYY.ext and NEWSPAPER-YYYY-suffix.ext naming schemes.
-filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).% %-$(year)-%,$(1))),$(1))
+# GNU Make filter patterns support one operative %, so keep these as suffix
+# patterns for the current per-year stamp conventions.
+filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).jsonl.bz2 %-$(year).stamp,$(1))),$(1))
+
+STAMP_SYNC_PYTHON ?= $(or $(value PYTHON),python)
+  $(call log.debug, STAMP_SYNC_PYTHON)
+
+# FUNCTION: newspaper_sync_stamp_file
+# Args:
+#   $(1): base local path for the current newspaper sync scope
+#   $(2): year
+newspaper_sync_stamp_file = $(1).$(2).last_synced
+
+# FUNCTION: newspaper_sync_stamp_targets
+# Args:
+#   $(1): base local path for the current newspaper sync scope
+newspaper_sync_stamp_targets = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(call newspaper_sync_stamp_file,$(1),$(year))),$(1).last_synced)
+
+# FUNCTION: expand_newspaper_year_sync_targets
+# Args:
+#   $(1): base local path used with newspaper_sync_stamp_targets
+#
+# Assigns the singular NEWSPAPER_YEAR to each per-year stamp target generated
+# from NEWSPAPER_YEARS. This is the central Make mechanism that turns the
+# plural caller selection into independent sync work units.
+expand_newspaper_year_sync_targets = $(foreach year,$(strip $(NEWSPAPER_YEARS)),$(eval $(call newspaper_sync_stamp_file,$(1),$(year)): NEWSPAPER_YEAR := $(year)))
+
+# FUNCTION: newspaper_sync_clean_files
+# Args:
+#   $(1): base local path for the current newspaper sync scope
+#
+# With NEWSPAPER_YEARS set, clean the selected year markers. Without a selected
+# scope, clean the full-newspaper marker and all year markers for this scope.
+newspaper_sync_clean_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(call newspaper_sync_stamp_file,$(1),$(year)) $(call newspaper_sync_stamp_file,$(1),$(year)).log.gz),$(1).last_synced $(1).last_synced.log.gz $(1).*.last_synced $(1).*.last_synced.log.gz)
+
+# FUNCTION: sync_year_aware_per_file_stamps
+# Args:
+#   $(1): S3 path for the current newspaper
+#   $(2): local sync stamp file for one S3 scope
+#   $(3): optional extra impresso_cookbook.s3_to_local_stamps arguments
+define sync_year_aware_per_file_stamps
+mkdir -p $(dir $(2)) && \
+if [ -n "$(strip $(NEWSPAPER_YEAR))" ]; then \
+  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+    $(1)/$(notdir $(NEWSPAPER))-$(strip $(NEWSPAPER_YEAR)) \
+    --local-dir $(BUILD_DIR) \
+    --stamp-mode per-file \
+    --logfile $(2).log.gz \
+    $(3); \
+else \
+  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+    $(1) \
+    --local-dir $(BUILD_DIR) \
+    --stamp-mode per-file \
+    --logfile $(2).log.gz \
+    $(3); \
+fi && \
+touch $(2)
+endef
+
+# FUNCTION: sync_year_aware_per_directory_stamps
+# Args:
+#   $(1): S3 path for the current newspaper
+#   $(2): local sync stamp file for one S3 scope
+#   $(3): year directory title prefix, usually $(notdir $(NEWSPAPER))
+#   $(4): optional extra impresso_cookbook.s3_to_local_stamps arguments
+define sync_year_aware_per_directory_stamps
+mkdir -p $(dir $(2)) && \
+if [ -n "$(strip $(NEWSPAPER_YEAR))" ]; then \
+  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+    $(1)/$(3)-$(strip $(NEWSPAPER_YEAR)) \
+    --local-dir $(BUILD_DIR) \
+    --stamp-mode per-directory \
+    --logfile $(2).log.gz \
+    $(4); \
+else \
+  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+    $(1) \
+    --local-dir $(BUILD_DIR) \
+    --stamp-mode per-directory \
+    --logfile $(2).log.gz \
+    $(4); \
+fi && \
+touch $(2)
+endef
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/newspaper_list.mk)

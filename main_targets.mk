@@ -79,6 +79,13 @@ NEWSPAPER_LOAD ?= $(MAX_LOAD)
 
 NEWSPAPER_LOAD_OPTION := $(if $(strip $(NEWSPAPER_LOAD)),--max-load $(NEWSPAPER_LOAD))
 
+# Internal dry-run propagation. GNU make records short options such as -n in
+# a compact option word such as "nrRw"; ignore long options like
+# --warn-undefined-variables, which also contain the letter "n".
+MAKEFLAGS_SHORT_OPTIONS := $(firstword $(filter-out --%,$(MAKEFLAGS)))
+MAKE_DRY_RUN_OPTION := $(if $(findstring n,$(MAKEFLAGS_SHORT_OPTIONS)),-n)
+PARALLEL_DRY_RUN_OPTION := $(if $(MAKE_DRY_RUN_OPTION),--dry-run)
+
 #: Show detailed orchestration and parallelization help
 help-orchestration::
 	@echo "PARALLELIZATION CONFIGURATION:"
@@ -113,6 +120,7 @@ help-orchestration::
 	@echo "  GPU-bound: use COLLECTION_JOBS as the target worker count and disable load/memory throttles"
 	@echo "  High memory usage: reduce COLLECTION_JOBS or raise COLLECTION_MEMFREE"
 	@echo "  System lag: reduce MAX_LOAD, COLLECTION_LOAD, or NEWSPAPER_LOAD"
+	@echo "  Dry run: make -n collection runs GNU parallel with --dry-run and passes -n to child makes"
 	@echo ""
 	@echo "EXAMPLES:"
 	@echo "  make newspaper PROVIDER=BL NEWSPAPER=WTCH"
@@ -146,8 +154,8 @@ endif
 # - processing-target: Performs the actual processing
 newspaper: | $(BUILD_DIR)
 	# MAKEFLAGS= $(MAKEFLAGS) 
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) sync
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) processing-target
+	$(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' sync
+	$(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
 
 .PHONY: newspaper
 
@@ -168,8 +176,8 @@ help-orchestration::
 # Use this target when a forced local sync-state refresh is desired, for example
 # before explicit single-newspaper multimachine coordination checks.
 all:
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 resync-input resync-output
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
+	$(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' -j 1 resync-input resync-output
+	$(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
 
 .PHONY: all
 
@@ -181,9 +189,9 @@ all:
 # through normal sync and relies on per-target online S3/WIP checks before
 # expensive processing.
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
-	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	+tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper' sh {}
+		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='$(NEWSPAPER_LOAD)' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper' sh {}
 
 
 check-parallel:
@@ -201,16 +209,17 @@ check-parallel:
 # expensive processing.
 collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
-	tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	+tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v \
 	   --progress \
 	   --joblog $(BUILD_DIR)/collection.joblog \
+	   $(PARALLEL_DRY_RUN_OPTION) \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay $(PARALLEL_DELAY) \
 	   $(COLLECTION_MEMFREE_OPTION) \
 	   $(COLLECTION_LOAD_OPTION) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper'
+	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='$(NEWSPAPER_LOAD)' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper'
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"

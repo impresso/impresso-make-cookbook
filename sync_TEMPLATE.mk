@@ -8,20 +8,15 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_TEMPLATE.mk)
 
 # VARIABLE: LOCAL_TEMPLATE_SYNC_STAMP_FILE
 # Stamp file indicating last successful synchronization of processed TEMPLATE processing data
-LOCAL_TEMPLATE_SYNC_STAMP_FILE := $(LOCAL_PATH_TEMPLATE).last_synced
+LOCAL_TEMPLATE_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_TEMPLATE))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_TEMPLATE))
   $(call log.debug, LOCAL_TEMPLATE_SYNC_STAMP_FILE)
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_TEMPLATE).last_synced
 #: Synchronizes data from S3 to the local directory
 #: Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_PATH_TEMPLATE).last_synced:
-	mkdir -p $(@D) && \
-	python  -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_TEMPLATE) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-file \
-	   --logfile $@.log.gz && \
-	touch $@
+$(LOCAL_TEMPLATE_SYNC_STAMP_FILE):
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_TEMPLATE),$@,)
 
 # TARGET: sync-TEMPLATE
 #: Synchronizes TEMPLATE processing data from/to S3
@@ -36,7 +31,7 @@ clean-sync:: clean-sync-TEMPLATE
 # TARGET: clean-sync-TEMPLATE
 #: Removes local synchronization stamp files for TEMPLATE processing
 clean-sync-TEMPLATE:
-	rm -vrf $(LOCAL_TEMPLATE_SYNC_STAMP_FILE) $(LOCAL_PATH_TEMPLATE) || true
+	rm -vrf $(call newspaper_sync_clean_files,$(LOCAL_PATH_TEMPLATE)) $(if $(strip $(NEWSPAPER_YEARS)),,$(LOCAL_PATH_TEMPLATE)) || true
 
 .PHONY: clean-sync-TEMPLATE
 
