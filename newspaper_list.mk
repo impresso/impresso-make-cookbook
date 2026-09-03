@@ -192,8 +192,9 @@ ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$
 
 # FUNCTION: filter_newspaper_year_files
 # Filters a whitespace-separated file list to files matching NEWSPAPER_YEARS.
-# Matches both NEWSPAPER-YYYY.ext and NEWSPAPER-YYYY-suffix.ext naming schemes.
-filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).% %-$(year)-%,$(1))),$(1))
+# GNU Make filter patterns support one operative %, so keep these as suffix
+# patterns for the current per-year stamp conventions.
+filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).jsonl.bz2 %-$(year).stamp,$(1))),$(1))
 
 STAMP_SYNC_PYTHON ?= $(or $(value PYTHON),python)
   $(call log.debug, STAMP_SYNC_PYTHON)
