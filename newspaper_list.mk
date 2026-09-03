@@ -10,8 +10,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/newspaper_list.mk)
 ###############################################################################
 
 
-sync:: newspaper-list-target
-
 # USER-VARIABLE: PROVIDER
 # Data provider organization (e.g., BL, SWA, NZZ)
 # Required for canonical data which is organized as PROVIDER/NEWSPAPER/
@@ -88,19 +86,41 @@ NEWSPAPER_FNMATCH ?=
 help-orchestration::
 	@echo ""
 	@echo "NEWSPAPER LIST TARGETS:"
-	@echo "  newspaper-list-target # Generate newspaper list from S3 into $(NEWSPAPERS_TO_PROCESS_FILE)"
-	@echo "  clean-newspaper-list-target # Remove generated newspaper list and log"
+	@echo "  newspaper-list-target # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  help-newspaper-list   # Show newspaper list generation modes and variables"
+
+help-newspaper-list:
 	@echo ""
-	@echo "NEWSPAPER SELECTION VARIABLES:"
-	@echo "  NEWSPAPER=$(NEWSPAPER)"
-	@echo "  PROVIDER=$(PROVIDER)"
+	@echo "NEWSPAPER LIST GENERATION:"
+	@echo "  newspaper-list-target       # Discover collection items into NEWSPAPERS_TO_PROCESS_FILE"
+	@echo "  clean-newspaper-list-target # Remove generated list and log files"
+	@echo ""
+	@echo "OUTPUT FILES:"
 	@echo "  NEWSPAPERS_TO_PROCESS_FILE=$(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  NEWSPAPERS_TO_PROCESS_LOG_FILE=$(NEWSPAPERS_TO_PROCESS_LOG_FILE)"
+	@echo ""
+	@echo "SUPPORTED LIST ENTRY FORMATS:"
+	@echo "  NEWSPAPER"
+	@echo "  PROVIDER/NEWSPAPER"
+	@echo "  PROVIDER/NEWSPAPER/YEAR"
+	@echo ""
+	@echo "DISCOVERY FILTERS:"
+	@echo "  S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET=$(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET)"
+	@echo "  NEWSPAPER_HAS_PROVIDER=$(NEWSPAPER_HAS_PROVIDER)"
 	@echo "  NEWSPAPER_PREFIX=$(NEWSPAPER_PREFIX)"
 	@echo "  NEWSPAPER_FNMATCH=$(NEWSPAPER_FNMATCH)"
-	@echo "  NEWSPAPER_YEARS=$(NEWSPAPER_YEARS)"
+	@echo ""
+	@echo "YEAR-AWARE GENERATION:"
 	@echo "  NEWSPAPER_LIST_INCLUDE_YEARS=$(NEWSPAPER_LIST_INCLUDE_YEARS)"
 	@echo "  NEWSPAPER_LIST_YEAR_STEP=$(NEWSPAPER_LIST_YEAR_STEP)"
 	@echo "  NEWSPAPER_LIST_YEARS=$(NEWSPAPER_LIST_YEARS)"
+	@echo ""
+	@echo "EXAMPLES:"
+	@echo "  make newspaper-list-target"
+	@echo "  make clean-newspaper-list-target newspaper-list-target"
+	@echo "  make newspaper-list-target NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
+
+.PHONY: help-newspaper-list
 
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET

@@ -664,7 +664,8 @@ The build system automatically detects CPU cores and configures parallel process
 - `make setup-python-env`: Install Python, pip, and pipenv
 - `make create-aws-config`: Generate AWS configuration from .env
 - `make test-aws`: Test AWS S3 connectivity
-- `make newspaper-list-target`: Generate list of newspapers to process
+- `make newspaper-list-target`: Discover collection items into `NEWSPAPERS_TO_PROCESS_FILE`
+- `make help-newspaper-list`: Show newspaper list generation modes and variables
 - `make update-pip-requirements-file`: Update requirements.txt from Pipfile
 
 ### Aggregation Targets
@@ -697,6 +698,9 @@ make lingproc-target NEWSPAPER=actionfem
 ### Parallel and Distributed Processing
 
 ```bash
+# Generate the collection processing plan
+make newspaper-list-target
+
 # Process multiple newspapers using collection target
 make collection
 
