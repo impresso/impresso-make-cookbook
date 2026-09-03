@@ -38,8 +38,8 @@ help-processing:: ; @echo "  DIAGNOSTICS_MEDIASOURCES=$(DIAGNOSTICS_MEDIASOURCES
 
 
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
+    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
+    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 

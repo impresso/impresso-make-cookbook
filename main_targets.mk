@@ -84,6 +84,7 @@ help-orchestration::
 	@echo "EXAMPLES:"
 	@echo "  make newspaper PROVIDER=BL NEWSPAPER=WTCH"
 	@echo "  make collection COLLECTION_JOBS=4 CFG=config.local.mk"
+	@echo "  make collection NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
 	@echo "  make all PROVIDER=BL NEWSPAPER=WTCH MAX_LOAD=8"
 	@echo "  make sync-input PROVIDER=SWA NEWSPAPER=actionfem"
 	@echo ""
@@ -148,7 +149,7 @@ all:
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'NEWSPAPER="$$1" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) newspaper' sh {}
+		sh -c 'item="$$1"; year="$${item##*/}"; if expr "$$year" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; else newspaper="$$item"; year=""; fi; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) newspaper' sh {}
 
 
 check-parallel:
@@ -175,7 +176,7 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   --memfree 1G \
 	   --load $(MAX_LOAD) \
 	   $(PARALLEL_HALT) \
-	   "NEWSPAPER={} $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) newspaper"
+	   'item={}; year="$${item##*/}"; if expr "$$year" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; else newspaper="$$item"; year=""; fi; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) newspaper'
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"

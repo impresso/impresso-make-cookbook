@@ -45,6 +45,34 @@ NEWSPAPERS_TO_PROCESS_LOG_FILE ?= $(NEWSPAPERS_TO_PROCESS_FILE).log.gz
 NEWSPAPER_YEAR_SORTING ?= shuf
   $(call log.debug, NEWSPAPER_YEAR_SORTING)
 
+# USER-VARIABLE: NEWSPAPER_YEARS
+# Optional space-separated list of years to process for the current newspaper.
+# Collection entries in PROVIDER/NEWSPAPER/YEAR form set this automatically.
+NEWSPAPER_YEARS ?=
+  $(call log.debug, NEWSPAPER_YEARS)
+
+# USER-VARIABLE: NEWSPAPER_LIST_INCLUDE_YEARS
+# If set to 1, generate collection items as PROVIDER/NEWSPAPER/YEAR instead of
+# newspaper-only identifiers.
+NEWSPAPER_LIST_INCLUDE_YEARS ?= 0
+  $(call log.debug, NEWSPAPER_LIST_INCLUDE_YEARS)
+
+# USER-VARIABLE: NEWSPAPER_LIST_YEAR_STEP
+# When generating year-aware collection items, select one available year from
+# each interval of this size. For example, 25 samples one year per 25-year bin.
+NEWSPAPER_LIST_YEAR_STEP ?=
+  $(call log.debug, NEWSPAPER_LIST_YEAR_STEP)
+
+# USER-VARIABLE: NEWSPAPER_LIST_YEAR_ANCHOR
+# Anchor year for NEWSPAPER_LIST_YEAR_STEP intervals.
+NEWSPAPER_LIST_YEAR_ANCHOR ?= 0
+  $(call log.debug, NEWSPAPER_LIST_YEAR_ANCHOR)
+
+# USER-VARIABLE: NEWSPAPER_LIST_YEARS
+# Optional explicit years to include when generating year-aware collection items.
+NEWSPAPER_LIST_YEARS ?=
+  $(call log.debug, NEWSPAPER_LIST_YEARS)
+
 
 # USER-VARIABLE: NEWSPAPER_HAS_PROVIDER
 # Flag to indicate if newspapers are organized with PROVIDER level in S3
@@ -74,6 +102,11 @@ help-orchestration::
 	@echo "  NEWSPAPERS_TO_PROCESS_FILE=$(NEWSPAPERS_TO_PROCESS_FILE)"
 	@echo "  NEWSPAPER_PREFIX=$(NEWSPAPER_PREFIX)"
 	@echo "  NEWSPAPER_FNMATCH=$(NEWSPAPER_FNMATCH)"
+	@echo "  NEWSPAPER_YEARS=$(NEWSPAPER_YEARS)"
+	@echo "  NEWSPAPER_LIST_INCLUDE_YEARS=$(NEWSPAPER_LIST_INCLUDE_YEARS)"
+	@echo "  NEWSPAPER_LIST_YEAR_STEP=$(NEWSPAPER_LIST_YEAR_STEP)"
+	@echo "  NEWSPAPER_LIST_YEAR_ANCHOR=$(NEWSPAPER_LIST_YEAR_ANCHOR)"
+	@echo "  NEWSPAPER_LIST_YEARS=$(NEWSPAPER_LIST_YEARS)"
 
 
 # USER-VARIABLE: S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET
@@ -104,6 +137,10 @@ $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 			--prefix "$(NEWSPAPER_PREFIX)" \
 			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
 			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
+			$(if $(filter 1,$(NEWSPAPER_LIST_INCLUDE_YEARS)),--include-years) \
+			$(if $(NEWSPAPER_LIST_YEAR_STEP),--year-step $(NEWSPAPER_LIST_YEAR_STEP)) \
+			$(if $(NEWSPAPER_LIST_YEAR_ANCHOR),--year-anchor $(NEWSPAPER_LIST_YEAR_ANCHOR)) \
+			$(if $(NEWSPAPER_LIST_YEARS),--years $(NEWSPAPER_LIST_YEARS)) \
 			$(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)'); \
 	elif [ ! -s $@ ]; then \
 		message="WARNING: $(NEWSPAPERS_TO_PROCESS_FILE) exists but is empty; removing it."; \
@@ -132,5 +169,10 @@ ALL_NEWSPAPERS := $(file < $(NEWSPAPERS_TO_PROCESS_FILE))
 ALL_NEWSPAPERS_COUNT := $(words $(ALL_NEWSPAPERS))
 ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$(ALL_NEWSPAPERS)) ... $(lastword $(ALL_NEWSPAPERS)) ($(ALL_NEWSPAPERS_COUNT) newspapers),$(ALL_NEWSPAPERS))
   $(if $(LOGGING_SUPPRESSED_FOR_HELP),,$(if $(filter $(LOGGING_LEVEL),DEBUG),$(call log.debug, ALL_NEWSPAPERS),$(if $(filter $(LOGGING_LEVEL),INFO),$(info INFO:: ALL_NEWSPAPERS = "$(ALL_NEWSPAPERS_INFO_PREVIEW)"))))
+
+# FUNCTION: filter_newspaper_year_files
+# Filters a whitespace-separated file list to files matching NEWSPAPER_YEARS.
+# Matches both NEWSPAPER-YYYY.ext and NEWSPAPER-YYYY-suffix.ext naming schemes.
+filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).% %-$(year)-%,$(1))),$(1))
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/newspaper_list.mk)

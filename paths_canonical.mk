@@ -157,16 +157,16 @@ LOCAL_PATH_CANONICAL_ISSUES := $(BUILD_DIR)/$(S3_BUCKET_CANONICAL)/$(CANONICAL_P
 # Stores all locally available canonical pages stamp files for dependency tracking
 # Note: Canonical pages use yearly issue-level stamps with hard-coded .stamp suffix (e.g., AATA-1846.stamp)
 LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*.stamp 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
+    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_CANONICAL_PAGES)/*.stamp 2> /dev/null \
+    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
   $(call log.debug, LOCAL_CANONICAL_PAGES_STAMP_FILE_LIST)
 
 # VARIABLE: LOCAL_CANONICAL_AUDIOS_STAMP_FILE_LIST
 # Stores all locally available canonical audio stamp files for dependency tracking
 # Note: Canonical audios use yearly issue-level stamps with hard-coded .stamp suffix (e.g., ana_media-1996.stamp)
 LOCAL_CANONICAL_AUDIOS_STAMP_FILE_LIST := \
-    $(shell ls -r $(LOCAL_PATH_CANONICAL_AUDIOS)/*.stamp 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
+    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_CANONICAL_AUDIOS)/*.stamp 2> /dev/null \
+    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
   $(call log.debug, LOCAL_CANONICAL_AUDIOS_STAMP_FILE_LIST)
 
 # VARIABLE: LOCAL_CANONICAL_INPUT_STAMP_FILE_LIST

@@ -804,7 +804,39 @@ make all \
 # Process specific newspaper subset
 echo "actionfem EZR" > newspapers.txt
 make collection NEWSPAPERS_TO_PROCESS_FILE=newspapers.txt
+
+# Process specific newspaper years from a custom list
+echo "BNL/luxwort/1850 BNL/actionfem/1925" > newspaper-years.txt
+make collection NEWSPAPERS_TO_PROCESS_FILE=newspaper-years.txt
+
+# Generate one sampled year per 25-year interval for each selected newspaper
+make collection \
+  NEWSPAPER_LIST_INCLUDE_YEARS=1 \
+  NEWSPAPER_LIST_YEAR_STEP=25 \
+  NEWSPAPER_LIST_YEAR_ANCHOR=1800
 ```
+
+### Year-Aware Collection Runs
+
+`make collection` accepts both newspaper-only and year-aware entries in
+`NEWSPAPERS_TO_PROCESS_FILE`.
+
+- `PROVIDER/NEWSPAPER` processes the full newspaper.
+- `PROVIDER/NEWSPAPER/YEAR` processes only that year.
+- If `NEWSPAPER_HAS_PROVIDER=0`, use `NEWSPAPER` or `NEWSPAPER/YEAR`.
+
+For generated lists, set `NEWSPAPER_LIST_INCLUDE_YEARS=1`. To sample a sparse
+collection run, combine it with `NEWSPAPER_LIST_YEAR_STEP`, for example
+`NEWSPAPER_LIST_YEAR_STEP=25` to choose one available year from each 25-year
+interval per newspaper. `NEWSPAPER_LIST_YEAR_ANCHOR` controls the interval
+alignment, and `NEWSPAPER_LIST_YEARS` can restrict generation to explicit years.
+If a newspaper has available years but none match the configured year filter, the
+first available year is still included so every discovered newspaper contributes
+at least one processing item.
+
+During collection execution, a year-aware entry sets `NEWSPAPER_YEARS` for the
+child `newspaper` run. Processing fragments that derive work from canonical or
+rebuilt per-year file lists then select only matching year files.
 
 ## Configuration and Customization
 

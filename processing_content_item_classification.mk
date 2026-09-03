@@ -21,8 +21,8 @@ processing-target :: content_item_classification-target
 # Stores all locally available rebuilt stamp files for dependency tracking
 # Rebuilt stamps match S3 file names exactly (no suffix)
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
+    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
+    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 

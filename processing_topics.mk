@@ -114,8 +114,8 @@ TOPICS_WIP_FORCE_OPTION := $(if $(TOPICS_EFFECTIVE_FORCE_OVERWRITE_OPTION),--for
 # Used for dependency tracking of the build process. Errors are discarded
 # as files or directories may not exist initially.
 LOCAL_LINGPROC_FILES := \
-    $(shell ls -r $(LOCAL_PATH_LINGPROC)/*.jsonl.bz2 2> /dev/null \
-      | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
+    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_LINGPROC)/*.jsonl.bz2 2> /dev/null \
+      | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
 
 $(call log.debug, LOCAL_LINGPROC_FILES)
 

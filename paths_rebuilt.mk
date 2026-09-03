@@ -27,8 +27,8 @@ LOCAL_PATH_REBUILT := $(BUILD_DIR)/$(S3_BUCKET_REBUILT)/$(NEWSPAPER)
 # Stores all locally available rebuilt stamp files for dependency tracking
 # Note: Stamps now match S3 filenames exactly (no suffix)
 LOCAL_REBUILT_STAMP_FILES := \
-    $(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat))
+    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
+    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
 help-path-variables::

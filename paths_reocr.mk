@@ -36,7 +36,7 @@ HF_FONT_REPO_reocr ?=
 HF_FONT_MODEL_reocr ?=
   $(call log.debug, HF_FONT_MODEL_reocr)
 
-REOCR_YEARS ?=
+REOCR_YEARS ?= $(NEWSPAPER_YEARS)
   $(call log.debug, REOCR_YEARS)
 
 REOCR_SLEEP_AFTER ?= 1.0

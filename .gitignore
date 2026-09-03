@@ -8,3 +8,4 @@ lib/*_myprocessing.py
 Pipfile.lock
 .env
 venv/
+*.jsonl.bz2

@@ -44,6 +44,10 @@ Examples:
   # With --has-provider, fnmatch matches 'provider/newspaper' format (prefix excluded)
   python list_newspapers.py --bucket 22-rebuilt-final --has-provider \\
     --prefix 'data/' --fnmatch 'NZZ/*'
+
+  # Emit PROVIDER/NEWSPAPER/YEAR items, one available year per 25-year interval
+  python list_newspapers.py --bucket 112-canonical-final --has-provider \\
+    --include-years --year-step 25 --year-anchor 1800
 """
 
 import argparse
@@ -55,7 +59,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from botocore.client import BaseClient
 
@@ -141,6 +145,33 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
             " '*wort*')"
         ),
     )
+    parser.add_argument(
+        "--include-years",
+        action="store_true",
+        help="Output newspaper/year items instead of newspaper-only items",
+    )
+    parser.add_argument(
+        "--year-step",
+        type=int,
+        default=None,
+        help=(
+            "When used with --include-years, select one available year from each"
+            " interval of this size"
+        ),
+    )
+    parser.add_argument(
+        "--year-anchor",
+        type=int,
+        default=0,
+        help="Anchor year for --year-step intervals (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--years",
+        nargs="+",
+        type=int,
+        default=None,
+        help="Explicit available years to include when using --include-years",
+    )
     return parser.parse_args(args)
 
 
@@ -166,6 +197,10 @@ class NewspaperLister:
         log_file: Optional[str] = None,
         output_file: Optional[str] = None,
         fnmatch_pattern: Optional[str] = None,
+        include_years: bool = False,
+        year_step: Optional[int] = None,
+        year_anchor: int = 0,
+        years: Optional[List[int]] = None,
     ) -> None:
         """Initialize the NewspaperLister with configuration parameters."""
         self.bucket = bucket
@@ -179,6 +214,10 @@ class NewspaperLister:
         self.log_file = log_file
         self.output_file = output_file
         self.fnmatch_pattern = fnmatch_pattern
+        self.include_years = include_years
+        self.year_step = year_step
+        self.year_anchor = year_anchor
+        self.years = set(years or [])
 
         # Configure the module-specific logger
         setup_logging(self.log_level, self.log_file, logger=log)
@@ -281,8 +320,8 @@ class NewspaperLister:
 
         return years
 
-    def count_year_files(self, newspaper_prefix: str) -> int:
-        """Count files that look like newspaper-year.jsonl.bz2 under a newspaper."""
+    def list_year_files(self, newspaper_prefix: str) -> Set[int]:
+        """List years that have files looking like newspaper-year.jsonl.bz2."""
         # Use set for O(1) lookups instead of list
         years: set[int] = set()
         object_count = 0
@@ -369,7 +408,7 @@ class NewspaperLister:
 
         except Exception as e:
             log.error("Error listing objects for %s: %s", newspaper_prefix, e)
-            return 0
+            return set()
 
         log.debug(
             "Found %d total objects, %d .jsonl.bz2 objects, %d unique years"
@@ -411,7 +450,11 @@ class NewspaperLister:
                         bool(NO_PROVIDER_DIRECT_RE.search(obj)),
                     )
 
-        return len(years)
+        return years
+
+    def count_year_files(self, newspaper_prefix: str) -> int:
+        """Count files that look like newspaper-year.jsonl.bz2 under a newspaper."""
+        return len(self.list_year_files(newspaper_prefix))
 
     def discover_newspapers(self) -> List[str]:
         """Discover newspaper identifiers from S3 bucket structure."""
@@ -553,6 +596,64 @@ class NewspaperLister:
 
         return years_per_np
 
+    def list_years_per_newspaper(self, newspapers: List[str]) -> Dict[str, List[int]]:
+        """List available years for each newspaper."""
+        years_per_np: Dict[str, List[int]] = {}
+        total_newspapers = len(newspapers)
+
+        log.info("Listing years for %d newspapers...", total_newspapers)
+
+        for i, n in enumerate(newspapers, 1):
+            np_prefix = f"{self.prefix}{n}/" if self.prefix else f"{n}/"
+
+            if total_newspapers > 50 and i % 20 == 0:
+                log.info("Progress: %d/%d newspapers processed", i, total_newspapers)
+
+            years = sorted(self.list_year_files(np_prefix))
+            years_per_np[n] = years
+
+            if years:
+                log.info(
+                    "Newspaper %s: %d years (%d-%d)",
+                    n,
+                    len(years),
+                    years[0],
+                    years[-1],
+                )
+            else:
+                log.warning("Newspaper %s: 0 years", n)
+
+        return years_per_np
+
+    def select_years(self, years: List[int]) -> List[int]:
+        """Select the configured subset of available years."""
+        selected = years
+
+        if self.years:
+            selected = [year for year in selected if year in self.years]
+
+        if self.year_step:
+            by_interval: Dict[int, int] = {}
+            for year in selected:
+                interval = (year - self.year_anchor) // self.year_step
+                by_interval.setdefault(interval, year)
+            selected = list(by_interval.values())
+
+        if not selected and years:
+            selected = [years[0]]
+
+        return selected
+
+    def expand_newspaper_year_items(
+        self, newspapers: List[str], years_per_np: Dict[str, List[int]]
+    ) -> List[str]:
+        """Expand newspaper identifiers to PROVIDER/NEWSPAPER/YEAR items."""
+        items: List[str] = []
+        for newspaper in newspapers:
+            selected_years = self.select_years(years_per_np.get(newspaper, []))
+            items.extend(f"{newspaper}/{year}" for year in selected_years)
+        return items
+
     def compute_group_thresholds(self, counts: List[int]) -> List[int]:
         """Compute log-spaced thresholds to split counts into num_groups groups."""
         if not counts or self.num_groups <= 1:
@@ -688,9 +789,13 @@ class NewspaperLister:
                 self.write_output([])
                 return
 
-            # Count years for each newspaper
-            log.info("Starting year counting for %d newspapers...", len(newspapers))
-            years_per_np = self.count_years_per_newspaper(newspapers)
+            if self.include_years:
+                log.info("Starting year listing for %d newspapers...", len(newspapers))
+                years_by_np = self.list_years_per_newspaper(newspapers)
+                years_per_np = {n: len(years_by_np.get(n, [])) for n in newspapers}
+            else:
+                log.info("Starting year counting for %d newspapers...", len(newspapers))
+                years_per_np = self.count_years_per_newspaper(newspapers)
 
             # Log grouping diagnostics if enabled
             if self.large_first:
@@ -700,30 +805,35 @@ class NewspaperLister:
             # Order newspapers based on configuration
             log.info("Ordering newspapers...")
             ordered = self.order_newspapers(newspapers, years_per_np)
+            output_items = (
+                self.expand_newspaper_year_items(ordered, years_by_np)
+                if self.include_years
+                else ordered
+            )
 
             elapsed_time = time.time() - start_time
             log.info("Processing completed in %.2f seconds", elapsed_time)
             log.info(
-                "Final order (%d newspapers): %s",
-                len(ordered),
-                ordered if len(ordered) <= 20 else ordered[:20] + ["..."],
+                "Final order (%d items): %s",
+                len(output_items),
+                output_items if len(output_items) <= 20 else output_items[:20] + ["..."],
             )
 
-            self.write_output(ordered)
+            self.write_output(output_items)
 
         except Exception as e:
             log.error("Error during processing: %s", e, exc_info=True)
             sys.exit(1)
 
-    def write_output(self, newspapers: List[str]) -> None:
+    def write_output(self, items: List[str]) -> None:
         """Write the resulting newspaper list to the configured destination."""
-        output = " ".join(newspapers)
+        output = " ".join(items)
 
         if self.output_file:
             output_path = Path(self.output_file)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(output, encoding="utf-8")
-            log.info("Wrote %d newspapers to %s", len(newspapers), self.output_file)
+            log.info("Wrote %d items to %s", len(items), self.output_file)
             return
 
         print(output, end="")
@@ -735,6 +845,9 @@ def main(args: Optional[List[str]] = None) -> None:
 
     if options.num_groups < 1:
         log.error("--num-groups must be at least 1")
+        sys.exit(1)
+    if options.year_step is not None and options.year_step < 1:
+        log.error("--year-step must be at least 1")
         sys.exit(1)
 
     processor: NewspaperLister = NewspaperLister(
@@ -749,6 +862,10 @@ def main(args: Optional[List[str]] = None) -> None:
         log_file=options.log_file,
         output_file=options.output_file,
         fnmatch_pattern=options.fnmatch,
+        include_years=options.include_years,
+        year_step=options.year_step,
+        year_anchor=options.year_anchor,
+        years=options.years,
     )
 
     log.info("Configuration: %s", options)
