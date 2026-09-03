@@ -70,6 +70,9 @@ mediasources-target: $(LOCAL_MEDIASOURCES_FILES)
 $(LOCAL_PATH_MEDIASOURCES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
+    MIN_YEAR_MEDIASOURCES="$(MIN_YEAR_MEDIASOURCES)" \
+    SAMPLE_MEDIASOURCES="$(SAMPLE_MEDIASOURCES)" \
+    SAMPLE_SEED_MEDIASOURCES="$(SAMPLE_SEED_MEDIASOURCES)" \
     $(PYTHON) lib/cli_mediasources.py \
       --input $(call LocalToS3,$<) \
       --output $@ \
@@ -81,9 +84,6 @@ $(LOCAL_PATH_MEDIASOURCES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
       --outer-batch-size $(OUTER_BATCH_SIZE_MEDIASOURCES) \
       --dtype $(DTYPE_MEDIASOURCES) \
       --device $(DEVICE_MEDIASOURCES) \
-      $(if $(MIN_YEAR_MEDIASOURCES),--min-year $(MIN_YEAR_MEDIASOURCES)) \
-      $(if $(SAMPLE_MEDIASOURCES),--sample $(SAMPLE_MEDIASOURCES)) \
-      $(if $(SAMPLE_SEED_MEDIASOURCES),--sample-seed $(SAMPLE_SEED_MEDIASOURCES)) \
       $(FILTER_ANACHRONISTIC_MEDIASOURCES) \
       $(DIAGNOSTICS_MEDIASOURCES) \
     && \
