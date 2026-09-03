@@ -80,8 +80,9 @@ NEWSPAPER_LOAD ?= $(MAX_LOAD)
 NEWSPAPER_LOAD_OPTION := $(if $(strip $(NEWSPAPER_LOAD)),--max-load $(NEWSPAPER_LOAD))
 
 # Internal dry-run propagation. GNU make records short options such as -n in
-# the first MAKEFLAGS word; long options follow as separate words.
-MAKEFLAGS_SHORT_OPTIONS := $(firstword $(MAKEFLAGS))
+# a compact option word such as "nrRw"; ignore long options like
+# --warn-undefined-variables, which also contain the letter "n".
+MAKEFLAGS_SHORT_OPTIONS := $(firstword $(filter-out --%,$(MAKEFLAGS)))
 MAKE_DRY_RUN_OPTION := $(if $(findstring n,$(MAKEFLAGS_SHORT_OPTIONS)),-n)
 PARALLEL_DRY_RUN_OPTION := $(if $(MAKE_DRY_RUN_OPTION),--dry-run)
 
