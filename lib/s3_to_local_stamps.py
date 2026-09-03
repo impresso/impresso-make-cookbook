@@ -405,6 +405,8 @@ class LocalStampCreator(object):
 
             if not self.args.no_bucket:
                 local_stamp_path = os.path.join(bucket_name, directory)
+            else:
+                local_stamp_path = directory
             local_stamp_path = os.path.join(self.args.local_dir, local_stamp_path)
             # Always append .stamp for directory stamps
             local_stamp_path += ".stamp"
@@ -532,11 +534,22 @@ class LocalStampCreator(object):
             "Checking for dangling stamp files. Expected files from S3: %d",
             len(expected_stamp_files),
         )
-        # Determine the base directory to scan
+        # Determine the local prefix and base directory to scan.
         if not self.args.no_bucket:
-            base_dir = os.path.join(self.args.local_dir, self.bucket_name, self.prefix)
+            local_prefix_path = os.path.join(
+                self.args.local_dir, self.bucket_name, self.prefix
+            )
         else:
-            base_dir = os.path.join(self.args.local_dir, self.prefix)
+            local_prefix_path = os.path.join(self.args.local_dir, self.prefix)
+
+        if use_exact_names or os.path.isdir(local_prefix_path):
+            base_dir = local_prefix_path
+        else:
+            # Directory stamps are created as PREFIX.stamp. For a narrowed sync
+            # prefix such as pages/NEWSPAPER-1850, the stamp is a sibling of the
+            # non-existent local directory, so cleanup must scan the parent but
+            # still filter candidates by local_prefix_path below.
+            base_dir = os.path.dirname(local_prefix_path)
 
         log.info("Scanning base directory: '%s'", base_dir)
 
@@ -550,6 +563,9 @@ class LocalStampCreator(object):
         for root, dirs, files in os.walk(base_dir):
             for filename in files:
                 file_path = os.path.join(root, filename)
+
+                if not use_exact_names and not file_path.startswith(local_prefix_path):
+                    continue
 
                 # Determine base filename based on stamp mode
                 if use_exact_names:

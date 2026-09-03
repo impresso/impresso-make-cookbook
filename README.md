@@ -883,6 +883,9 @@ newspaper contributes at least one processing item.
 During collection execution, a year-aware entry sets `NEWSPAPER_YEARS` for the
 child `newspaper` run. Processing fragments that derive work from canonical or
 rebuilt per-year file lists then select only matching year files.
+Canonical and rebuilt input sync also use `NEWSPAPER_YEARS` to query only the
+selected year prefixes. Re-OCR maps `NEWSPAPER_YEARS` to `REOCR_YEARS` by
+default, so its input and output-state sync targets use the same year scope.
 
 ## Configuration and Customization
 

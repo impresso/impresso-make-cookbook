@@ -64,16 +64,7 @@ endif
 #: at the exact target paths for remote issue objects, while pages continue to use per-directory
 #: .stamp files in the separate pages sync rule below.
 $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CONSOLIDATEDCANONICAL) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-file \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_CONSOLIDATEDCANONICAL),$@,--remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CONSOLIDATEDCANONICAL_PAGES).last_synced
@@ -81,13 +72,26 @@ $(LOCAL_CONSOLIDATEDCANONICAL_SYNC_STAMP_FILE):
 #: Creates directory stamps with .stamp suffix (hard-coded) for yearly page directories
 $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CONSOLIDATEDCANONICAL_PAGES) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
+	if [ -n "$(strip $(NEWSPAPER_YEARS))" ]; then \
+	  set -e; \
+	  for year in $(strip $(NEWSPAPER_YEARS)); do \
+	    $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	      $(S3_PATH_CONSOLIDATEDCANONICAL_PAGES)/$(notdir $(NEWSPAPER))-$$year \
+	      --local-dir $(BUILD_DIR) \
+	      --stamp-mode per-directory \
+	      --remove-dangling-stamps \
+	      --logfile $@.$$year.log.gz \
+	      --log-level $(LOGGING_LEVEL); \
+	  done; \
+	else \
+	  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
+	    $(S3_PATH_CONSOLIDATEDCANONICAL_PAGES) \
+	    --local-dir $(BUILD_DIR) \
+	    --stamp-mode per-directory \
+	    --remove-dangling-stamps \
+	    --logfile $@.log.gz \
+	    --log-level $(LOGGING_LEVEL); \
+	fi \
 	&& \
 	touch $@
 
@@ -96,13 +100,26 @@ $(LOCAL_CONSOLIDATEDCANONICAL_PAGES_SYNC_STAMP_FILE):
 #: Creates directory stamps with .stamp suffix (hard-coded) for yearly audio directories
 $(LOCAL_CONSOLIDATEDCANONICAL_AUDIOS_SYNC_STAMP_FILE):
 	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
+	if [ -n "$(strip $(NEWSPAPER_YEARS))" ]; then \
+	  set -e; \
+	  for year in $(strip $(NEWSPAPER_YEARS)); do \
+	    $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	      $(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/$(notdir $(NEWSPAPER))-$$year \
+	      --local-dir $(BUILD_DIR) \
+	      --stamp-mode per-directory \
+	      --remove-dangling-stamps \
+	      --logfile $@.$$year.log.gz \
+	      --log-level $(LOGGING_LEVEL); \
+	  done; \
+	else \
+	  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
+	    $(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS) \
+	    --local-dir $(BUILD_DIR) \
+	    --stamp-mode per-directory \
+	    --remove-dangling-stamps \
+	    --logfile $@.log.gz \
+	    --log-level $(LOGGING_LEVEL); \
+	fi \
 	&& \
 	touch $@
 

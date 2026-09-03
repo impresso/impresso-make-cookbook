@@ -289,6 +289,8 @@ $(LOCAL_PATH_LANGIDENT_STAGE1).last_synced:
 # Phony operation: always queries S3 when explicitly requested.
 sync-langident-stage1:
 	# Syncing the processed data from $(S3_PATH_LANGIDENT_STAGE1)
+	# Intentionally not narrowed by NEWSPAPER_YEARS: stage1 sync also needs
+	# newspaper-level stats.json for ensemble voting.
 	#
 	# to $(LOCAL_PATH_LANGIDENT_STAGE1)
 	mkdir -p $(dir $(LOCAL_LANGIDENT_STAGE1_SYNC_STAMP_FILE)) \

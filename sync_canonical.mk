@@ -81,6 +81,9 @@ LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_PAGES).last_sync
 LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE := $(LOCAL_PATH_CANONICAL_AUDIOS).last_synced
   $(call log.debug, LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 
+CANONICAL_SYNC_TITLE := $(notdir $(NEWSPAPER))
+  $(call log.debug, CANONICAL_SYNC_TITLE)
+
 # VARIABLE: LOCAL_CANONICAL_INPUT_SYNC_STAMP_FILES
 # Selected canonical synchronization stamps. In auto mode, sync both record
 # layouts and let the discovered stamps decide which files feed processing.
@@ -122,6 +125,7 @@ help-sync::
 	@echo ""
 	@echo "CANONICAL INPUT SYNC:"
 	@echo "  sync-canonical # Synchronize canonical pages/audio input data from S3"
+	@echo "                 # Set NEWSPAPER_YEARS='1850 1875' to limit sync/processing to selected years"
 
 help-clean::
 	@echo "  clean-sync-canonical # Remove local canonical input sync stamp files"
@@ -141,14 +145,28 @@ sync-canonical-pages:
 	# creating $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 	mkdir -p $(dir $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)) \
 	&& \
-	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CANONICAL_PAGES) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
-	   --directory-level 1 \
-	   --remove-dangling-stamps \
-	   --logfile $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE).log.gz \
-	   --log-level $(LOGGING_LEVEL) \
+	if [ -n "$(strip $(NEWSPAPER_YEARS))" ]; then \
+	  set -e; \
+	  for year in $(strip $(NEWSPAPER_YEARS)); do \
+	    $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	      $(S3_PATH_CANONICAL_PAGES)/$(CANONICAL_SYNC_TITLE)-$$year \
+	      --local-dir $(BUILD_DIR) \
+	      --stamp-mode per-directory \
+	      --directory-level 1 \
+	      --remove-dangling-stamps \
+	      --logfile $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE).$$year.log.gz \
+	      --log-level $(LOGGING_LEVEL); \
+	  done; \
+	else \
+	  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
+	    $(S3_PATH_CANONICAL_PAGES) \
+	    --local-dir $(BUILD_DIR) \
+	    --stamp-mode per-directory \
+	    --directory-level 1 \
+	    --remove-dangling-stamps \
+	    --logfile $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE).log.gz \
+	    --log-level $(LOGGING_LEVEL); \
+	fi \
 	&& \
 	touch $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
@@ -175,14 +193,28 @@ sync-canonical-audios:
 	# creating $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 	mkdir -p $(dir $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)) \
 	&& \
-	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
-	   $(S3_PATH_CANONICAL_AUDIOS) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-directory \
-	   --directory-level 1 \
-	   --remove-dangling-stamps \
-	   --logfile $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE).log.gz \
-	   --log-level $(LOGGING_LEVEL) \
+	if [ -n "$(strip $(NEWSPAPER_YEARS))" ]; then \
+	  set -e; \
+	  for year in $(strip $(NEWSPAPER_YEARS)); do \
+	    $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+	      $(S3_PATH_CANONICAL_AUDIOS)/$(CANONICAL_SYNC_TITLE)-$$year \
+	      --local-dir $(BUILD_DIR) \
+	      --stamp-mode per-directory \
+	      --directory-level 1 \
+	      --remove-dangling-stamps \
+	      --logfile $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE).$$year.log.gz \
+	      --log-level $(LOGGING_LEVEL); \
+	  done; \
+	else \
+	  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
+	    $(S3_PATH_CANONICAL_AUDIOS) \
+	    --local-dir $(BUILD_DIR) \
+	    --stamp-mode per-directory \
+	    --directory-level 1 \
+	    --remove-dangling-stamps \
+	    --logfile $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE).log.gz \
+	    --log-level $(LOGGING_LEVEL); \
+	fi \
 	&& \
 	touch $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 

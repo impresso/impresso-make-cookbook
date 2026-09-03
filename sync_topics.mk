@@ -59,17 +59,7 @@ upload-topic-descriptions:
 #: Synchronizes topics data from S3 to local stamp files
 #: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_TOPICS_SYNC_STAMP_FILE):
-	mkdir -p $(@D) && \
-	python -m impresso_cookbook.s3_to_local_stamps \
-	   $(S3_PATH_TOPICS) \
-	   --local-dir $(BUILD_DIR) \
-	   --stamp-mode per-file \
-	   --file-extensions jsonl.bz2 json log.gz \
-	   --remove-dangling-stamps \
-	   --logfile $@.log.gz \
-	   --log-level $(LOGGING_LEVEL) \
-	&& \
-	touch $@
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_TOPICS),$@,--file-extensions jsonl.bz2 json log.gz --remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 
 # TARGET: clean-sync-topics

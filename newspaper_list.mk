@@ -188,4 +188,35 @@ ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$
 # Matches both NEWSPAPER-YYYY.ext and NEWSPAPER-YYYY-suffix.ext naming schemes.
 filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).% %-$(year)-%,$(1))),$(1))
 
+STAMP_SYNC_PYTHON ?= $(or $(value PYTHON),python)
+  $(call log.debug, STAMP_SYNC_PYTHON)
+
+# FUNCTION: sync_year_aware_per_file_stamps
+# Args:
+#   $(1): S3 path for the current newspaper
+#   $(2): local sync stamp file
+#   $(3): optional extra impresso_cookbook.s3_to_local_stamps arguments
+define sync_year_aware_per_file_stamps
+mkdir -p $(dir $(2)) && \
+if [ -n "$(strip $(NEWSPAPER_YEARS))" ]; then \
+  set -e; \
+  for year in $(strip $(NEWSPAPER_YEARS)); do \
+    $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+      $(1)/$(notdir $(NEWSPAPER))-$$year \
+      --local-dir $(BUILD_DIR) \
+      --stamp-mode per-file \
+      --logfile $(2).$$year.log.gz \
+      $(3); \
+  done; \
+else \
+  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+    $(1) \
+    --local-dir $(BUILD_DIR) \
+    --stamp-mode per-file \
+    --logfile $(2).log.gz \
+    $(3); \
+fi && \
+touch $(2)
+endef
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/newspaper_list.mk)
