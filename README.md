@@ -608,10 +608,29 @@ want to discard and rebuild local sync state first.
 The build system automatically detects CPU cores and configures parallel processing:
 
 - `NPROC`: Automatically detected number of CPU cores
-- `PARALLEL_JOBS`: Maximum parallel jobs (defaults to NPROC)
 - `COLLECTION_JOBS`: Number of parallel newspaper collections (defaults to NPROC/2)
-- `NEWSPAPER_JOBS`: Jobs per newspaper (defaults to PARALLEL_JOBS/COLLECTION_JOBS)
+- `NEWSPAPER_JOBS`: Jobs per newspaper (defaults to NPROC/COLLECTION_JOBS, clamped to at least 1)
 - `MAX_LOAD`: Maximum system load average for job scheduling
+- `COLLECTION_LOAD`: GNU parallel load throttle for collection jobs; set empty to disable
+- `COLLECTION_MEMFREE`: GNU parallel free-memory throttle for collection jobs; set empty to disable
+- `NEWSPAPER_LOAD`: Child make load throttle; set empty to disable
+
+For CPU-bound collection runs, treat `COLLECTION_JOBS` as an upper limit and
+leave the load throttles enabled. By default, `COLLECTION_LOAD` and
+`NEWSPAPER_LOAD` follow `MAX_LOAD`, and GNU parallel also keeps
+`COLLECTION_MEMFREE=1G` free. This allows up to `COLLECTION_JOBS` concurrent
+newspaper workers while holding back new work when the machine is already busy.
+
+For GPU-bound collection runs, `COLLECTION_JOBS` controls the number of
+concurrent `make newspaper` workers and `NEWSPAPER_JOBS` controls the inner
+parallelism of each worker. Use `COLLECTION_JOBS=6 NEWSPAPER_JOBS=1` to target
+six single-worker newspaper jobs. To keep GNU parallel or child make from
+intentionally running fewer jobs because of host load or free memory, set
+`COLLECTION_LOAD=`, `COLLECTION_MEMFREE=`, and `NEWSPAPER_LOAD=`. Startup,
+shutdown, short jobs, failures, and the remaining number of runnable inputs can
+still make the actual number of active workers lower than six.
+There must be at least six runnable collection items left in
+`NEWSPAPERS_TO_PROCESS_FILE`.
 
 ### Processing Pipeline Targets
 
@@ -688,8 +707,8 @@ The build system automatically detects CPU cores and configures parallel process
 # Process a single newspaper
 make newspaper NEWSPAPER=actionfem
 
-# Process with custom parallel settings
-make newspaper NEWSPAPER=EZR PARALLEL_JOBS=4
+# Process one newspaper with two inner make jobs
+make newspaper NEWSPAPER=EZR NEWSPAPER_JOBS=2
 
 # Process a specific processing stage
 make lingproc-target NEWSPAPER=actionfem
@@ -704,8 +723,29 @@ make newspaper-list-target
 # Process multiple newspapers using collection target
 make collection
 
-# Process with custom job limits
-make collection COLLECTION_JOBS=4 MAX_LOAD=8
+# CPU-bound: allow up to 8 newspapers and 2 jobs inside each newspaper,
+# with both GNU parallel and child make load throttling set to 12.
+make collection \
+  COLLECTION_JOBS=8 \
+  NEWSPAPER_JOBS=2 \
+  MAX_LOAD=12
+
+# CPU-bound with explicit collection/child load split
+make collection \
+  COLLECTION_JOBS=8 \
+  NEWSPAPER_JOBS=2 \
+  COLLECTION_LOAD=10 \
+  NEWSPAPER_LOAD=12 \
+  COLLECTION_MEMFREE=2G
+
+# GPU-bound: target six newspaper workers, one inner make job each
+make collection \
+  COLLECTION_JOBS=6 \
+  NEWSPAPER_JOBS=1 \
+  COLLECTION_LOAD= \
+  COLLECTION_MEMFREE= \
+  NEWSPAPER_LOAD= \
+  PARALLEL_DELAY=0
 
 # Process with specific newspaper sorting
 make collection NEWSPAPER_YEAR_SORTING=cat  # chronological order
@@ -828,9 +868,8 @@ make collection \
 - `PROVIDER/NEWSPAPER/YEAR` processes only that year.
 - `NEWSPAPER` is supported for legacy or provider-less newspaper-only lists.
 
-`PROVIDER` and `NEWSPAPER` identifiers must not start with a digit. A trailing
-four-digit segment is treated as a year only in the three-field
-`PROVIDER/NEWSPAPER/YEAR` form.
+A trailing four-digit segment is treated as a year only when the entry has at
+least three slash-separated components, such as `PROVIDER/NEWSPAPER/YEAR`.
 
 For generated lists, set `NEWSPAPER_LIST_INCLUDE_YEARS=1`. To sample a sparse
 collection run, combine it with `NEWSPAPER_LIST_YEAR_STEP`. For each newspaper,
@@ -877,10 +916,12 @@ Key user-configurable variables (can be overridden):
 
 #### Parallel Processing
 
-- `PARALLEL_JOBS`: Maximum parallel jobs (auto-detected from CPU cores)
 - `COLLECTION_JOBS`: Number of parallel newspaper collections
 - `NEWSPAPER_JOBS`: Jobs per newspaper processing
 - `MAX_LOAD`: Maximum system load average for job scheduling
+- `COLLECTION_LOAD`: GNU parallel load throttle for collection jobs
+- `COLLECTION_MEMFREE`: GNU parallel free-memory throttle for collection jobs
+- `NEWSPAPER_LOAD`: Child make load throttle for newspaper jobs
 
 #### Data Processing Behavior
 

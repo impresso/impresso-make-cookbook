@@ -55,6 +55,30 @@ override NEWSPAPER_JOBS := $(or $(strip $(NEWSPAPER_JOBS_RAW)),$(NEWSPAPER_JOBS_
 PARALLEL_DELAY ?= 3
   $(call log.debug, PARALLEL_DELAY)
 
+# USER-VARIABLE: COLLECTION_LOAD
+# Maximum load average passed to GNU parallel for collection scheduling.
+# Set empty to disable load-based throttling when exact concurrency is required.
+COLLECTION_LOAD ?= $(MAX_LOAD)
+  $(call log.debug, COLLECTION_LOAD)
+
+# USER-VARIABLE: COLLECTION_MEMFREE
+# Minimum free memory passed to GNU parallel for collection scheduling.
+# Set empty to disable memory-based throttling when exact concurrency is required.
+COLLECTION_MEMFREE ?= 1G
+  $(call log.debug, COLLECTION_MEMFREE)
+
+COLLECTION_LOAD_OPTION := $(if $(strip $(COLLECTION_LOAD)),--load $(COLLECTION_LOAD))
+COLLECTION_MEMFREE_OPTION := $(if $(strip $(COLLECTION_MEMFREE)),--memfree $(COLLECTION_MEMFREE))
+
+# USER-VARIABLE: NEWSPAPER_LOAD
+# Maximum load average passed to child make newspaper workers.
+# Set empty to disable child make load throttling when exact outer concurrency
+# is required.
+NEWSPAPER_LOAD ?= $(MAX_LOAD)
+  $(call log.debug, NEWSPAPER_LOAD)
+
+NEWSPAPER_LOAD_OPTION := $(if $(strip $(NEWSPAPER_LOAD)),--max-load $(NEWSPAPER_LOAD))
+
 #: Show detailed orchestration and parallelization help
 help-orchestration::
 	@echo "PARALLELIZATION CONFIGURATION:"
@@ -70,20 +94,30 @@ help-orchestration::
 	@echo "                    #  Prevents system overload by limiting concurrent processes"
 	@echo "                    #  Set lower if system becomes unresponsive"
 	@echo ""
+	@echo "  NEWSPAPER_LOAD    #  Child make load throttle ($(NEWSPAPER_LOAD))"
+	@echo "                    #  Set empty to disable child make load throttling"
+	@echo ""
+	@echo "  COLLECTION_LOAD   #  GNU parallel load throttle ($(COLLECTION_LOAD))"
+	@echo "                    #  Set empty to disable load throttling for exact collection concurrency"
+	@echo ""
+	@echo "  COLLECTION_MEMFREE # GNU parallel free-memory throttle ($(COLLECTION_MEMFREE))"
+	@echo "                    #  Set empty to disable memory throttling for exact collection concurrency"
+	@echo ""
 	@echo "  NPROC             #  Number of CPU cores ($(NPROC))"
 	@echo "                    #  Override if auto-detection fails or for resource limiting"
 	@echo ""
 	@echo "  HALT_ON_ERROR     #  Stop collection run on first failing job (0 or 1; current: $(HALT_ON_ERROR))"
 	@echo ""
 	@echo "PERFORMANCE TUNING:"
-	@echo "  • For CPU-bound tasks: COLLECTION_JOBS ≤ NPROC"
-	@echo "  • For I/O-bound tasks: COLLECTION_JOBS can exceed NPROC"
-	@echo "  • High memory usage: Reduce COLLECTION_JOBS"
-	@echo "  • System lag: Reduce MAX_LOAD to 70-80% of NPROC"
+	@echo "  CPU-bound: use COLLECTION_JOBS as an upper limit and keep load throttles enabled"
+	@echo "  GPU-bound: use COLLECTION_JOBS as the target worker count and disable load/memory throttles"
+	@echo "  High memory usage: reduce COLLECTION_JOBS or raise COLLECTION_MEMFREE"
+	@echo "  System lag: reduce MAX_LOAD, COLLECTION_LOAD, or NEWSPAPER_LOAD"
 	@echo ""
 	@echo "EXAMPLES:"
 	@echo "  make newspaper PROVIDER=BL NEWSPAPER=WTCH"
-	@echo "  make collection COLLECTION_JOBS=4 CFG=config.local.mk"
+	@echo "  make collection COLLECTION_JOBS=8 NEWSPAPER_JOBS=2 MAX_LOAD=12"
+	@echo "  make collection COLLECTION_JOBS=6 NEWSPAPER_JOBS=1 COLLECTION_LOAD= COLLECTION_MEMFREE= NEWSPAPER_LOAD= PARALLEL_DELAY=0"
 	@echo "  make collection NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
 	@echo "  make all PROVIDER=BL NEWSPAPER=WTCH MAX_LOAD=8"
 	@echo "  make sync-input PROVIDER=SWA NEWSPAPER=actionfem"
@@ -135,7 +169,7 @@ help-orchestration::
 # before explicit single-newspaper multimachine coordination checks.
 all:
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 resync-input resync-output
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) --max-load $(MAX_LOAD) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
 
 .PHONY: all
 
@@ -149,7 +183,7 @@ all:
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'item="$$1"; year=""; newspaper="$$item"; provider="$${item%%/*}"; rest="$${item#*/}"; title="$${rest%%/*}"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null && expr "$$provider" : "[^0-9]" >/dev/null && expr "$$title" : "[^0-9]" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) newspaper' sh {}
+		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper' sh {}
 
 
 check-parallel:
@@ -173,10 +207,10 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   --joblog $(BUILD_DIR)/collection.joblog \
 	   --jobs $(COLLECTION_JOBS) \
 	   --delay $(PARALLEL_DELAY) \
-	   --memfree 1G \
-	   --load $(MAX_LOAD) \
+	   $(COLLECTION_MEMFREE_OPTION) \
+	   $(COLLECTION_LOAD_OPTION) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year=""; newspaper="$$item"; provider="$${item%%/*}"; rest="$${item#*/}"; title="$${rest%%/*}"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null && expr "$$provider" : "[^0-9]" >/dev/null && expr "$$title" : "[^0-9]" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) newspaper'
+	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper'
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
