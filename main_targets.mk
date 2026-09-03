@@ -146,8 +146,8 @@ endif
 # - processing-target: Performs the actual processing
 newspaper: | $(BUILD_DIR)
 	# MAKEFLAGS= $(MAKEFLAGS) 
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) sync
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' sync
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
 
 .PHONY: newspaper
 
@@ -168,8 +168,8 @@ help-orchestration::
 # Use this target when a forced local sync-state refresh is desired, for example
 # before explicit single-newspaper multimachine coordination checks.
 all:
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j 1 resync-input resync-output
-	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' -j 1 resync-input resync-output
+	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER='$(NEWSPAPER)' NEWSPAPER_YEARS='$(NEWSPAPER_YEARS)' -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) processing-target
 
 .PHONY: all
 
@@ -183,7 +183,7 @@ all:
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper' sh {}
+		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='$(NEWSPAPER_LOAD)' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper' sh {}
 
 
 check-parallel:
@@ -210,7 +210,7 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   $(COLLECTION_MEMFREE_OPTION) \
 	   $(COLLECTION_LOAD_OPTION) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper'
+	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='$(NEWSPAPER_LOAD)' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper'
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"

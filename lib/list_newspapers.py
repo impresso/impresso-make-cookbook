@@ -155,8 +155,9 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
         type=int,
         default=None,
         help=(
-            "When used with --include-years, select one available year from each"
-            " interval of this size"
+            "When used with --include-years, select the first available year, then"
+            " the earliest available year at least this many years after the previous"
+            " selected year"
         ),
     )
     parser.add_argument(
@@ -631,7 +632,7 @@ class NewspaperLister:
                     sampled.append(year)
             selected = sampled
 
-        if not selected and years:
+        if not selected and years and not self.years:
             selected = [sorted(set(years))[0]]
 
         return selected

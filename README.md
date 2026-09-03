@@ -875,17 +875,28 @@ For generated lists, set `NEWSPAPER_LIST_INCLUDE_YEARS=1`. To sample a sparse
 collection run, combine it with `NEWSPAPER_LIST_YEAR_STEP`. For each newspaper,
 the generated list keeps the first available year, then repeatedly keeps the
 earliest available year at least `NEWSPAPER_LIST_YEAR_STEP` years after the
-previous selected year. `NEWSPAPER_LIST_YEARS` can restrict generation to
-explicit years. If a newspaper has available years but none match the explicit
-year filter, the first available year is still included so every discovered
-newspaper contributes at least one processing item.
+previous selected year. This automatic sampling mode includes at least one year
+for every discovered newspaper with available years. `NEWSPAPER_LIST_YEARS`
+strictly restricts generation to explicit years; newspapers without a matching
+requested year do not contribute a year-aware processing item.
 
-During collection execution, a year-aware entry sets `NEWSPAPER_YEARS` for the
-child `newspaper` run. Processing fragments that derive work from canonical or
-rebuilt per-year file lists then select only matching year files.
-Canonical and rebuilt input sync also use `NEWSPAPER_YEARS` to query only the
-selected year prefixes. Re-OCR maps `NEWSPAPER_YEARS` to `REOCR_YEARS` by
-default, so its input and output-state sync targets use the same year scope.
+During collection execution, a year-aware entry sets the plural selector
+`NEWSPAPER_YEARS` for the child `newspaper` run. Processing fragments that
+derive work from canonical or rebuilt per-year file lists then select only
+matching year files.
+
+Sync expands `NEWSPAPER_YEARS` into independent singular `NEWSPAPER_YEAR` work
+units. Each work unit queries one exact S3 year prefix and writes one exact sync
+marker. For example, `NEWSPAPER_YEARS="1850 1875"` requires
+`BNL/luxwort.1850.last_synced` and `BNL/luxwort.1875.last_synced`; it does not
+create a combined marker for the set of years. `BNL/luxwort.last_synced`
+continues to represent the full-newspaper sync scope. Re-OCR maps
+`NEWSPAPER_YEARS` to `REOCR_YEARS` by default, so its input and output-state
+sync targets use the same year scope.
+
+Clean targets follow the same scope. With `NEWSPAPER_YEARS` set, they remove
+only the selected year sync markers. Without `NEWSPAPER_YEARS`, they remove the
+full-newspaper marker and per-year markers for the current newspaper sync scope.
 
 ## Configuration and Customization
 

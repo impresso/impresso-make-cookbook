@@ -7,7 +7,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/sync_rebuilt.mk)
 
 
 # Local synchronization stamp file for rebuilt input data
-LOCAL_REBUILT_SYNC_STAMP_FILE := $(LOCAL_PATH_REBUILT).last_synced
+LOCAL_REBUILT_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_REBUILT))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_REBUILT))
   $(call log.debug, LOCAL_REBUILT_SYNC_STAMP_FILE)
 
 # TARGET: sync-rebuilt
@@ -25,7 +26,7 @@ help-sync::
 
 # Rule to sync the input data from the S3 bucket to the local directory
 # Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_PATH_REBUILT).last_synced:
+$(LOCAL_REBUILT_SYNC_STAMP_FILE):
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_REBUILT),$@,)
 
 
