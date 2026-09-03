@@ -822,7 +822,11 @@ make collection \
 
 - `PROVIDER/NEWSPAPER` processes the full newspaper.
 - `PROVIDER/NEWSPAPER/YEAR` processes only that year.
-- If `NEWSPAPER_HAS_PROVIDER=0`, use `NEWSPAPER` or `NEWSPAPER/YEAR`.
+- `NEWSPAPER` is supported for legacy or provider-less newspaper-only lists.
+
+`PROVIDER` and `NEWSPAPER` identifiers must not start with a digit. A trailing
+four-digit segment is treated as a year only in the three-field
+`PROVIDER/NEWSPAPER/YEAR` form.
 
 For generated lists, set `NEWSPAPER_LIST_INCLUDE_YEARS=1`. To sample a sparse
 collection run, combine it with `NEWSPAPER_LIST_YEAR_STEP`. For each newspaper,

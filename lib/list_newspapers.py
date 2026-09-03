@@ -841,6 +841,9 @@ def main(args: Optional[List[str]] = None) -> None:
     if options.year_step is not None and options.year_step < 1:
         log.error("--year-step must be at least 1")
         sys.exit(1)
+    if options.include_years and not options.has_provider:
+        log.error("--include-years requires --has-provider")
+        sys.exit(1)
 
     processor: NewspaperLister = NewspaperLister(
         bucket=options.bucket,

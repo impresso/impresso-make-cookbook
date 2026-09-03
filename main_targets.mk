@@ -149,7 +149,7 @@ all:
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'item="$$1"; year="$${item##*/}"; if expr "$$year" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; else newspaper="$$item"; year=""; fi; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) newspaper' sh {}
+		sh -c 'item="$$1"; year=""; newspaper="$$item"; provider="$${item%%/*}"; rest="$${item#*/}"; title="$${rest%%/*}"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null && expr "$$provider" : "[^0-9]" >/dev/null && expr "$$title" : "[^0-9]" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k --max-load $(MAX_LOAD) newspaper' sh {}
 
 
 check-parallel:
@@ -176,7 +176,7 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   --memfree 1G \
 	   --load $(MAX_LOAD) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year="$${item##*/}"; if expr "$$year" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; else newspaper="$$item"; year=""; fi; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) newspaper'
+	   'item={}; year=""; newspaper="$$item"; provider="$${item%%/*}"; rest="$${item#*/}"; title="$${rest%%/*}"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null && expr "$$provider" : "[^0-9]" >/dev/null && expr "$$title" : "[^0-9]" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" $(MAKE) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) -k -j --max-load $(MAX_LOAD) newspaper'
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
