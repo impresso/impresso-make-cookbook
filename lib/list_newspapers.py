@@ -45,9 +45,9 @@ Examples:
   python list_newspapers.py --bucket 22-rebuilt-final --has-provider \\
     --prefix 'data/' --fnmatch 'NZZ/*'
 
-  # Emit PROVIDER/NEWSPAPER/YEAR items, one available year per 25-year interval
+  # Emit PROVIDER/NEWSPAPER/YEAR items, at least 25 years apart per newspaper
   python list_newspapers.py --bucket 112-canonical-final --has-provider \\
-    --include-years --year-step 25 --year-anchor 1800
+    --include-years --year-step 25
 """
 
 import argparse
@@ -160,12 +160,6 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--year-anchor",
-        type=int,
-        default=0,
-        help="Anchor year for --year-step intervals (default: %(default)s)",
-    )
-    parser.add_argument(
         "--years",
         nargs="+",
         type=int,
@@ -199,7 +193,6 @@ class NewspaperLister:
         fnmatch_pattern: Optional[str] = None,
         include_years: bool = False,
         year_step: Optional[int] = None,
-        year_anchor: int = 0,
         years: Optional[List[int]] = None,
     ) -> None:
         """Initialize the NewspaperLister with configuration parameters."""
@@ -216,7 +209,6 @@ class NewspaperLister:
         self.fnmatch_pattern = fnmatch_pattern
         self.include_years = include_years
         self.year_step = year_step
-        self.year_anchor = year_anchor
         self.years = set(years or [])
 
         # Configure the module-specific logger
@@ -627,20 +619,20 @@ class NewspaperLister:
 
     def select_years(self, years: List[int]) -> List[int]:
         """Select the configured subset of available years."""
-        selected = years
+        selected = sorted(set(years))
 
         if self.years:
             selected = [year for year in selected if year in self.years]
 
         if self.year_step:
-            by_interval: Dict[int, int] = {}
+            sampled: List[int] = []
             for year in selected:
-                interval = (year - self.year_anchor) // self.year_step
-                by_interval.setdefault(interval, year)
-            selected = list(by_interval.values())
+                if not sampled or year >= sampled[-1] + self.year_step:
+                    sampled.append(year)
+            selected = sampled
 
         if not selected and years:
-            selected = [years[0]]
+            selected = [sorted(set(years))[0]]
 
         return selected
 
@@ -864,7 +856,6 @@ def main(args: Optional[List[str]] = None) -> None:
         fnmatch_pattern=options.fnmatch,
         include_years=options.include_years,
         year_step=options.year_step,
-        year_anchor=options.year_anchor,
         years=options.years,
     )
 
