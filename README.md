@@ -353,6 +353,28 @@ The cookbook supports optional **WIP file management** to prevent concurrent pro
 - Can be disabled for faster processing when coordination is managed externally; check the processing fragment for each recipe's default
 - Prefer `make newspaper` or `make collection` for long processing runs. Use `make all` when you explicitly want to force-refresh local sync state before processing one configured run.
 
+#### Per-Output Recipe Lifecycle
+
+Recipes coordinate preflight, processing, uploading, and lock cleanup directly within the target rule using Make for dependency tracking, shell for sequencing, and Python helpers for S3 interactions:
+
+```text
+Make: is the target out of date?
+  └─ Shell recipe
+       ├─ Preflight using Python
+       │    ├─ Existing output + no overwrite mode → skip
+       │    ├─ Active WIP → skip
+       │    └─ Otherwise → acquire WIP, if enabled
+       ├─ Run processor
+       ├─ Upload output and log
+       └─ Release acquired WIP
+```
+
+In this pattern:
+- **Skip existing output by default**: Whether WIP locking is enabled or not, existing S3 output is skipped unless `--force-overwrite` or `--upload-if-newer` is active.
+- **Overwrite modes**: Passing `--force-overwrite` or `--upload-if-newer` bypasses the output-existence skip, while still respecting active WIP locks held by other workers.
+- **Clean output separation**: Skipping leaves local files untouched. If processing or uploading fails, partial primary targets are removed while diagnostic logs are preserved.
+- **Lock release precedence**: An acquired WIP lock is always released at the end of the recipe. Any processing or upload failure code is preserved over release status.
+
 ** More WIP Explanations **
 
 ```

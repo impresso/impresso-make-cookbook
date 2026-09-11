@@ -71,6 +71,35 @@ LINGPROC_WIP_MAX_AGE ?= 1
 LINGPROC_UPLOAD_IF_NEWER_OPTION ?=
   $(call log.debug, LINGPROC_UPLOAD_IF_NEWER_OPTION)
 
+# USER-VARIABLE: LINGPROC_FORCE_OVERWRITE_OPTION
+# Option to force S3 overwrite of existing linguistic processing outputs.
+#
+# Set to --force-overwrite to process and upload even when S3 output exists.
+LINGPROC_FORCE_OVERWRITE_OPTION ?=
+  $(call log.debug, LINGPROC_FORCE_OVERWRITE_OPTION)
+
+# USER-VARIABLE: LINGPROC_FORCE_UPLOAD_OPTION
+# Backward-compatible alias for LINGPROC_FORCE_OVERWRITE_OPTION.
+LINGPROC_FORCE_UPLOAD_OPTION ?= $(LINGPROC_FORCE_OVERWRITE_OPTION)
+  $(call log.debug, LINGPROC_FORCE_UPLOAD_OPTION)
+
+LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION := $(or $(LINGPROC_FORCE_OVERWRITE_OPTION),$(LINGPROC_FORCE_UPLOAD_OPTION))
+  $(call log.debug, LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION)
+
+# VARIABLE: LINGPROC_WIP_FORCE_OPTION
+# Internal flag to force WIP acquisition when either force-overwrite or upload-if-newer is enabled.
+# Defined after LINGPROC_UPLOAD_IF_NEWER_OPTION to ensure immediate evaluation picks up its value.
+LINGPROC_WIP_FORCE_OPTION := $(if $(or $(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION),$(LINGPROC_UPLOAD_IF_NEWER_OPTION)),--force,)
+  $(call log.debug, LINGPROC_WIP_FORCE_OPTION)
+
+# USER-VARIABLE: LINGPROC_SKIP_IF_OUTPUT_EXISTS_OPTION
+# Retained for compatibility with generic pipeline interfaces.
+# By default, existing S3 output is skipped during preflight (both with and without WIP enabled)
+# unless LINGPROC_FORCE_OVERWRITE_OPTION or LINGPROC_UPLOAD_IF_NEWER_OPTION is active.
+PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION ?=
+LINGPROC_SKIP_IF_OUTPUT_EXISTS_OPTION ?= $(PROCESSING_QUIT_IF_S3_OUTPUT_EXISTS_OPTION)
+  $(call log.debug, LINGPROC_SKIP_IF_OUTPUT_EXISTS_OPTION)
+
 # === INTERNAL COMPUTED VARIABLES ==============================================
 
 
@@ -117,6 +146,9 @@ help-processing::
 	@echo "  LINGPROC_WIP_ENABLED=$(LINGPROC_WIP_ENABLED)"
 	@echo "  LINGPROC_WIP_MAX_AGE=$(LINGPROC_WIP_MAX_AGE)"
 	@echo "  LINGPROC_UPLOAD_IF_NEWER_OPTION=$(LINGPROC_UPLOAD_IF_NEWER_OPTION)"
+	@echo "  LINGPROC_FORCE_OVERWRITE_OPTION=$(LINGPROC_FORCE_OVERWRITE_OPTION)"
+	@echo "  LINGPROC_FORCE_UPLOAD_OPTION=$(LINGPROC_FORCE_UPLOAD_OPTION)"
+	@echo "  LINGPROC_SKIP_IF_OUTPUT_EXISTS_OPTION=$(LINGPROC_SKIP_IF_OUTPUT_EXISTS_OPTION)"
 
 LINGPROC_LANGIDENT_NEEDED ?= 1
   $(call log.debug, LINGPROC_LANGIDENT_NEEDED)
@@ -128,40 +160,66 @@ ifeq ($(LINGPROC_LANGIDENT_NEEDED),1)
 #: Rebuilt stamps match S3 file names exactly (no suffix to strip)
 $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) \
-  && \
-  $(if $(LINGPROC_WIP_ENABLED), \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --s3-file-exists $(call LocalToS3,$@) \
-    --create-wip --wip-max-age $(LINGPROC_WIP_MAX_AGE) \
-    --log-level $(LINGPROC_LOGGING_LEVEL) \
-    $@ $(call LocalToS3,$@) \
-    $@.log.gz $(call LocalToS3,$@).log.gz \
-  || { test $$? -eq 2 && exit 0; exit 1; } \
-  && , ) \
-  python3 lib/spacy_linguistic_processing.py \
-    $(call LocalToS3,$<) \
-    --lid $(call LocalToS3,$(word 2,$^)) \
-    $(LINGPROC_VALIDATE_OPTION) \
-    --git-version $(GIT_VERSION) \
-    $(LINGPROC_QUIET_OPTION) \
-    -o $@ \
-    --log-level $(LINGPROC_LOGGING_LEVEL) \
-    --log-file $@.log.gz \
-  && \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp $(LINGPROC_UPLOAD_IF_NEWER_OPTION) \
-    --log-level $(LINGPROC_LOGGING_LEVEL) \
-    $(if $(LINGPROC_WIP_ENABLED),--remove-wip,) \
-    $@ $(call LocalToS3,$@) \
-    $@.log.gz $(call LocalToS3,$@).log.gz \
-  || { rm -vf $@ ; \
-       $(if $(LINGPROC_WIP_ENABLED), \
-       python3 -m impresso_cookbook.local_to_s3 --remove-wip \
-           --log-level $(LINGPROC_LOGGING_LEVEL) \
-           $@ $(call LocalToS3,$@) \
-           $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
-       exit 1 ; }
+	mkdir -p $(@D) && \
+	{ acquired_wip=0 ; \
+	  status=0 ; \
+	  if [ -n "$(LINGPROC_WIP_ENABLED)" ] ; then \
+	    python3 -m impresso_cookbook.manage_s3_wip acquire \
+	      --s3-target $(call LocalToS3,$@) \
+	      --wip-max-age $(LINGPROC_WIP_MAX_AGE) \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) \
+	      --local-target $@ \
+	      --files $@ $@.log.gz \
+	      $(LINGPROC_WIP_FORCE_OPTION) || status=$$? ; \
+	    case "$$status" in \
+	      0) acquired_wip=1 ;; \
+	      2|3) exit 0 ;; \
+	      *) exit "$$status" ;; \
+	    esac ; \
+	  elif [ -z "$(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION)" ] && [ -z "$(LINGPROC_UPLOAD_IF_NEWER_OPTION)" ] ; then \
+	    python3 -m impresso_cookbook.local_to_s3 \
+	      --s3-file-exists $(call LocalToS3,$@) \
+	      --exit-2-if-exists \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) || status=$$? ; \
+	    case "$$status" in \
+	      0) ;; \
+	      2|3) exit 0 ;; \
+	      *) exit "$$status" ;; \
+	    esac ; \
+	  fi ; \
+	  status=0 ; \
+	  python3 lib/spacy_linguistic_processing.py \
+	    $(call LocalToS3,$<) \
+	    --lid $(call LocalToS3,$(word 2,$^)) \
+	    $(LINGPROC_VALIDATE_OPTION) \
+	    --git-version $(GIT_VERSION) \
+	    $(LINGPROC_QUIET_OPTION) \
+	    -o $@ \
+	    --log-level $(LINGPROC_LOGGING_LEVEL) \
+	    --log-file $@.log.gz || status=$$? ; \
+	  if [ "$$status" -eq 0 ] ; then \
+	    python3 -m impresso_cookbook.local_to_s3 \
+	      --set-timestamp \
+	      $(LINGPROC_UPLOAD_IF_NEWER_OPTION) \
+	      $(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION) \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) \
+	      $@ $(call LocalToS3,$@) \
+	      $@.log.gz $(call LocalToS3,$@).log.gz || status=$$? ; \
+	  fi ; \
+	  if [ "$$status" -ne 0 ] ; then \
+	    rm -f $@ || true ; \
+	  fi ; \
+	  release_status=0 ; \
+	  if [ "$$acquired_wip" -eq 1 ] ; then \
+	    python3 -m impresso_cookbook.manage_s3_wip release \
+	      --s3-target $(call LocalToS3,$@) \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) || release_status=$$? ; \
+	  fi ; \
+	  if [ "$$status" -ne 0 ] ; then \
+	    exit "$$status" ; \
+	  fi ; \
+	  exit "$$release_status" ; \
+	}
 else
 # FILE-RULE: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 #: Rule to process a single newspaper without language identification
@@ -169,40 +227,66 @@ else
 #: Trusts the lg property inside the rebuilt file
 $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
-	mkdir -p $(@D) \
-  && \
-  $(if $(LINGPROC_WIP_ENABLED), \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --s3-file-exists $(call LocalToS3,$@) \
-    --create-wip --wip-max-age $(LINGPROC_WIP_MAX_AGE) \
-    --log-level $(LINGPROC_LOGGING_LEVEL) \
-    $@ $(call LocalToS3,$@) \
-    $@.log.gz $(call LocalToS3,$@).log.gz \
-  || { test $$? -eq 2 && exit 0; exit 1; } \
-  && , ) \
-  python3 lib/spacy_linguistic_processing.py \
-    $(call LocalToS3,$<) \
-    $(LINGPROC_VALIDATE_OPTION) \
-    --max-doc-length 100000 \
-    --git-version $(GIT_VERSION) \
-    $(LINGPROC_QUIET_OPTION) \
-    -o $@ \
-    --log-level $(LINGPROC_LOGGING_LEVEL) \
-    --log-file $@.log.gz \
-  && \
-  python3 -m impresso_cookbook.local_to_s3 \
-    --set-timestamp $(LINGPROC_UPLOAD_IF_NEWER_OPTION) \
-    --log-level $(LINGPROC_LOGGING_LEVEL) \
-    $(if $(LINGPROC_WIP_ENABLED),--remove-wip,) \
-    $@ $(call LocalToS3,$@) \
-    $@.log.gz $(call LocalToS3,$@).log.gz \
-  || { rm -vf $@ ; \
-       $(if $(LINGPROC_WIP_ENABLED), \
-       python3 -m impresso_cookbook.local_to_s3 --remove-wip \
-           --log-level $(LINGPROC_LOGGING_LEVEL) \
-           $@ $(call LocalToS3,$@) \
-           $@.log.gz $(call LocalToS3,$@).log.gz || true ; , ) \
-       exit 1 ; }
+	mkdir -p $(@D) && \
+	{ acquired_wip=0 ; \
+	  status=0 ; \
+	  if [ -n "$(LINGPROC_WIP_ENABLED)" ] ; then \
+	    python3 -m impresso_cookbook.manage_s3_wip acquire \
+	      --s3-target $(call LocalToS3,$@) \
+	      --wip-max-age $(LINGPROC_WIP_MAX_AGE) \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) \
+	      --local-target $@ \
+	      --files $@ $@.log.gz \
+	      $(LINGPROC_WIP_FORCE_OPTION) || status=$$? ; \
+	    case "$$status" in \
+	      0) acquired_wip=1 ;; \
+	      2|3) exit 0 ;; \
+	      *) exit "$$status" ;; \
+	    esac ; \
+	  elif [ -z "$(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION)" ] && [ -z "$(LINGPROC_UPLOAD_IF_NEWER_OPTION)" ] ; then \
+	    python3 -m impresso_cookbook.local_to_s3 \
+	      --s3-file-exists $(call LocalToS3,$@) \
+	      --exit-2-if-exists \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) || status=$$? ; \
+	    case "$$status" in \
+	      0) ;; \
+	      2|3) exit 0 ;; \
+	      *) exit "$$status" ;; \
+	    esac ; \
+	  fi ; \
+	  status=0 ; \
+	  python3 lib/spacy_linguistic_processing.py \
+	    $(call LocalToS3,$<) \
+	    $(LINGPROC_VALIDATE_OPTION) \
+	    --max-doc-length 100000 \
+	    --git-version $(GIT_VERSION) \
+	    $(LINGPROC_QUIET_OPTION) \
+	    -o $@ \
+	    --log-level $(LINGPROC_LOGGING_LEVEL) \
+	    --log-file $@.log.gz || status=$$? ; \
+	  if [ "$$status" -eq 0 ] ; then \
+	    python3 -m impresso_cookbook.local_to_s3 \
+	      --set-timestamp \
+	      $(LINGPROC_UPLOAD_IF_NEWER_OPTION) \
+	      $(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION) \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) \
+	      $@ $(call LocalToS3,$@) \
+	      $@.log.gz $(call LocalToS3,$@).log.gz || status=$$? ; \
+	  fi ; \
+	  if [ "$$status" -ne 0 ] ; then \
+	    rm -f $@ || true ; \
+	  fi ; \
+	  release_status=0 ; \
+	  if [ "$$acquired_wip" -eq 1 ] ; then \
+	    python3 -m impresso_cookbook.manage_s3_wip release \
+	      --s3-target $(call LocalToS3,$@) \
+	      --log-level $(LINGPROC_LOGGING_LEVEL) || release_status=$$? ; \
+	  fi ; \
+	  if [ "$$status" -ne 0 ] ; then \
+	    exit "$$status" ; \
+	  fi ; \
+	  exit "$$release_status" ; \
+	}
 endif
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_lingproc.mk)
