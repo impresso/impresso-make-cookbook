@@ -226,11 +226,79 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   $(PARALLEL_HALT) \
 	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)'
 
+define collection_newspaper_scope_target
+	+tr -s '[:space:]' '\n' < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	parallel --tag -v \
+	   --joblog $(BUILD_DIR)/$(1).joblog \
+	   $(PARALLEL_DRY_RUN_OPTION) \
+	   --jobs $(COLLECTION_JOBS) \
+	   --delay $(PARALLEL_DELAY) \
+	   $(COLLECTION_MEMFREE_OPTION) \
+	   $(COLLECTION_LOAD_OPTION) \
+	   $(PARALLEL_HALT) \
+	   'item={}; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS= NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j 1 $(NEWSPAPER_LOAD_OPTION) $(2)'
+endef
+
+# TARGET: clean-collection-input
+#: Remove local input sync state for every newspaper represented in the collection list
+clean-collection-input: check-parallel newspaper-list-target | $(BUILD_DIR)
+	$(call collection_newspaper_scope_target,clean-collection-input,clean-sync-input)
+
+.PHONY: clean-collection-input
+
+# TARGET: clean-collection-output
+#: Remove local output sync state for every newspaper represented in the collection list
+clean-collection-output: check-parallel newspaper-list-target | $(BUILD_DIR)
+	$(call collection_newspaper_scope_target,clean-collection-output,clean-sync-output)
+
+.PHONY: clean-collection-output
+
+# TARGET: clean-collection-sync
+#: Remove local input and output sync state for every newspaper represented in the collection list
+clean-collection-sync: clean-collection-input clean-collection-output
+
+.PHONY: clean-collection-sync
+
+# TARGET: sync-collection-input
+#: Synchronize input state for every newspaper represented in the collection list
+sync-collection-input: check-parallel newspaper-list-target | $(BUILD_DIR)
+	$(call collection_newspaper_scope_target,sync-collection-input,sync-input)
+
+.PHONY: sync-collection-input
+
+# TARGET: sync-collection-output
+#: Synchronize output state for every newspaper represented in the collection list
+sync-collection-output: check-parallel newspaper-list-target | $(BUILD_DIR)
+	$(call collection_newspaper_scope_target,sync-collection-output,sync-output)
+
+.PHONY: sync-collection-output
+
+# TARGET: resync-collection-input
+#: Clean then synchronize input state for every newspaper represented in the collection list
+resync-collection-input: clean-collection-input sync-collection-input
+
+.PHONY: resync-collection-input
+
+# TARGET: resync-collection-output
+#: Clean then synchronize output state for every newspaper represented in the collection list
+resync-collection-output: clean-collection-output sync-collection-output
+
+.PHONY: resync-collection-output
+
+# TARGET: resync-collection
+#: Clean then synchronize input and output state for every newspaper represented in the collection list
+resync-collection: resync-collection-input resync-collection-output
+
+.PHONY: resync-collection
+
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
 	@echo "  collection        # Process full impresso collection with parallel processing"
 	@echo "                    # Runs COLLECTION_TARGET (default: $(COLLECTION_TARGET)) for each item"
 	@echo "                    # Set COLLECTION_TARGET=all to force input/output resync before processing"
+	@echo "  clean-collection-input  # Remove input sync state for listed newspapers at newspaper scope"
+	@echo "  clean-collection-output # Remove output sync state for listed newspapers at newspaper scope"
+	@echo "  resync-collection-output # Refresh output sync state for listed newspapers at newspaper scope"
 	@echo "                    # Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
 
 

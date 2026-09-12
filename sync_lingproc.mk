@@ -46,6 +46,14 @@ help-sync::
 #: Cleans up synchronized linguistic processing data
 clean-sync:: clean-sync-lingproc
 
+# DOUBLE-COLON-TARGET: clean-sync-input
+# Removes local linguistic processing sync state when input sync includes it.
+clean-sync-input:: clean-sync-lingproc
+
+# DOUBLE-COLON-TARGET: clean-sync-output
+# Removes local linguistic processing sync state when output sync includes it.
+clean-sync-output:: clean-sync-lingproc
+
 
 # TARGET: clean-sync-lingproc
 #: Removes local synchronization stamp files for linguistic processing
