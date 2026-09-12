@@ -182,16 +182,20 @@ all:
 .PHONY: all
 
 
+# USER-VARIABLE: TARGET_TO_RUN
+# Target executed by collection runners for each newspaper item (default: newspaper)
+# Can be overridden to 'all' to enforce input/output resync, or other targets like 'sync-input'.
+TARGET_TO_RUN ?= newspaper
+  $(call log.info, TARGET_TO_RUN)
+
 # TARGET: collection
 #: Process multiple newspapers with specified parallel processing
 # Uses xargs for parallel execution with COLLECTION_JOBS limit.
-# Each item runs newspaper, not all, so collection refreshes S3-derived stamps
-# through normal sync and relies on per-target online S3/WIP checks before
-# expensive processing.
+# Runs TARGET_TO_RUN (default: newspaper) for each item.
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
 	+tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
-		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='$(NEWSPAPER_LOAD)' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper' sh {}
+		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(TARGET_TO_RUN)' sh {}
 
 
 check-parallel:
@@ -204,9 +208,7 @@ check-parallel:
 # Uses GNU parallel for better control over job execution
 # Note: Requires GNU parallel installed
 # Dependencies: newspaper-list-target
-# Each item runs newspaper, not all, so collection refreshes S3-derived stamps
-# through normal sync and relies on per-target online S3/WIP checks before
-# expensive processing.
+# Runs TARGET_TO_RUN (default: newspaper) for each item.
 collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	+tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
@@ -219,12 +221,13 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   $(COLLECTION_MEMFREE_OPTION) \
 	   $(COLLECTION_LOAD_OPTION) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='$(NEWSPAPER_LOAD)' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) newspaper'
+	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(TARGET_TO_RUN)'
 
 help-orchestration::
 	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
 	@echo "  collection        # Process full impresso collection with parallel processing"
-	@echo "                    # Runs newspaper for each item; recipes do online S3/WIP checks before expensive work"
+	@echo "                    # Runs TARGET_TO_RUN (default: $(TARGET_TO_RUN)) for each item"
+	@echo "                    # Set TARGET_TO_RUN=all to force input/output resync before processing"
 	@echo "                    # Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
 
 
