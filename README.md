@@ -326,7 +326,7 @@ $(OUTPUT_FILE): $(INPUT_FILE)
 
 - **Local Parallelization**: Each machine uses Make's parallel build feature to maximize CPU utilization.
 - **Distributed Parallelization**: Machines process separate subsets of data independently (e.g., by newspaper or date range) and use S3 as the shared coordination point through output-existence checks and, where enabled, WIP markers.
-- **Collection Runs**: `make collection` runs the `newspaper` target for each selected newspaper. This avoids forced resync churn for every collection item while still letting each newspaper sync its local S3-derived stamps before processing.
+- **Collection Runs**: `make collection` runs `COLLECTION_TARGET` (defaults to `newspaper`) for each selected newspaper. This avoids forced resync churn for every collection item while still letting each newspaper sync its local S3-derived stamps before processing. Overriding `COLLECTION_TARGET=all` runs a fresh input/output resync (`resync-input resync-output`) for every collection item before processing.
 
 #### Multi-Machine Build Isolation
 
@@ -334,6 +334,10 @@ $(OUTPUT_FILE): $(INPUT_FILE)
 - **Custom Configurations**: Each machine uses local configuration files or environment variables to tailor processing behavior.
 - **Online Output Guards**: Long-running recipes should check the target S3 object immediately before expensive processing. Local sync stamps are useful for Make dependency planning, but an online check catches work completed by another machine after the last local sync.
 - **WIP Locks for Overlap**: When machines may process overlapping newspapers or years, use WIP-enabled recipes so only one worker starts a missing target. An existence-only check skips already completed output, but a WIP lock also covers the race where two workers start at nearly the same time.
+- **Multi-Machine S3 Sync & Re-scanning (`COLLECTION_TARGET`)**: When running across several machines where new inputs or outputs are continuously produced and uploaded to S3, a local host's `.last_synced` markers may cause standard `sync` runs to skip checking S3. To force workers to refresh their sync state:
+  - For a single newspaper: use `make all NEWSPAPER=...` (runs `resync-input resync-output`, then `processing-target`).
+  - For collection runs: use `make collection COLLECTION_TARGET=all` to enforce an input and output resync before processing each collection item.
+  - To only resync inputs without processing across the whole collection: use `make collection COLLECTION_TARGET=resync-input`.
 
 #### Work-In-Progress (WIP) File Management
 
@@ -351,7 +355,29 @@ The cookbook supports optional **WIP file management** to prevent concurrent pro
 - Enable WIP for expensive per-target processing where output may already exist on S3
 - Particularly useful in distributed environments where coordination is difficult
 - Can be disabled for faster processing when coordination is managed externally; check the processing fragment for each recipe's default
-- Prefer `make newspaper` or `make collection` for long processing runs. Use `make all` when you explicitly want to force-refresh local sync state before processing one configured run.
+- Prefer `make newspaper` or `make collection` for long processing runs. Use `make all` or `make collection COLLECTION_TARGET=all` when you explicitly want to force-refresh local sync state before processing.
+
+The `mediasources`, `content_item_classification`, `nel`, `newsagencies`, and
+`bboxqa` recipes, plus `processing_TEMPLATE.mk`, enable WIP locking by default.
+Their configuration prefixes are `MEDIASOURCES`, `CONTENT_ITEM_CLASSIFICATION`,
+`NEL`, `NEWSAGENCIES`, `BBOXQA`, and `TEMPLATE`, respectively. For example:
+
+```makefile
+MEDIASOURCES_WIP_ENABLED := 1
+MEDIASOURCES_WIP_MAX_AGE := 24
+MEDIASOURCES_FORCE_OVERWRITE_OPTION :=
+MEDIASOURCES_UPLOAD_IF_NEWER_OPTION :=
+```
+
+Set `WIP_ENABLED` empty to disable locking; existing-output checks remain active.
+Set `FORCE_OVERWRITE_OPTION` to `--force-overwrite`, or `UPLOAD_IF_NEWER_OPTION`
+to `--upload-if-newer`, to allow processing of an existing S3 target. Both modes
+still respect active locks. These settings affect recipes that Make decides to
+execute; they do not force up-to-date local targets to rebuild.
+
+The new recipes default to a 24-hour lock expiry. Choose an expiry longer than
+one complete per-file processing and upload run. Interrupted jobs can leave
+locks behind; stale locks are handled on a subsequent acquisition attempt.
 
 #### Per-Output Recipe Lifecycle
 
@@ -373,7 +399,7 @@ In this pattern:
 - **Skip existing output by default**: Whether WIP locking is enabled or not, existing S3 output is skipped unless `--force-overwrite` or `--upload-if-newer` is active.
 - **Overwrite modes**: Passing `--force-overwrite` or `--upload-if-newer` bypasses the output-existence skip, while still respecting active WIP locks held by other workers.
 - **Clean output separation**: Skipping leaves local files untouched. If processing or uploading fails, partial primary targets are removed while diagnostic logs are preserved.
-- **Lock release precedence**: An acquired WIP lock is always released at the end of the recipe. Any processing or upload failure code is preserved over release status.
+- **Lock release precedence**: Release is attempted after normal processing/upload completion or handled failure. Any processing or upload failure code is preserved over release status; a release failure after successful upload fails the recipe. Interruption can prevent release.
 
 ** More WIP Explanations **
 
@@ -636,6 +662,7 @@ The build system automatically detects CPU cores and configures parallel process
 
 - `NPROC`: Automatically detected number of CPU cores
 - `COLLECTION_JOBS`: Number of parallel newspaper collections (defaults to NPROC/2)
+- `COLLECTION_TARGET`: Target run for each collection worker (defaults to `newspaper`; set to `all` to force resync)
 - `NEWSPAPER_JOBS`: Jobs per newspaper (defaults to NPROC/COLLECTION_JOBS, clamped to at least 1)
 - `MAX_LOAD`: Maximum system load average for job scheduling
 - `COLLECTION_LOAD`: GNU parallel load throttle for collection jobs; set empty to disable
