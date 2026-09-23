@@ -27,6 +27,7 @@ help::
 	@echo ""
 	@echo "Help topics:"
 	@echo "  help-orchestration  # Core newspaper, collection, and parallel run targets"
+	@echo "  help-newspaper-list # Newspaper list discovery, filters, year modes, and output files"
 	@echo "  help-processing     # Generic and active processing targets and flags"
 	@echo "  help-sync           # S3 synchronization and sync cleanup targets"
 	@echo "  help-setup          # Local setup, Python, AWS, and tool-check targets"
