@@ -421,15 +421,19 @@ class NewspaperLister:
             log.warning("No .jsonl.bz2 objects found under prefix %s", newspaper_prefix)
         elif len(years) == 0 and jsonl_bz2_count > 0:
             log.warning(
-                "Found %d .jsonl.bz2 objects under %s but none matched year pattern"
-                " (detected schema: %s)",
+                "Found %d .jsonl.bz2 objects under prefix %r (full S3 prefix:"
+                " s3://%s/%s) but none matched year pattern (detected schema: %s)",
                 jsonl_bz2_count,
+                newspaper_prefix,
+                self.bucket,
                 newspaper_prefix,
                 detected_schema or "none",
             )
             # Show pattern analysis for first few files
             for obj in sample_objects[:3]:
-                log.warning("Pattern analysis for %s:", obj)
+                log.warning("Pattern analysis for key %r:", obj)
+                log.warning("  Full S3 path: s3://%s/%s", self.bucket, obj)
+                log.warning("  Path segments: %s", obj.split("/"))
                 if self.has_provider:
                     log.warning("  Issues match: %s", bool(ISSUES_YEAR_RE.search(obj)))
                     log.warning("  Direct match: %s", bool(DIRECT_YEAR_RE.search(obj)))
