@@ -167,14 +167,21 @@ newspaper: | $(BUILD_DIR)
 # Active processing fragments set this to their newspaper-level S3 output path.
 # Override only when a Makefile has multiple processing outputs.
 
+# USER-VARIABLE: S3_DELETE_NEWSPAPER_PREFIXES
+# Newspaper-level S3 output paths to print deletion commands for.
+# Defaults to the single processing output path; multi-stage pipelines can set a list.
+S3_DELETE_NEWSPAPER_PREFIXES ?= $(S3_DELETE_NEWSPAPER_PREFIX)
+
 # TARGET: show-delete-newspaper-s3
 #: Print a dry-run AWS command for deleting one newspaper prefix from S3.
 #: This target only prints the command; a human must run it separately.
 show-delete-newspaper-s3:
-	@test -n "$(S3_DELETE_NEWSPAPER_PREFIX)" || { echo "ERROR: No processing S3 output path is configured; include a processing_*.mk fragment or set S3_DELETE_NEWSPAPER_PREFIX."; exit 1; }
-	@case "$(S3_DELETE_NEWSPAPER_PREFIX)" in s3://*/*) ;; *) echo "ERROR: S3_DELETE_NEWSPAPER_PREFIX must be a newspaper-level s3:// bucket/key path."; exit 1 ;; esac
+	@test -n "$(strip $(S3_DELETE_NEWSPAPER_PREFIXES))" || { echo "ERROR: No processing S3 output path is configured; include a processing_*.mk fragment or set S3_DELETE_NEWSPAPER_PREFIXES."; exit 1; }
 	@$(if $(filter aws.mk,$(notdir $(MAKEFILE_LIST))),:,echo 'WARNING: cookbook/aws.mk is not included; include it and set up AWS CLI credentials before running the printed command.')
-	@echo 'AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws s3 rm "$(patsubst %/,%,$(S3_DELETE_NEWSPAPER_PREFIX))/" --recursive --dryrun'
+	@for prefix in $(S3_DELETE_NEWSPAPER_PREFIXES); do \
+		case "$$prefix" in s3://*/*) ;; *) echo "ERROR: Invalid newspaper-level S3 path: $$prefix"; exit 1 ;; esac; \
+		printf 'AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws s3 rm "%s/" --recursive --dryrun\n' "$${prefix%/}"; \
+	done
 
 .PHONY: show-delete-newspaper-s3
 
@@ -186,7 +193,7 @@ help-orchestration::
 	@echo "                    # Prefer newspaper/collection for long runs with per-target S3 WIP checks"
 	@echo "  show-delete-newspaper-s3 # Print a manual S3 deletion command; never runs AWS"
 	@echo "                    # Uses the active processing S3_PATH_* and NEWSPAPER"
-	@echo "                    # Set S3_DELETE_NEWSPAPER_PREFIX for Makefiles with multiple outputs"
+	@echo "                    # Set S3_DELETE_NEWSPAPER_PREFIXES for Makefiles with multiple outputs"
 	@echo "                    # Include cookbook/aws.mk and set up AWS CLI credentials to run it"
 	@echo "                    # The printed command ends with --dryrun; remove it to delete"
 
