@@ -85,6 +85,9 @@ sync-input :: sync-consolidatedcanonical-input
 # Main processing target for consolidatedcanonical
 processing-target :: consolidatedcanonical-target
 
+# The newspaper-level prefix contains issues, pages, and audios output.
+S3_DELETE_NEWSPAPER_PREFIX ?= s3://$(PATH_CONSOLIDATEDCANONICAL)
+
 # VARIABLE: LOCAL_CANONICAL_RECORD_STAMP_FILES
 # Stores selected locally available canonical record stamp files for dependency tracking.
 # Values come from paths_canonical.mk and may include pages, audios, or both in auto mode.

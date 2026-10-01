@@ -170,7 +170,7 @@ newspaper: | $(BUILD_DIR)
 # USER-VARIABLE: S3_DELETE_NEWSPAPER_PREFIXES
 # Newspaper-level S3 output paths to print deletion commands for.
 # Defaults to the single processing output path; multi-stage pipelines can set a list.
-S3_DELETE_NEWSPAPER_PREFIXES ?= $(S3_DELETE_NEWSPAPER_PREFIX)
+S3_DELETE_NEWSPAPER_PREFIXES ?= $(if $(filter undefined,$(origin S3_DELETE_NEWSPAPER_PREFIX)),,$(S3_DELETE_NEWSPAPER_PREFIX))
 
 # TARGET: show-delete-newspaper-s3
 #: Print a dry-run AWS command for deleting one newspaper prefix from S3.
