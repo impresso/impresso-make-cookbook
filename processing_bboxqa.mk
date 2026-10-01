@@ -17,6 +17,9 @@ sync-output :: sync-bboxqa
 # DOUBLE-COLON-TARGET: bboxqa-target
 processing-target :: bboxqa-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_BBOXQA)
+
 
 #BBOXQA_IIIF_GALLICA_V3_OPTION ?= --iiif-gallica-v3
 BBOXQA_IIIF_GALLICA_V3_OPTION ?= $(EMPTY)

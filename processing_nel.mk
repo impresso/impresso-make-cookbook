@@ -15,6 +15,9 @@ sync-input :: sync-rebuilt
 # DOUBLE-COLON-TARGET: nel-target
 processing-target :: nel-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_NEL)
+
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking

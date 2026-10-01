@@ -16,6 +16,9 @@ sync-input :: sync-rebuilt
 # DOUBLE-COLON-TARGET: TEMPLATE-target
 processing-target :: TEMPLATE-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_TEMPLATE)
+
 
 # VARIABLE: LOCAL_REBUILT_STAMP_FILES
 # Stores all locally available rebuilt stamp files for dependency tracking

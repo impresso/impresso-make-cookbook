@@ -90,6 +90,9 @@ clean-sync-output :: clean-sync-langident
 # Hook target for language identification.
 processing-target :: langident-target
 
+# Newspaper-level final processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_LANGIDENT)
+
 
 # === USER-CONFIGURABLE VARIABLES (Common to all stages) ======================
 

@@ -7,6 +7,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_lingproc.mk)
 # DOUBLE-COLON-TARGET: lingproc-target
 processing-target :: lingproc-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_LINGPROC)
+
 
 sync-input :: sync-rebuilt
 

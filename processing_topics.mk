@@ -13,6 +13,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_topics.mk)
 # DOUBLE-COLON-TARGET: topics-target
 processing-target :: topics-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_TOPICS)
+
 # FUNCTION: LocalLingprocToTopicsFile
 # Maps local processed linguistic data to corresponding topic files
 #

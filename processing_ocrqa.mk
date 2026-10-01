@@ -15,6 +15,9 @@ sync-output :: sync-ocrqa
 # DOUBLE-COLON-TARGET: ocrqa-target
 processing-target :: ocrqa-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_OCRQA)
+
 # USER-VARIABLE: OCRQA_VALIDATE_OPTION
 # Option to enable schema validation of the output
 #

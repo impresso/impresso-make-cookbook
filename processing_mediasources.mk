@@ -13,6 +13,9 @@ sync-input :: sync-rebuilt
 #: Contribute media-source NER processing to generic processing
 processing-target :: mediasources-target
 
+# Newspaper-level processing output used by show-delete-newspaper-s3.
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIASOURCES)
+
 BATCH_SIZE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin BATCH_SIZE_MEDIASOURCES)),not configured,$(BATCH_SIZE_MEDIASOURCES))
 OUTER_BATCH_SIZE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin OUTER_BATCH_SIZE_MEDIASOURCES)),not configured,$(OUTER_BATCH_SIZE_MEDIASOURCES))
 OUTER_BATCH_MAX_CHARS_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin OUTER_BATCH_MAX_CHARS_MEDIASOURCES)),not configured,$(OUTER_BATCH_MAX_CHARS_MEDIASOURCES))
