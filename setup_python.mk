@@ -132,11 +132,11 @@ help-setup::
 # TARGET: update-pip-requirements-file
 #: Lock dependencies and regenerate requirements.txt using the project root Pipfile
 #
-# Overrides the cookbook/setup.mk version to always use --project-dir so the
+# Overrides the cookbook/setup.mk version to use the project root Pipfile so the
 # target works correctly regardless of the directory make is invoked from.
 update-pip-requirements-file:
-	pipenv --project-dir "$(CURDIR)" lock
-	pipenv --project-dir "$(CURDIR)" requirements > "$(CURDIR)/requirements.txt"
+	PIPENV_PIPFILE="$(CURDIR)/Pipfile" pipenv lock
+	PIPENV_PIPFILE="$(CURDIR)/Pipfile" pipenv requirements > "$(CURDIR)/requirements.txt"
 
 .PHONY: update-pip-requirements-file
 
