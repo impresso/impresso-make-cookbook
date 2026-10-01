@@ -132,6 +132,7 @@ help-orchestration::
 	@echo "  make collection NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
 	@echo "  make all PROVIDER=BL NEWSPAPER=WTCH MAX_LOAD=8"
 	@echo "  make sync-input PROVIDER=SWA NEWSPAPER=actionfem"
+	@echo "  make show-delete-newspaper-s3 S3_DELETE_NEWSPAPER_PREFIX=s3://bucket/run/BL/WTCH/"
 	@echo ""
 	@echo "MONITORING:"
 	@echo "  tail -f build.d/collection.joblog          # Monitor collection progress"
@@ -162,12 +163,31 @@ newspaper: | $(BUILD_DIR)
 
 .PHONY: newspaper
 
+# USER-VARIABLE: S3_DELETE_NEWSPAPER_PREFIX
+# Newspaper-level S3 prefix to show in the manual deletion command.
+# Include the trailing slash so similarly named newspapers cannot match.
+S3_DELETE_NEWSPAPER_PREFIX ?=
+  $(call log.debug, S3_DELETE_NEWSPAPER_PREFIX)
+
+# TARGET: show-delete-newspaper-s3
+#: Print a dry-run AWS command for deleting one newspaper prefix from S3.
+#: This target only prints the command; a human must run it separately.
+show-delete-newspaper-s3:
+	@test -n "$(S3_DELETE_NEWSPAPER_PREFIX)" || { echo "ERROR: Set S3_DELETE_NEWSPAPER_PREFIX to a newspaper-level s3:// prefix ending in /."; exit 1; }
+	@case "$(S3_DELETE_NEWSPAPER_PREFIX)" in s3://*/*/) ;; *) echo "ERROR: S3_DELETE_NEWSPAPER_PREFIX must be an s3:// bucket/key prefix ending in /."; exit 1 ;; esac
+	@echo 'AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws s3 rm "$(S3_DELETE_NEWSPAPER_PREFIX)" --recursive --dryrun'
+
+.PHONY: show-delete-newspaper-s3
+
 help-orchestration::
 	@echo ""
 	@echo "CORE RUN TARGETS:"
 	@echo "  newspaper         # Sync normally, then process one newspaper"
 	@echo "  all               # Force resync input/output, then run processing-target"
 	@echo "                    # Prefer newspaper/collection for long runs with per-target S3 WIP checks"
+	@echo "  show-delete-newspaper-s3 # Print a manual S3 deletion command; never runs AWS"
+	@echo "                    # Set S3_DELETE_NEWSPAPER_PREFIX=s3://bucket/run/PROVIDER/NEWSPAPER/"
+	@echo "                    # The printed command ends with --dryrun; remove it to delete"
 
 
 # TARGET: all
