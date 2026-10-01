@@ -175,6 +175,7 @@ S3_DELETE_NEWSPAPER_PREFIX ?=
 show-delete-newspaper-s3:
 	@test -n "$(S3_DELETE_NEWSPAPER_PREFIX)" || { echo "ERROR: Set S3_DELETE_NEWSPAPER_PREFIX to a newspaper-level s3:// prefix ending in /."; exit 1; }
 	@case "$(S3_DELETE_NEWSPAPER_PREFIX)" in s3://*/*/) ;; *) echo "ERROR: S3_DELETE_NEWSPAPER_PREFIX must be an s3:// bucket/key prefix ending in /."; exit 1 ;; esac
+	@$(if $(filter aws.mk,$(notdir $(MAKEFILE_LIST))),:,echo 'WARNING: cookbook/aws.mk is not included; include it and set up AWS CLI credentials before running the printed command.')
 	@echo 'AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws s3 rm "$(S3_DELETE_NEWSPAPER_PREFIX)" --recursive --dryrun'
 
 .PHONY: show-delete-newspaper-s3
@@ -187,6 +188,7 @@ help-orchestration::
 	@echo "                    # Prefer newspaper/collection for long runs with per-target S3 WIP checks"
 	@echo "  show-delete-newspaper-s3 # Print a manual S3 deletion command; never runs AWS"
 	@echo "                    # Set S3_DELETE_NEWSPAPER_PREFIX=s3://bucket/run/PROVIDER/NEWSPAPER/"
+	@echo "                    # Include cookbook/aws.mk and set up AWS CLI credentials to run it"
 	@echo "                    # The printed command ends with --dryrun; remove it to delete"
 
 
