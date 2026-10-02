@@ -217,6 +217,8 @@ class LocalStampCreator(object):
             "files_created": 0,
             "files_unchanged": 0,
             "files_removed": 0,
+            "objects_listed": 0,
+            "objects_matched": 0,
         }  # Initialize the statistics dictionary
         # Splitting the s3-path into bucket name and prefix
         self.bucket_name, self.prefix = parse_s3_path(self.args.s3_path)
@@ -248,7 +250,12 @@ class LocalStampCreator(object):
                 print(f"s3://{self.bucket_name}/{obj.key}")
             sys.exit(0)
         elif self.args.s3_path:
-            log.info("Starting stamp file creation...")
+            log.info(
+                "Syncing S3 prefix %s to local stamps under %s (extensions: %s)",
+                self.args.s3_path,
+                self.args.local_dir,
+                ", ".join(self.args.file_extensions),
+            )
             if self.args.stamp_mode == "per-file":
                 log.info("Using per-file stamp mode (exact S3 filenames)")
                 self.create_stamp_files_per_file(self.bucket_name, self.prefix)
@@ -259,12 +266,20 @@ class LocalStampCreator(object):
                 )
                 self.create_stamp_files_per_directory(self.bucket_name, self.prefix)
             log.info(
-                "Stamp file creation completed. Files created: %d, "
-                "Files unchanged: %d, Files removed: %d",
+                "Sync complete: %d S3 objects listed, %d matching files; "
+                "%d stamps created or updated, %d unchanged, %d removed",
+                self.stats["objects_listed"],
+                self.stats["objects_matched"],
                 self.stats["files_created"],
                 self.stats["files_unchanged"],
                 self.stats["files_removed"],
             )
+            if not self.stats["objects_matched"]:
+                log.warning(
+                    "No matching files under %s; check the S3 prefix and "
+                    "--file-extensions selection",
+                    self.args.s3_path,
+                )
         else:
             log.error(
                 "No action specified. Provide s3_path for stamp creation or use"
@@ -287,6 +302,7 @@ class LocalStampCreator(object):
 
         for s3_object in bucket.objects.filter(Prefix=prefix):
             s3_key = s3_object.key
+            self.stats["objects_listed"] += 1
 
             # Skip directories and zero-size objects
             if s3_key.endswith("/"):
@@ -304,6 +320,7 @@ class LocalStampCreator(object):
                     self.args.file_extensions,
                 )
                 continue
+            self.stats["objects_matched"] += 1
             # Get the content of the S3 object
             content = (
                 self.get_s3_object_content(s3_key) if self.args.write_content else None
@@ -354,6 +371,7 @@ class LocalStampCreator(object):
 
         # Retrieve object keys from the S3 bucket
         object_keys = list_keys(bucket_name, prefix)
+        self.stats["objects_listed"] = len(object_keys)
         if not object_keys:
             log.warning("No objects found for prefix '%s'.", prefix)
             return
@@ -365,6 +383,8 @@ class LocalStampCreator(object):
         # Iterate over all object keys to find the latest LastModified timestamp
         # for each directory
         for key in object_keys:
+            if key.endswith("/"):
+                continue
             # Only consider files with specified extensions
             if not any(key.endswith(ext) for ext in self.args.file_extensions):
                 log.debug(
@@ -373,6 +393,7 @@ class LocalStampCreator(object):
                     self.args.file_extensions,
                 )
                 continue
+            self.stats["objects_matched"] += 1
 
             # Retrieve the last modified timestamp of the object
             response = s3_client.head_object(Bucket=bucket_name, Key=key)
