@@ -16,7 +16,11 @@ help-sync::
 	@echo "  clean-sync-mediasources # Remove local media-source sync state for the selected scope"
 
 
-$(LOCAL_MEDIASOURCES_SYNC_STAMP_FILE):
+# Record the last successful check without caching the remote inventory forever.
+.PHONY: force-mediasources-sync
+force-mediasources-sync:
+
+$(LOCAL_MEDIASOURCES_SYNC_STAMP_FILE): force-mediasources-sync
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIASOURCES),$@,)
 
 

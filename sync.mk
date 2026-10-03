@@ -39,6 +39,8 @@ sync:: sync-input
 help-sync::
 	@echo ""
 	@echo "GENERIC SYNC TARGETS:"
+	@echo "  Sync operations refresh their selected S3 scopes even when .last_synced markers exist."
+	@echo "  Unchanged stamp timestamps are preserved; resync additionally clears local sync state."
 	@echo "  sync            # Synchronize local files with S3 (input and output) without deleting local files"
 
 

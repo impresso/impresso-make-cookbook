@@ -94,12 +94,14 @@ help-orchestration::
 	@echo ""
 	@echo "NEWSPAPER LIST TARGETS:"
 	@echo "  newspaper-list-target # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  refresh-newspaper-list # Replace the selected list with fresh S3 discovery (run before collection)"
 	@echo "  help-newspaper-list   # Show newspaper list generation modes and variables"
 
 help-newspaper-list:
 	@echo ""
 	@echo "NEWSPAPER LIST GENERATION:"
 	@echo "  newspaper-list-target       # Discover collection items into NEWSPAPERS_TO_PROCESS_FILE"
+	@echo "  refresh-newspaper-list      # Explicitly replace NEWSPAPERS_TO_PROCESS_FILE from S3"
 	@echo "  clean-newspaper-list-target # Remove generated list and log files"
 	@echo ""
 	@echo "OUTPUT FILES:"
@@ -144,8 +146,47 @@ S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET ?= $(or $(value S3_BUCKET_CANONICAL),$(va
 # TARGET: newspaper-list-target
 #: Generates a list of newspapers to process from the S3 bucket
 newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
+	@printf '%s\n' 'INFO: Using newspaper list $(NEWSPAPERS_TO_PROCESS_FILE): $(words $(file < $(NEWSPAPERS_TO_PROCESS_FILE))) entries. Existing lists are reused.'
+	@if [ "$(words $(file < $(NEWSPAPERS_TO_PROCESS_FILE)))" -eq 0 ]; then \
+	  printf '%s\n' 'ERROR: Newspaper list is empty: $(NEWSPAPERS_TO_PROCESS_FILE).' \
+	    'Populate your selected list, or run make refresh-newspaper-list to replace it using S3 discovery.' >&2; \
+	  exit 1; \
+	fi
 .PHONY: newspaper-list-target
 
+# FUNCTION: discover_newspaper_list
+# Write a fresh inventory beside the selected list and replace it only on success.
+# Explicit refresh may replace a user-supplied list; ordinary discovery preserves it.
+define discover_newspaper_list
+mkdir -p $(dir $(NEWSPAPERS_TO_PROCESS_FILE)) $(dir $(NEWSPAPERS_TO_PROCESS_LOG_FILE)) && \
+list_tmp=$$(mktemp "$(NEWSPAPERS_TO_PROCESS_FILE).tmp.XXXXXX") && \
+trap 'rm -f "$$list_tmp"' EXIT && \
+$(STAMP_SYNC_PYTHON) cookbook/lib/list_newspapers.py \
+  --bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
+  --output-file "$$list_tmp" \
+  --log-file $(NEWSPAPERS_TO_PROCESS_LOG_FILE) \
+  --prefix "$(NEWSPAPER_PREFIX)" \
+  --log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
+  $(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
+  $(if $(filter 1,$(NEWSPAPER_LIST_INCLUDE_YEARS)),--include-years) \
+  $(if $(NEWSPAPER_LIST_YEAR_STEP),--year-step $(NEWSPAPER_LIST_YEAR_STEP)) \
+  $(if $(NEWSPAPER_LIST_YEARS),--years $(NEWSPAPER_LIST_YEARS)) \
+  $(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)') && \
+if [ -s "$$list_tmp" ]; then \
+  mv -f "$$list_tmp" "$(NEWSPAPERS_TO_PROCESS_FILE)"; \
+else \
+  printf '%s\n' 'ERROR: S3 discovery returned an empty newspaper list; existing list preserved.' >&2; \
+  exit 1; \
+fi
+endef
+
+# TARGET: refresh-newspaper-list
+# Explicitly replace the selected list; never invoked automatically by collection.
+refresh-newspaper-list: | $(BUILD_DIR)
+	@$(call discover_newspaper_list)
+	@printf '%s\n' 'INFO: Refreshed $(NEWSPAPERS_TO_PROCESS_FILE). Run collection in a separate invocation.'
+
+.PHONY: refresh-newspaper-list
 
 # FILE-RULE: $(NEWSPAPERS_TO_PROCESS_FILE)
 #: Generates the file containing the newspapers to process
@@ -154,26 +195,9 @@ newspaper-list-target: | $(NEWSPAPERS_TO_PROCESS_FILE)
 # shuffles them to distribute processing evenly, and writes them to a file.
 $(NEWSPAPERS_TO_PROCESS_FILE): | $(BUILD_DIR)
 	@if [ ! -e $@ ]; then \
-		python cookbook/lib/list_newspapers.py \
-			--bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
-			--output-file $@ \
-			--log-file $(NEWSPAPERS_TO_PROCESS_LOG_FILE) \
-			--prefix "$(NEWSPAPER_PREFIX)" \
-			--log-level $(LOGGING_LEVEL) --large-first --num-groups 5 \
-			$(if $(filter 1,$(NEWSPAPER_HAS_PROVIDER)),--has-provider) \
-			$(if $(filter 1,$(NEWSPAPER_LIST_INCLUDE_YEARS)),--include-years) \
-			$(if $(NEWSPAPER_LIST_YEAR_STEP),--year-step $(NEWSPAPER_LIST_YEAR_STEP)) \
-			$(if $(NEWSPAPER_LIST_YEARS),--years $(NEWSPAPER_LIST_YEARS)) \
-			$(if $(NEWSPAPER_FNMATCH),--fnmatch '$(NEWSPAPER_FNMATCH)'); \
-	elif [ ! -s $@ ]; then \
-		message="WARNING: $(NEWSPAPERS_TO_PROCESS_FILE) exists but is empty; removing it."; \
-		echo "$$message" >&2; \
-		printf '%s\n' "$$message" > $(NEWSPAPERS_TO_PROCESS_LOG_FILE); \
-		rm -fv $@; \
+		$(call discover_newspaper_list); \
 	else \
-		message="$(NEWSPAPERS_TO_PROCESS_FILE) exists; not regenerating. Call make clean-newspaper-list-target to remove it."; \
-		echo "$$message"; \
-		printf '%s\n' "$$message" > $(NEWSPAPERS_TO_PROCESS_LOG_FILE); \
+		printf '%s\n' 'INFO: Preserving existing newspaper list $(NEWSPAPERS_TO_PROCESS_FILE).'; \
 	fi
 
 # TARGET: clean-newspaper-list-target

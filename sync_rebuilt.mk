@@ -21,12 +21,17 @@ help-sync::
 	@echo ""
 	@echo "REBUILT INPUT SYNC:"
 	@echo "  sync-rebuilt    # Synchronize rebuilt input data from S3 to local stamp files"
+	@echo "                  # Refreshes S3 discovery on every invocation; preserves unchanged file timestamps"
 	@echo "                  # Set NEWSPAPER_YEARS='1850 1875' to limit sync/processing to selected years"
 
 
 # Rule to sync the input data from the S3 bucket to the local directory
 # Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_REBUILT_SYNC_STAMP_FILE):
+# The marker records the last successful check, not a permanent cached inventory.
+.PHONY: force-rebuilt-sync
+force-rebuilt-sync:
+
+$(LOCAL_REBUILT_SYNC_STAMP_FILE): force-rebuilt-sync
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_REBUILT),$@,)
 
 

@@ -59,7 +59,11 @@ upload-topic-descriptions:
 # STAMPED-FILE-RULE: $(LOCAL_PATH_TOPICS).last_synced
 #: Synchronizes topics data from S3 to local stamp files
 #: Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_TOPICS_SYNC_STAMP_FILE):
+# Record the last successful check without caching the remote inventory forever.
+.PHONY: force-topics-sync
+force-topics-sync:
+
+$(LOCAL_TOPICS_SYNC_STAMP_FILE): force-topics-sync
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_TOPICS),$@,--file-extensions jsonl.bz2 json log.gz --remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
 

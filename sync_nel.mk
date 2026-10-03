@@ -16,7 +16,11 @@ $(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_NEL))
 # STAMPED-FILE-RULE: $(LOCAL_PATH_NEL).last_synced
 #: Synchronizes data from S3 to the local directory
 #: Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_NEL_SYNC_STAMP_FILE):
+# Record the last successful check without caching the remote inventory forever.
+.PHONY: force-nel-sync
+force-nel-sync:
+
+$(LOCAL_NEL_SYNC_STAMP_FILE): force-nel-sync
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_NEL),$@,)
 
 # TARGET: sync-nel

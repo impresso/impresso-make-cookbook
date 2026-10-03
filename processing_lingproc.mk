@@ -134,9 +134,35 @@ LOCAL_LINGPROC_FILES := \
 #: Processes newspaper content with linguistic analysis
 #
 # Just uses the local data that is there, does not enforce synchronization
-lingproc-target: $(LOCAL_LINGPROC_FILES)
+lingproc-target: check-lingproc-inputs $(LOCAL_LINGPROC_FILES)
 
-.PHONY: lingproc-target
+# USER-VARIABLE: LINGPROC_ALLOW_EMPTY_INPUT
+# Set to 1 only when an empty newspaper/year selection is intentional.
+LINGPROC_ALLOW_EMPTY_INPUT ?= 0
+
+# Run once before any year recipe, without making existing output files stale.
+ifneq ($(strip $(LOCAL_LINGPROC_FILES)),)
+$(LOCAL_LINGPROC_FILES): | check-lingproc-inputs
+endif
+
+check-lingproc-inputs:
+	@printf '%s\n' 'INFO: Lingproc $(NEWSPAPER): years=$(or $(strip $(NEWSPAPER_YEARS)),all); $(words $(LOCAL_REBUILT_STAMP_FILES)) input stamps; $(words $(LOCAL_LINGPROC_FILES)) expected outputs; $(words $(wildcard $(LOCAL_LINGPROC_FILES))) local output files present.'
+	@if [ -z "$(strip $(LOCAL_REBUILT_STAMP_FILES))" ]; then \
+	  printf '%s\n' 'No rebuilt input stamps found for $(NEWSPAPER).' \
+	    'Local pattern: $(LOCAL_PATH_REBUILT)/*.jsonl.bz2' \
+	    'S3 prefix: $(S3_PATH_REBUILT)' \
+	    'Selected years: $(or $(strip $(NEWSPAPER_YEARS)),all)' >&2; \
+	  if [ "$(LINGPROC_ALLOW_EMPTY_INPUT)" = 1 ]; then \
+	    printf '%s\n' 'WARNING: Empty selection explicitly allowed by LINGPROC_ALLOW_EMPTY_INPUT=1.' >&2; \
+	  else \
+	    printf '%s\n' 'ERROR: Cannot process an empty input selection.' \
+	      'Run make sync-rebuilt with the same CFG, NEWSPAPER and NEWSPAPER_YEARS, then run processing-target in a separate invocation.' \
+	      'If synchronization already completed, check the S3 prefix and year selection.' >&2; \
+	    exit 1; \
+	  fi; \
+	fi
+
+.PHONY: lingproc-target check-lingproc-inputs
 
 help-processing::
 	@echo "LINGUISTIC PROCESSING:"
@@ -144,6 +170,7 @@ help-processing::
 	@echo "                    # Also contributes to processing-target"
 	@echo ""
 	@echo "LINGPROC VARIABLES:"
+	@echo "  LINGPROC_ALLOW_EMPTY_INPUT=$(LINGPROC_ALLOW_EMPTY_INPUT) # Set to 1 to allow an intentionally empty selection"
 	@echo "  LINGPROC_LOGGING_LEVEL=$(LINGPROC_LOGGING_LEVEL)"
 	@echo "  LINGPROC_VALIDATE_OPTION=$(LINGPROC_VALIDATE_OPTION)"
 	@echo "  LINGPROC_WIP_ENABLED=$(LINGPROC_WIP_ENABLED)"

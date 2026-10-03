@@ -224,6 +224,7 @@ COLLECTION_TARGET ?= newspaper
 # Uses xargs for parallel execution with COLLECTION_JOBS limit.
 # Runs COLLECTION_TARGET (default: newspaper) for each item.
 collection-xargs: newspaper-list-target | $(BUILD_DIR)
+	@printf '%s\n' 'INFO: Collection worker target: $(COLLECTION_TARGET). List: $(NEWSPAPERS_TO_PROCESS_FILE).'
 	+tr " " "\n" < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	xargs -n 1 -P $(COLLECTION_JOBS) -I {} \
 		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)' sh {}
@@ -241,6 +242,7 @@ check-parallel:
 # Dependencies: newspaper-list-target
 # Runs COLLECTION_TARGET (default: newspaper) for each item.
 collection: check-parallel newspaper-list-target | $(BUILD_DIR)
+	@printf '%s\n' 'INFO: Collection worker target: $(COLLECTION_TARGET). List: $(NEWSPAPERS_TO_PROCESS_FILE).'
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	+tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v \

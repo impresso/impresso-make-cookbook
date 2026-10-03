@@ -15,7 +15,11 @@ $(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_TEMPLATE))
 # STAMPED-FILE-RULE: $(LOCAL_PATH_TEMPLATE).last_synced
 #: Synchronizes data from S3 to the local directory
 #: Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_TEMPLATE_SYNC_STAMP_FILE):
+# Record the last successful check without caching the remote inventory forever.
+.PHONY: force-TEMPLATE-sync
+force-TEMPLATE-sync:
+
+$(LOCAL_TEMPLATE_SYNC_STAMP_FILE): force-TEMPLATE-sync
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_TEMPLATE),$@,)
 
 # TARGET: sync-TEMPLATE

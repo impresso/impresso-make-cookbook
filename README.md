@@ -334,7 +334,7 @@ $(OUTPUT_FILE): $(INPUT_FILE)
 - **Custom Configurations**: Each machine uses local configuration files or environment variables to tailor processing behavior.
 - **Online Output Guards**: Long-running recipes should check the target S3 object immediately before expensive processing. Local sync stamps are useful for Make dependency planning, but an online check catches work completed by another machine after the last local sync.
 - **WIP Locks for Overlap**: When machines may process overlapping newspapers or years, use WIP-enabled recipes so only one worker starts a missing target. An existence-only check skips already completed output, but a WIP lock also covers the race where two workers start at nearly the same time.
-- **Multi-Machine S3 Sync & Re-scanning (`COLLECTION_TARGET`)**: When running across several machines where new inputs or outputs are continuously produced and uploaded to S3, a local host's `.last_synced` markers may cause standard `sync` runs to skip checking S3. To force workers to refresh their sync state:
+- **Multi-Machine S3 Sync & Re-scanning (`COLLECTION_TARGET`)**: Rebuilt input synchronization refreshes its S3 inventory on every invocation, preserving unchanged per-file timestamps. Its `.last_synced` marker records completion without suppressing later checks. Other sync modules can still skip remote checks when their `.last_synced` markers exist. To force workers to refresh all their sync state:
   - For a single newspaper: use `make all NEWSPAPER=...` (runs `resync-input resync-output`, then `processing-target`).
   - For collection runs: use `make collection COLLECTION_TARGET=all` to enforce an input and output resync before processing each collection item.
   - To only resync inputs without processing across the whole collection: use `make collection COLLECTION_TARGET=resync-input`.
@@ -738,6 +738,7 @@ There must be at least six runnable collection items left in
 - `make create-aws-config`: Generate AWS configuration from .env
 - `make test-aws`: Test AWS S3 connectivity
 - `make newspaper-list-target`: Discover collection items into `NEWSPAPERS_TO_PROCESS_FILE`
+- `make refresh-newspaper-list`: Explicitly replace `NEWSPAPERS_TO_PROCESS_FILE` using current S3 discovery and filters; run before collection in a separate invocation. Failed or empty discovery preserves the existing list. This command also replaces a custom selection file if specified, so ordinary collection runs never call it automatically.
 - `make help-newspaper-list`: Show newspaper list generation modes and variables
 - `make update-pip-requirements-file`: Update requirements.txt from Pipfile
 

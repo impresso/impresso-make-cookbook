@@ -16,7 +16,11 @@ $(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_BBOXQA))
 # STAMPED-FILE-RULE: $(LOCAL_PATH_BBOXQA).last_synced
 #: Synchronizes data from S3 to the local directory
 #: Creates file stamps matching S3 object names exactly (no suffix)
-$(LOCAL_BBOXQA_SYNC_STAMP_FILE):
+# Record the last successful check without caching the remote inventory forever.
+.PHONY: force-bboxqa-sync
+force-bboxqa-sync:
+
+$(LOCAL_BBOXQA_SYNC_STAMP_FILE): force-bboxqa-sync
 	$(call sync_year_aware_per_file_stamps,$(S3_PATH_BBOXQA),$@,)
 
 # TARGET: sync-bboxqa

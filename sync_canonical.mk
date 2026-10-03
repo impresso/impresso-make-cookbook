@@ -111,6 +111,10 @@ sync-canonical: $(LOCAL_CANONICAL_INPUT_SYNC_TARGETS)
 
 .PHONY: sync-canonical sync-canonical-pages sync-canonical-audios
 
+# Refresh selected scopes even when their completion markers already exist.
+.PHONY: force-canonical-sync
+force-canonical-sync:
+
 clean-sync-input:: clean-sync-canonical
 
 clean-sync-canonical:
@@ -135,11 +139,10 @@ help-clean::
 #
 # Persistent marker updated after successful synchronization. Used by
 # downstream targets for dependency/timestamp tracking. Requesting this marker,
-# sync-canonical, or sync-canonical-pages ensures the selected sync markers
-# exist; use -B to force a fresh S3 query.
+# sync-canonical, or sync-canonical-pages refreshes the selected S3 scope.
 sync-canonical-pages: $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE)
 
-$(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
+$(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE): force-canonical-sync
 	# creating $@
 	$(call sync_year_aware_per_directory_stamps,$(S3_PATH_CANONICAL_PAGES),$@,$(CANONICAL_SYNC_TITLE),--directory-level 1 --remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
@@ -156,11 +159,10 @@ $(LOCAL_CANONICAL_PAGES_SYNC_STAMP_FILE):
 #
 # Persistent marker updated after successful synchronization. Used by
 # downstream targets for dependency/timestamp tracking. Requesting this marker,
-# sync-canonical, or sync-canonical-audios ensures the selected sync markers
-# exist; use -B to force a fresh S3 query.
+# sync-canonical, or sync-canonical-audios refreshes the selected S3 scope.
 sync-canonical-audios: $(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE)
 
-$(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE):
+$(LOCAL_CANONICAL_AUDIOS_SYNC_STAMP_FILE): force-canonical-sync
 	# creating $@
 	$(call sync_year_aware_per_directory_stamps,$(S3_PATH_CANONICAL_AUDIOS),$@,$(CANONICAL_SYNC_TITLE),--directory-level 1 --remove-dangling-stamps --log-level $(LOGGING_LEVEL))
 
