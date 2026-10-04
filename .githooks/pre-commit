@@ -1,0 +1,20 @@
+#!/bin/sh
+
+branch=$(git symbolic-ref --quiet --short HEAD) || {
+    echo >&2 "ERROR: refusing to commit from detached HEAD."
+    echo >&2 "Switch to main or create a feature branch first:"
+    echo >&2 "  git switch main"
+    echo >&2 "  git switch -c feature/my-change"
+    exit 1
+}
+
+if [ "$branch" = main ]; then
+    upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || true)
+
+    if [ "$upstream" != "origin/main" ]; then
+        echo >&2 "ERROR: local main is not tracking origin/main."
+        echo >&2 "Expected upstream: origin/main"
+        echo >&2 "Actual upstream:   ${upstream:-<none>}"
+        exit 1
+    fi
+fi

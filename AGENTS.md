@@ -22,6 +22,18 @@ The expected integration model is:
 - the parent repository includes or reuses these `*.mk` fragments
 - the parent repository defines the project-specific pipeline wiring, configs, scripts, and execution entrypoints
 
+## Commits From Submodule Checkouts
+
+A parent repository normally checks out this cookbook at a pinned commit, leaving
+its `HEAD` detached. Never commit in the cookbook from a detached `HEAD`. Switch
+to `main` or create a feature branch before committing. The
+`.githooks/pre-commit` hook enforces this rule; on `main`, it also requires
+`origin/main` as the upstream.
+
+Every repository that uses the cookbook as a submodule should activate the hook
+in its cookbook checkout with `git -C cookbook config core.hooksPath .githooks`.
+The hook must be executable, and Git does not activate tracked hooks automatically.
+
 Some files here, such as the root `Makefile`, are examples or local wiring for this checkout, but the lasting value of the repository is the reusable make fragments and helper Python code.
 
 ## Repository Layout
