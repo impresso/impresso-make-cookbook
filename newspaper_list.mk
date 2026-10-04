@@ -122,7 +122,7 @@ help-newspaper-list:
 	@echo ""
 	@echo "EXAMPLES:"
 	@echo "  make newspaper-list-target"
-	@echo "  make clean-newspaper-list-target newspaper-list-target"
+	@echo "  make refresh-newspaper-list  # Replace an existing list; keeps it if discovery fails or is empty"
 	@echo "  make newspaper-list-target NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
 
 .PHONY: help-newspaper-list

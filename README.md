@@ -804,6 +804,9 @@ make lingproc-target NEWSPAPER=actionfem
 # Generate the collection processing plan
 make newspaper-list-target
 
+# Replace an existing plan with current S3 discovery (run separately, before collection)
+make refresh-newspaper-list
+
 # Process multiple newspapers using collection target
 make collection
 
