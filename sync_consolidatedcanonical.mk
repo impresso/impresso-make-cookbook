@@ -105,6 +105,13 @@ sync-consolidatedcanonical:
 
 .PHONY: sync-consolidatedcanonical
 
+help-sync::
+	@echo ""
+	@echo "CONSOLIDATED CANONICAL SYNC:"
+	@echo "  sync-consolidatedcanonical       # Refresh consolidated issues and selected record stamps from S3"
+	@echo "  sync-consolidatedcanonical-input # Refresh canonical inputs and final langident enrichments"
+	@echo "                                   # Always queries S3 even when completion markers exist"
+
 # DOUBLE-COLON-TARGET: clean-sync
 #: Cleans up synchronized consolidatedcanonical processing data
 clean-sync:: clean-sync-consolidatedcanonical

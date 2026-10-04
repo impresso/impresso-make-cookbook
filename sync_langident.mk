@@ -360,6 +360,7 @@ help-sync::
 	@echo ""
 	@echo "LANGIDENT SYNC:"
 	@echo "  sync-langident # Synchronize langident stage1 and ensemble data from/to S3"
+	@echo "                 # Always refreshes S3 discovery; persistent markers record completion"
 
 # TARGET: clean-sync-langident
 clean-sync-input:: clean-sync-langident
