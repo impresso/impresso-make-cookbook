@@ -89,30 +89,30 @@ PARALLEL_DRY_RUN_OPTION := $(if $(MAKE_DRY_RUN_OPTION),--dry-run)
 #: Show the main orchestration targets; use help-orchestration-settings for tuning
 help-orchestration::
 	@echo "ORCHESTRATION TARGETS:"
-	@echo "  make newspaper                 # Sync normally, then process one newspaper"
-	@echo "  make collection                # Process the newspaper list with GNU parallel; runs COLLECTION_TARGET for each item"
-	@echo "  make collection-xargs          # Process the list with xargs when GNU parallel is unavailable"
-	@echo "  make all                       # Force input/output resync, then process one newspaper"
-	@echo "  make refresh-newspaper-list    # Replace the collection list from S3 before a collection run"
+	@echo "  make newspaper                   # Sync normally, then process one newspaper"
+	@echo "  make collection                  # Process the newspaper list with GNU parallel; runs COLLECTION_TARGET for each item"
+	@echo "  make collection-xargs            # Process the list with xargs when GNU parallel is unavailable"
+	@echo "  make all                         # Force input/output resync, then process one newspaper"
+	@echo "  make refresh-newspaper-list      # Replace the collection list from S3 before a collection run"
 	@echo ""
-	@echo "  make collection COLLECTION_JOBS=8 NEWSPAPER_JOBS=2    # Example with eight newspapers and two jobs each"
-	@echo "  make help-orchestration-settings                     # Variable meanings, defaults, tuning, and more examples"
+	@echo "  make collection COLLECTION_JOBS=8 NEWSPAPER_JOBS=2 # Example with eight newspapers and two jobs each"
+	@echo "  make help-orchestration-settings # Variable meanings, defaults, tuning, and more examples"
 
 .PHONY: help-orchestration help-orchestration-settings
 
 #: Explain orchestration variables and resource controls
 help-orchestration-settings::
 	@echo "ORCHESTRATION SETTINGS (current values in parentheses):"
-	@echo "  COLLECTION_TARGET ($(COLLECTION_TARGET))  Target run for each list item: newspaper by default; all forces input/output resync"
-	@echo "  COLLECTION_JOBS ($(COLLECTION_JOBS))  Maximum concurrent newspaper workers; defaults to half of NPROC, at least one"
-	@echo "  NEWSPAPER_JOBS ($(NEWSPAPER_JOBS))  Make jobs within each newspaper; defaults to NPROC / COLLECTION_JOBS, at least one"
-	@echo "  NPROC ($(NPROC))  Detected CPU count used to calculate job defaults; override when detection is wrong"
-	@echo "  MAX_LOAD ($(MAX_LOAD))  Default load limit for both collection and newspaper workers; defaults to NPROC"
-	@echo "  COLLECTION_LOAD ($(COLLECTION_LOAD))  GNU parallel load limit; empty disables this throttle"
-	@echo "  COLLECTION_MEMFREE ($(COLLECTION_MEMFREE))  GNU parallel minimum free memory; empty disables this throttle"
-	@echo "  NEWSPAPER_LOAD ($(NEWSPAPER_LOAD))  Child Make load limit; empty disables this throttle"
-	@echo "  PARALLEL_DELAY ($(PARALLEL_DELAY))  Seconds between starts of GNU parallel collection jobs; default 3"
-	@echo "  HALT_ON_ERROR ($(HALT_ON_ERROR))  Set to 1 to stop GNU parallel on the first failing job; default 0"
+	@printf '  %-32s %s\n' 'COLLECTION_TARGET ($(COLLECTION_TARGET))' 'Target run for each list item: newspaper by default; all forces input/output resync'
+	@printf '  %-32s %s\n' 'COLLECTION_JOBS ($(COLLECTION_JOBS))' 'Maximum concurrent newspaper workers; defaults to half of NPROC, at least one'
+	@printf '  %-32s %s\n' 'NEWSPAPER_JOBS ($(NEWSPAPER_JOBS))' 'Make jobs within each newspaper; defaults to NPROC / COLLECTION_JOBS, at least one'
+	@printf '  %-32s %s\n' 'NPROC ($(NPROC))' 'Detected CPU count used to calculate job defaults; override when detection is wrong'
+	@printf '  %-32s %s\n' 'MAX_LOAD ($(MAX_LOAD))' 'Default load limit for both collection and newspaper workers; defaults to NPROC'
+	@printf '  %-32s %s\n' 'COLLECTION_LOAD ($(COLLECTION_LOAD))' 'GNU parallel load limit; empty disables this throttle'
+	@printf '  %-32s %s\n' 'COLLECTION_MEMFREE ($(COLLECTION_MEMFREE))' 'GNU parallel minimum free memory; empty disables this throttle'
+	@printf '  %-32s %s\n' 'NEWSPAPER_LOAD ($(NEWSPAPER_LOAD))' 'Child Make load limit; empty disables this throttle'
+	@printf '  %-32s %s\n' 'PARALLEL_DELAY ($(PARALLEL_DELAY))' 'Seconds between starts of GNU parallel collection jobs; default 3'
+	@printf '  %-32s %s\n' 'HALT_ON_ERROR ($(HALT_ON_ERROR))' 'Set to 1 to stop GNU parallel on the first failing job; default 0'
 	@echo ""
 	@echo "TUNING:"
 	@echo "  CPU work: set COLLECTION_JOBS and NEWSPAPER_JOBS together; keep load limits enabled"
@@ -172,8 +172,8 @@ show-delete-newspaper-s3:
 help-orchestration::
 	@echo ""
 	@echo "RELATED TARGETS:"
-	@echo "  make newspaper-list-target    # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
-	@echo "  make show-delete-newspaper-s3  # Print a manual, dry-run S3 deletion command for the active newspaper; does not call AWS"
+	@echo "  make newspaper-list-target       # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  make show-delete-newspaper-s3    # Print a manual, dry-run S3 deletion command for the active newspaper; does not call AWS"
 
 
 # TARGET: all
@@ -300,10 +300,10 @@ resync-collection: resync-collection-input resync-collection-output
 .PHONY: resync-collection
 
 help-orchestration::
-	@echo "  make clean-collection-input    # Remove local input sync state for listed newspapers (GNU parallel)"
-	@echo "  make clean-collection-output   # Remove local output sync state for listed newspapers (GNU parallel)"
-	@echo "  make resync-collection-output  # Refresh local output sync state for listed newspapers (GNU parallel)"
-	@echo "  make help-newspaper-list       # Show list generation modes, filters, and file settings"
+	@echo "  make clean-collection-input      # Remove local input sync state for listed newspapers (GNU parallel)"
+	@echo "  make clean-collection-output     # Remove local output sync state for listed newspapers (GNU parallel)"
+	@echo "  make resync-collection-output    # Refresh local output sync state for listed newspapers (GNU parallel)"
+	@echo "  make help-newspaper-list         # Show list generation modes, filters, and file settings"
 
 
 .PHONY: collection

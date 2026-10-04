@@ -10,9 +10,10 @@ clean :: clean-build
 .PHONY: clean
 
 help-clean::
+	@echo ""
 	@echo "CLEAN TARGETS:"
-	@echo "  make clean            # Clean the build directory and all processed data"
-	@echo "  make clean-build      # Remove the entire build directory"
+	@echo "  make clean                            # Clean the build directory and all processed data"
+	@echo "  make clean-build                      # Remove the entire build directory"
 
 
 # TARGET: clean-build
@@ -31,9 +32,9 @@ clean-sync :: clean-sync-input clean-sync-output
 .PHONY: clean-sync
 
 help-clean::
-	@echo "  make clean-sync       # Remove local sync state for input and output data"
-	@echo "  make clean-sync-input # Remove local input sync state contributed by included modules"
-	@echo "  make clean-sync-output # Remove local output sync state contributed by included modules"
+	@echo "  make clean-sync                       # Remove local sync state for input and output data"
+	@echo "  make clean-sync-input                 # Remove local input sync state contributed by included modules"
+	@echo "  make clean-sync-output                # Remove local output sync state contributed by included modules"
 
 
 # TARGET: clean-sync-input

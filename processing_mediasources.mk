@@ -30,7 +30,7 @@ SAMPLE_SEED_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin SAMPLE_SEED_ME
 help-processing::
 	@echo ""
 	@echo "MEDIA-SOURCES PROCESSING:"
-	@echo "  make mediasources-target # Process rebuilt content with media-source NER"
+	@echo "  make mediasources-target                # Process rebuilt content with media-source NER"
 	@echo ""
 	@echo "MEDIA-SOURCES SETTINGS:"
 	@echo "  HF_MODEL_MEDIASOURCES=$(HF_MODEL_MEDIASOURCES)"

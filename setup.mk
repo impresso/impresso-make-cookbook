@@ -66,8 +66,8 @@ check-cfg-file:
 
 help-setup::
 	@echo "SETUP TARGETS:"
-	@echo "  make setup           # Create local directories and run active setup targets"
-	@echo "  make check-cfg-file  # Validate that CFG points to an existing file when provided"
+	@echo "  make setup                        # Create local directories and run active setup targets"
+	@echo "  make check-cfg-file               # Validate that CFG points to an existing file when provided"
 
 # USER-VARIABLE: GIT_VERSION
 # The current git version of the repository

@@ -110,7 +110,7 @@ help-sync::
 	@echo "CONSOLIDATED CANONICAL SYNC:"
 	@echo "  make sync-consolidatedcanonical       # Refresh consolidated issues and selected record stamps from S3"
 	@echo "  make sync-consolidatedcanonical-input # Refresh canonical inputs and final langident enrichments"
-	@echo "                                   # Always queries S3 even when completion markers exist"
+	@echo "                                        # Always queries S3 even when completion markers exist"
 
 # DOUBLE-COLON-TARGET: clean-sync
 #: Cleans up synchronized consolidatedcanonical processing data
@@ -131,5 +131,8 @@ clean-sync-consolidatedcanonical:
 purge-sync-consolidatedcanonical:
 	rm -vrf $(LOCAL_PATH_CONSOLIDATEDCANONICAL) || true
 .PHONY: clean-sync-consolidatedcanonical purge-sync-consolidatedcanonical
+
+help-clean::
+	@echo "  make clean-sync-consolidatedcanonical # Remove local consolidated canonical sync stamp files"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_consolidatedcanonical.mk)

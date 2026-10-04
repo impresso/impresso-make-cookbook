@@ -17,9 +17,12 @@ check-s3-credentials:
 		exit 1; \
 	fi
 
+help-clean::
+	@echo "SYNC CLEANUP TARGETS:"
+
 help-sync::
 	@echo "SYNC PREREQUISITES:"
-	@echo "  make check-s3-credentials # Check if the S3 credentials are set in the environment variables"
+	@echo "  make check-s3-credentials             # Check if the S3 credentials are set in the environment variables"
 
 .PHONY: check-s3-credentials
 
@@ -41,7 +44,7 @@ help-sync::
 	@echo "GENERIC SYNC TARGETS:"
 	@echo "  Sync operations refresh their selected S3 scopes even when .last_synced markers exist."
 	@echo "  Unchanged stamp timestamps are preserved; resync additionally clears local sync state."
-	@echo "  make sync            # Synchronize local files with S3 (input and output) without deleting local files"
+	@echo "  make sync                             # Synchronize local files with S3 (input and output) without deleting local files"
 
 
 # DOUBLE-COLON-TARGET: sync-input
@@ -54,7 +57,7 @@ sync-input:: | $(BUILD_DIR)
 .PHONY: sync-input
 
 help-sync::
-	@echo "  make sync-input      # Synchronize input files with S3 without deleting local files"
+	@echo "  make sync-input                       # Synchronize input files with S3 without deleting local files"
 
 
 # DOUBLE-COLON-TARGET: sync-output
@@ -67,7 +70,7 @@ sync-output:: | $(BUILD_DIR)
 .PHONY: sync-output
 
 help-sync::
-	@echo "  make sync-output     # Synchronize output files with S3 without deleting local files"
+	@echo "  make sync-output                      # Synchronize output files with S3 without deleting local files"
 
 
 # DOUBLE-COLON-TARGET: resync-output
@@ -80,7 +83,7 @@ resync-output: clean-sync-output
 .PHONY: resync-output
 
 help-sync::
-	@echo "  make resync-output   # Delete local output sync state, then synchronize output files"
+	@echo "  make resync-output                    # Delete local output sync state, then synchronize output files"
 
 # DOUBLE-COLON-TARGET: resync-input
 #: Synchronize local input with S3 by deleting all local files first
@@ -92,7 +95,7 @@ resync-input: clean-sync-input
 .PHONY: resync-input
 
 help-sync::
-	@echo "  make resync-input    # Delete local input sync state, then synchronize input files"
+	@echo "  make resync-input                     # Delete local input sync state, then synchronize input files"
 
 # TARGET: resync
 #: Forces complete resynchronization with remote server
@@ -101,7 +104,7 @@ resync: resync-input resync-output
 .PHONY: resync
 
 help-sync::
-	@echo "  make resync          # Force complete input and output resynchronization"
+	@echo "  make resync                           # Force complete input and output resynchronization"
 
 
 

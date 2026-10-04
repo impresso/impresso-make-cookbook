@@ -54,9 +54,9 @@ check-python-installation:
 .PHONY: check-python-installation
 
 help-setup::
-	@echo "  make setup-topics      # Set up Java, Python, and local paths for topic inference"
-	@echo "  make install-java      # Ensure a Java runtime is available for Mallet"
-	@echo "  make check-python-installation # Check whether the Python environment is set up correctly"
+	@echo "  make setup-topics                 # Set up Java, Python, and local paths for topic inference"
+	@echo "  make install-java                 # Ensure a Java runtime is available for Mallet"
+	@echo "  make check-python-installation    # Check whether the Python environment is set up correctly"
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_topics.mk)

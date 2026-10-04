@@ -40,7 +40,7 @@ help::
 
 help-debug::
 	@echo "Debug and inspection targets:"
-	@echo "  make debug-vars          # Re-run Make with LOGGING_LEVEL=DEBUG and print curated variables"
+	@echo "  make debug-vars     # Re-run Make with LOGGING_LEVEL=DEBUG and print curated variables"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make debug-vars"
@@ -59,14 +59,14 @@ help-path-variables::
 
 help-processing::
 	@echo "PROCESSING HELP:"
-	@echo "  make processing-target # Generic entry point extended by processing_*.mk fragments"
+	@echo "  make processing-target                  # Generic entry point extended by processing_*.mk fragments"
 	@echo "  Component-specific targets and flags appear below when their fragments are included."
 
 help-sync::
 	@echo "SYNC HELP:"
-	@echo "  make sync              # Generic synchronization entry point when sync.mk is included"
-	@echo "  make sync-input        # Input synchronization hook extended by included fragments"
-	@echo "  make sync-output       # Output synchronization hook extended by included fragments"
+	@echo "  make sync                             # Generic synchronization entry point when sync.mk is included"
+	@echo "  make sync-input                       # Input synchronization hook extended by included fragments"
+	@echo "  make sync-output                      # Output synchronization hook extended by included fragments"
 	@echo "  Component-specific sync targets appear below when their fragments are included."
 
 help-setup::
@@ -83,8 +83,8 @@ help-aggregation::
 
 help-clean::
 	@echo "CLEAN HELP:"
-	@echo "  make clean             # Generic cleanup entry point when clean.mk is included"
-	@echo "  make clean-sync        # Generic sync cleanup hook when clean.mk is included"
+	@echo "  make clean                            # Generic cleanup entry point when clean.mk is included"
+	@echo "  make clean-sync                       # Generic sync cleanup hook when clean.mk is included"
 	@echo "  Component-specific cleanup targets appear below when their fragments are included."
 
 # TARGET: debug-vars

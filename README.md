@@ -6,6 +6,7 @@ Welcome to the Impresso Make-Based Offline (NLP) Processing Cookbook! This repos
 
 - [Build System Structure](#build-system-structure)
 - [Uploading to impresso S3 bucket](#uploading-to-impresso-s3-bucket)
+- [Deleting Newspaper Output From S3](#deleting-newspaper-output-from-s3)
 - [Processing Workflow Overview](#processing-workflow-overview)
   - [Key Features](#key-features)
     - [Data Storage on S3](#data-storage-on-s3)
@@ -233,6 +234,34 @@ make install-aws
 ```
 
 - Keep `.aws/credentials` local to this repository and do not commit secrets.
+
+## Deleting Newspaper Output From S3
+
+`make show-delete-newspaper-s3` prints a dry-run `aws s3 rm` command for the
+newspaper-level output prefix (or prefixes) of the active `processing_*.mk`
+pipeline. It never calls AWS itself; a human reviews and runs the command.
+
+```bash
+make -s show-delete-newspaper-s3 PROVIDER=BL NEWSPAPER=WTCH
+```
+
+To delete several newspapers, loop over them and collect the commands in a
+script:
+
+```bash
+for np in oeuvre jdpl legaulois lematin lepji lepetitparisien oecaen oerennes; do
+  make -s show-delete-newspaper-s3 PROVIDER=BNF NEWSPAPER=$np | grep '^AWS_'
+done > delete_cmds.sh
+```
+
+Then:
+
+1. Review the S3 prefixes in `delete_cmds.sh` (bucket and run version come from
+   your `.env`, `config.local.mk`, or `CFG=...`).
+2. Run `sh delete_cmds.sh` to list what would be deleted (still `--dryrun`).
+3. Delete for real: `sed 's/ --dryrun$//' delete_cmds.sh | sh`
+4. Remove the corresponding local stamp files under `build.d/` (or run
+   `make resync-output`) so later runs do not treat the deleted output as present.
 
 ## Processing Workflow Overview
 

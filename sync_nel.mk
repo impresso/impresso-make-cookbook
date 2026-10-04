@@ -40,4 +40,7 @@ clean-sync-nel:
 
 .PHONY: clean-sync-nel
 
+help-clean::
+	@echo "  make clean-sync-nel                   # Remove local NEL sync stamp files"
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_nel.mk)

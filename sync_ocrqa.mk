@@ -31,7 +31,7 @@ sync-ocrqa: $(LOCAL_OCRQA_SYNC_STAMP_FILE)
 help-sync::
 	@echo ""
 	@echo "OCRQA SYNC:"
-	@echo "  make sync-ocrqa     # Synchronize OCR quality assessment data from/to S3"
+	@echo "  make sync-ocrqa                       # Synchronize OCR quality assessment data from/to S3"
 
 # TARGET: clean-sync
 #: Cleans up synchronized OCR quality assessment data
@@ -45,6 +45,6 @@ clean-sync-ocrqa:
 .PHONY: clean-sync-ocrqa
 
 help-clean::
-	@echo "  make clean-sync-ocrqa # Remove local OCRQA sync state for the selected scope"
+	@echo "  make clean-sync-ocrqa                 # Remove local OCRQA sync state for the selected scope"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_ocrqa.mk)

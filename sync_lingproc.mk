@@ -43,7 +43,7 @@ sync-lingproc: $(LOCAL_LINGPROC_SYNC_STAMP_FILE)
 help-sync::
 	@echo ""
 	@echo "LINGPROC SYNC:"
-	@echo "  make sync-lingproc   # Synchronize linguistic processing data from/to S3"
+	@echo "  make sync-lingproc                    # Synchronize linguistic processing data from/to S3"
 
 
 # TARGET: clean-sync
@@ -67,7 +67,7 @@ clean-sync-lingproc:
 .PHONY: clean-sync-lingproc
 
 help-clean::
-	@echo "  make clean-sync-lingproc # Remove local lingproc sync state for the selected scope"
+	@echo "  make clean-sync-lingproc              # Remove local lingproc sync state for the selected scope"
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_lingproc.mk)

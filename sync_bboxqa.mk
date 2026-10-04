@@ -32,7 +32,7 @@ sync-bboxqa: $(LOCAL_BBOXQA_SYNC_STAMP_FILE)
 help-sync::
 	@echo ""
 	@echo "BBOXQA SYNC:"
-	@echo "  make sync-bboxqa    # Synchronize BBOX quality assessment data from/to S3"
+	@echo "  make sync-bboxqa                      # Synchronize BBOX quality assessment data from/to S3"
 
 # TARGET: clean-sync
 #: Cleans up synchronized BBOX quality assessment data
@@ -46,6 +46,6 @@ clean-sync-bboxqa:
 .PHONY: clean-sync-bboxqa
 
 help-clean::
-	@echo "  make clean-sync-bboxqa # Remove local BBOXQA sync state for the selected scope"
+	@echo "  make clean-sync-bboxqa                # Remove local BBOXQA sync state for the selected scope"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_bboxqa.mk)

@@ -25,7 +25,7 @@ processing-target:: | $(BUILD_DIR)
 
 help-processing::
 	@echo "PROCESSING ENTRYPOINTS:"
-	@echo "  make processing-target # Abstract processing entry point extended by included processing_*.mk files"
+	@echo "  make processing-target                  # Abstract processing entry point extended by included processing_*.mk files"
 	@echo ""
 	@echo "GENERIC PROCESSING FLAGS:"
 	@echo "  PROCESSING_S3_OUTPUT_DRY_RUN=$(PROCESSING_S3_OUTPUT_DRY_RUN)"

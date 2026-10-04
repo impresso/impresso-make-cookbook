@@ -114,8 +114,8 @@ sync-reocr-input:
 help-sync::
 	@echo ""
 	@echo "RE-OCR INPUT SYNC:"
-	@echo "  make sync-reocr-input # Synchronize re-OCR input issue archives from S3 to local stamp files"
-	@echo "                   # Set REOCR_YEARS=1814 to limit sync/processing to one or more years"
+	@echo "  make sync-reocr-input                 # Synchronize re-OCR input issue archives from S3 to local stamp files"
+	@echo "                                        # Set REOCR_YEARS=1814 to limit sync/processing to one or more years"
 
 # Refresh done markers before validation, which also requests sync-reocr-pages.
 sync-reocr:
@@ -127,8 +127,8 @@ sync-reocr:
 help-sync::
 	@echo ""
 	@echo "RE-OCR OUTPUT STATE SYNC:"
-	@echo "  make sync-reocr       # Synchronize remote re-OCR done markers, validate page coverage, and prune stale local done markers"
-	@echo "                   # Set REOCR_YEARS=1814 to limit output-state sync to selected years"
+	@echo "  make sync-reocr                       # Synchronize remote re-OCR done markers, validate page coverage, and prune stale local done markers"
+	@echo "                                        # Set REOCR_YEARS=1814 to limit output-state sync to selected years"
 
 sync-reocr-pages:
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_reocr_PAGES_SYNC_STAMP_FILES)
@@ -136,7 +136,7 @@ sync-reocr-pages:
 .PHONY: sync-reocr-pages
 
 help-sync::
-	@echo "  make sync-reocr-pages # Synchronize remote re-OCR page outputs to local stamp files"
+	@echo "  make sync-reocr-pages                 # Synchronize remote re-OCR page outputs to local stamp files"
 
 sync-reocr-collected:
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE)
@@ -144,7 +144,7 @@ sync-reocr-collected:
 .PHONY: sync-reocr-collected
 
 help-sync::
-	@echo "  make sync-reocr-collected # Synchronize collected re-OCR year packages to local stamp files"
+	@echo "  make sync-reocr-collected             # Synchronize collected re-OCR year packages to local stamp files"
 
 clean-sync:: clean-sync-reocr-input clean-sync-reocr-output
 
@@ -159,5 +159,8 @@ clean-sync-reocr-output:
 	rm -vrf $(LOCAL_reocr_SYNC_STAMP_FILE) $(LOCAL_reocr_PAGES_SYNC_STAMP_FILE) $(LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE) $(LOCAL_PATH_reocr) $(LOCAL_PATH_reocr_COLLECTED) || true
 
 .PHONY: clean-sync-reocr-input clean-sync-reocr-output
+
+help-clean::
+	@echo "  make clean-sync-reocr                 # Remove local re-OCR sync stamp files"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_reocr.mk)

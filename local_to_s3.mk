@@ -61,6 +61,8 @@ test-LocalToS3:
 	@echo
 
 help-debug::
-	@echo "  make test-LocalToS3    # Print LocalToS3 conversion test cases"
+	@echo ""
+	@echo "S3 PATH CONVERSION:"
+	@echo "  make test-LocalToS3 # Print LocalToS3 conversion test cases"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/local_to_s3.mk)

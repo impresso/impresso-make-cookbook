@@ -137,7 +137,7 @@ topics-target: $(LOCAL_TOPICS_FILES)
 
 help-processing::
 	@echo "TOPIC PROCESSING:"
-	@echo "  make topics-target    # Generate topic files from linguistic processing outputs"
+	@echo "  make topics-target                      # Generate topic files from linguistic processing outputs"
 	@echo ""
 	@echo "TOPICS VARIABLES:"
 	@echo "  TOPICS_LOGGING_LEVEL=$(TOPICS_LOGGING_LEVEL)"

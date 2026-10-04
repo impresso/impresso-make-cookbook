@@ -166,8 +166,8 @@ check-lingproc-inputs:
 
 help-processing::
 	@echo "LINGUISTIC PROCESSING:"
-	@echo "  make lingproc-target   # Process rebuilt newspaper content with linguistic analysis"
-	@echo "                    # Also contributes to processing-target"
+	@echo "  make lingproc-target                    # Process rebuilt newspaper content with linguistic analysis"
+	@echo "                                          # Also contributes to processing-target"
 	@echo ""
 	@echo "LINGPROC VARIABLES:"
 	@echo "  LINGPROC_ALLOW_EMPTY_INPUT=$(LINGPROC_ALLOW_EMPTY_INPUT) # Set to 1 to allow an intentionally empty selection"

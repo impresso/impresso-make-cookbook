@@ -95,7 +95,7 @@ ocrqa-target: $(LOCAL_OCRQA_FILES)
 
 help-processing::
 	@echo "OCRQA PROCESSING:"
-	@echo "  make ocrqa-target     # Generate OCR quality assessment files from rebuilt input"
+	@echo "  make ocrqa-target                       # Generate OCR quality assessment files from rebuilt input"
 	@echo ""
 	@echo "OCRQA VARIABLES:"
 	@echo "  OCRQA_VALIDATE_OPTION=$(OCRQA_VALIDATE_OPTION)"

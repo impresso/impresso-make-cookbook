@@ -25,9 +25,9 @@ DTYPE_MEDIASOURCES_HELP := $(if $(filter undefined,$(origin DTYPE_MEDIASOURCES))
 help-setup::
 	@echo ""
 	@echo "MEDIA-SOURCES SETUP:"
-	@echo "  make setup-mediasources # Download/cache the media-source model and run a smoke test"
-	@echo "                     # Controlled by MEDIASOURCES_WARM_CACHE=$(MEDIASOURCES_WARM_CACHE)"
-	@echo "                     # DTYPE_MEDIASOURCES=$(DTYPE_MEDIASOURCES_HELP)"
+	@echo "  make setup-mediasources           # Download/cache the media-source model and run a smoke test"
+	@echo "                                    # Controlled by MEDIASOURCES_WARM_CACHE=$(MEDIASOURCES_WARM_CACHE)"
+	@echo "                                    # DTYPE_MEDIASOURCES=$(DTYPE_MEDIASOURCES_HELP)"
 
 
 # TARGET: setup-mediasources

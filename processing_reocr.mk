@@ -43,13 +43,13 @@ reocr-target: sync-reocr-input sync-reocr
 help-processing::
 	@echo ""
 	@echo "RE-OCR PROCESSING TARGETS:"
-	@echo "  make reocr-target       # Sync input/output state, validate stale done markers, then process missing issue archives"
-	@echo "  make reocr-files-target # Process local re-OCR input stamps into page outputs and done markers"
-	@echo "                     # Set REOCR_YEARS=1814 to process only selected canonical page years"
-	@echo "  make collect-reocr-year # Collect page-level re-OCR JSON into newspaper-year JSONL.bz2 files"
-	@echo "                     # Set REOCR_COLLECT_YEARS=1814, or reuse REOCR_YEARS; empty means all local synced years"
-	@echo "  make collect-reocr-stats # Report page integration counts without writing collected page archives"
-	@echo "  make collection-reocr-stats # Report re-OCR coverage stats for all listed newspapers"
+	@echo "  make reocr-target                       # Sync input/output state, validate stale done markers, then process missing issue archives"
+	@echo "  make reocr-files-target                 # Process local re-OCR input stamps into page outputs and done markers"
+	@echo "                                          # Set REOCR_YEARS=1814 to process only selected canonical page years"
+	@echo "  make collect-reocr-year                 # Collect page-level re-OCR JSON into newspaper-year JSONL.bz2 files"
+	@echo "                                          # Set REOCR_COLLECT_YEARS=1814, or reuse REOCR_YEARS; empty means all local synced years"
+	@echo "  make collect-reocr-stats                # Report page integration counts without writing collected page archives"
+	@echo "  make collection-reocr-stats             # Report re-OCR coverage stats for all listed newspapers"
 
 reocr-files-target: $(LOCAL_reocr_DONE_FILES)
 	@if [ -z "$(strip $(LOCAL_REOCR_INPUT_STAMP_FILES))" ]; then \

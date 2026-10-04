@@ -12,7 +12,7 @@ setup:: setup-python-env
 setup-python-env: setup-python setup-pip setup-pipenv check-venv-filesystem
 
 help-setup::
-	@echo "  make setup-python-env # Set up the Python environment including pip and pipenv"
+	@echo "  make setup-python-env             # Set up the Python environment including pip and pipenv"
 
 # USER-VARIABLE: PYTHON_MAJOR_VERSION
 PYTHON_MINOR_VERSION ?= 11
@@ -56,8 +56,8 @@ setup-pip:
 .PHONY: setup-pip
 
 help-setup::
-	@echo "  make setup-python     # Install Python 3.$(PYTHON_MINOR_VERSION) if not available"
-	@echo "  make setup-pip        # Install pip for Python 3.$(PYTHON_MINOR_VERSION) if not available"
+	@echo "  make setup-python                 # Install Python 3.$(PYTHON_MINOR_VERSION) if not available"
+	@echo "  make setup-pip                    # Install pip for Python 3.$(PYTHON_MINOR_VERSION) if not available"
 
 
 # TARGET: setup-pipenv
@@ -71,7 +71,7 @@ setup-pipenv:
 .PHONY: setup-pipenv
 
 help-setup::
-	@echo "  make setup-pipenv     # Install pipenv for Python 3.$(PYTHON_MINOR_VERSION) if not available"
+	@echo "  make setup-pipenv                 # Install pipenv for Python 3.$(PYTHON_MINOR_VERSION) if not available"
 
 
 # TARGET: check-venv-filesystem
@@ -112,7 +112,7 @@ endif
 .PHONY: check-venv-filesystem
 
 help-setup::
-	@echo "  make check-venv-filesystem # Check if venv is on network filesystem (Linux only)"
+	@echo "  make check-venv-filesystem        # Check if venv is on network filesystem (Linux only)"
 
 
 # TARGET: setup-pip-requirements
@@ -127,7 +127,7 @@ setup-pip-requirements:
 .PHONY: setup-pip-requirements
 
 help-setup::
-	@echo "  make setup-pip-requirements # Update requirements.txt from pipenv lock data"
+	@echo "  make setup-pip-requirements       # Update requirements.txt from pipenv lock data"
 
 # TARGET: update-pip-requirements-file
 #: Lock dependencies and regenerate requirements.txt using the project root Pipfile
@@ -153,6 +153,6 @@ clean-setup::
 .PHONY: clean-setup
 
 help-setup::
-	@echo "  make clean-setup     # Remove local Python setup/cache artifacts"
+	@echo "  make clean-setup                  # Remove local Python setup/cache artifacts"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_python.mk)

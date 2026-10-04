@@ -26,8 +26,8 @@ sync-topics : $(LOCAL_TOPICS_SYNC_STAMP_FILE)
 help-sync::
 	@echo ""
 	@echo "TOPICS SYNC:"
-	@echo "  make sync-topics    # Synchronize topic processing data from/to S3"
-	@echo "  make upload-topic-descriptions # Upload gzip-compressed topic descriptions to the topic run root"
+	@echo "  make sync-topics                      # Synchronize topic processing data from/to S3"
+	@echo "  make upload-topic-descriptions        # Upload gzip-compressed topic descriptions to the topic run root"
 
 
 # VARIABLE: S3_PATH_TOPICS_RUN_ROOT
@@ -78,6 +78,6 @@ clean-sync-topics:
 .PHONY: clean-sync-topics
 
 help-clean::
-	@echo "  make clean-sync-topics # Remove local topics sync state for the selected scope"
+	@echo "  make clean-sync-topics                # Remove local topics sync state for the selected scope"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_topics.mk)
