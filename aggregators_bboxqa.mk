@@ -19,7 +19,7 @@ aggregate: aggregate-pagestats aggregate-iiif-errors
 
 help-aggregation::
 	@echo "BBOXQA AGGREGATION:"
-	@echo "  aggregate              # Run the default BBOXQA aggregations"
-	@echo "  aggregate-pagestats    # Aggregate page statistics"
-	@echo "  aggregate-iiif-errors  # Aggregate IIIF errors"
-	@echo "  aggregate-page-dimensions # Aggregate page image dimensions"
+	@echo "  make aggregate              # Run the default BBOXQA aggregations"
+	@echo "  make aggregate-pagestats    # Aggregate page statistics"
+	@echo "  make aggregate-iiif-errors  # Aggregate IIIF errors"
+	@echo "  make aggregate-page-dimensions # Aggregate page image dimensions"

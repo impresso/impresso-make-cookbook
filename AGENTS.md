@@ -174,7 +174,7 @@ The `log.info` function respects `LOGGING_LEVEL` and provides consistent formatt
 help:
 	@echo "Usage: make <target>"
 	@echo "Targets:"
-	@echo "  foo    # Do foo"
+	@echo "  make foo    # Do foo"
 ```
 
 **CORRECT:**
@@ -186,11 +186,28 @@ help::
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Main Targets:"
-	@echo "  foo    # Do foo"
+	@echo "  make foo    # Do foo"
 	@echo ""
 ```
 
 Use `help::` (double colon) so addon makefiles can extend help with their own sections.
+
+#### Online Help Formatting
+
+- Print runnable targets as copyable commands: `make <target>  # Short description`.
+  Include `make` in every target entry, not just in examples. Keep descriptions
+  after a shell `#` comment so the entire line can be pasted into a terminal.
+- Align descriptions within each section. Lines may be longer when that keeps
+  related information on one line and reduces the height of a help page.
+- Show variable names and current values separately from runnable commands;
+  do not prefix variables with `make`.
+- Put the most commonly used targets first. Move detailed variable meanings,
+  defaults, and tuning guidance to a dedicated `help-<topic>-settings` page
+  when the main topic would otherwise become long. Link to that page with a
+  copyable `make help-<topic>-settings` entry.
+- Advertise only targets defined by fragments included in the active Makefile.
+  After editing help, render the affected page with GNU Make 4+ and check that
+  newly advertised targets resolve.
 
 #### Section Markers
 

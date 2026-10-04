@@ -128,11 +128,11 @@ clean-sync-canonical:
 help-sync::
 	@echo ""
 	@echo "CANONICAL INPUT SYNC:"
-	@echo "  sync-canonical # Synchronize canonical pages/audio input data from S3"
+	@echo "  make sync-canonical # Synchronize canonical pages/audio input data from S3"
 	@echo "                 # Set NEWSPAPER_YEARS='1850 1875' to limit sync/processing to selected years"
 
 help-clean::
-	@echo "  clean-sync-canonical # Remove local canonical input sync stamp files"
+	@echo "  make clean-sync-canonical # Remove local canonical input sync stamp files"
 
 # STAMPED-FILE-RULE: $(LOCAL_PATH_CANONICAL_PAGES).last_synced
 #: Sync canonical pages data from S3 and create synchronization stamp

@@ -41,7 +41,7 @@ aggregate: aggregate-topics
 
 help-aggregation::
 	@echo "TOPIC AGGREGATION:"
-	@echo "  aggregate-topics  # Build YTDF and DTCI topic aggregates per language"
+	@echo "  make aggregate-topics  # Build YTDF and DTCI topic aggregates per language"
 	@echo "                    # YTDF: yearly topic distribution fingerprint"
 	@echo "                    # DTCI: dominant topic content index"
 

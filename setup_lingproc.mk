@@ -22,7 +22,7 @@ check-spacy-pipelines:
 .PHONY: check-spacy-pipelines
 
 help-setup::
-	@echo "  check-spacy-pipelines # Validate installed spaCy pipelines"
+	@echo "  make check-spacy-pipelines # Validate installed spaCy pipelines"
 
 
 .PHONY: setup
@@ -39,6 +39,6 @@ check-python-installation:
 .PHONY:  check-python-installation
 
 help-setup::
-	@echo "  check-python-installation # Validate Python packages needed by topic inference"
+	@echo "  make check-python-installation # Validate Python packages needed by topic inference"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_lingproc.mk)

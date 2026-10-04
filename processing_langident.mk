@@ -572,10 +572,10 @@ langident-target : langident-ensemble-target
 
 help-processing::
 	@echo "LANGIDENT PROCESSING:"
-	@echo "  langident-target            # Run all language-identification stages"
-	@echo "  langident-systems-target    # Run stage 1 system-level language identification"
-	@echo "  langident-statistics-target # Compute language-identification statistics"
-	@echo "  langident-ensemble-target   # Build final language-identification ensemble"
+	@echo "  make langident-target            # Run all language-identification stages"
+	@echo "  make langident-systems-target    # Run stage 1 system-level language identification"
+	@echo "  make langident-statistics-target # Compute language-identification statistics"
+	@echo "  make langident-ensemble-target   # Build final language-identification ensemble"
 	@echo ""
 	@echo "LANGIDENT VARIABLES:"
 	@echo "  USE_CANONICAL=$(USE_CANONICAL)"

@@ -28,8 +28,8 @@ verify-and-clean::
 
 help-aggregation::
 	@echo "CONSOLIDATED CANONICAL VERIFICATION:"
-	@echo "  aggregate           # Aggregate configured results for a newspaper"
-	@echo "  verify-data         # Verify that all data files are readable"
+	@echo "  make aggregate           # Aggregate configured results for a newspaper"
+	@echo "  make verify-data         # Verify that all data files are readable"
 	@echo "                      # Usage: make verify-data [VERIFY_EXTENSIONS='json jsonl.gz']"
-	@echo "  verify-and-clean    # Verify data and DELETE corrupted files"
+	@echo "  make verify-and-clean    # Verify data and DELETE corrupted files"
 	@echo "                      # Usage: make verify-and-clean [VERIFY_EXTENSIONS='json jsonl.gz']"

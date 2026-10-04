@@ -71,9 +71,9 @@ sampling-rebuilt: sampling-rebuilt-ids sampling-rebuilt-compile
 help-sampling::
 	@echo ""
 	@echo "REBUILT SAMPLING:"
-	@echo "  sampling-rebuilt         # Generate ID sample and compiled sample from rebuilt input"
-	@echo "  sampling-rebuilt-ids     # Generate sampled IDs only"
-	@echo "  sampling-rebuilt-compile # Compile sampled IDs into full records"
+	@echo "  make sampling-rebuilt         # Generate ID sample and compiled sample from rebuilt input"
+	@echo "  make sampling-rebuilt-ids     # Generate sampled IDs only"
+	@echo "  make sampling-rebuilt-compile # Compile sampled IDs into full records"
 
 
 $(SAMPLE_IDS_FILE): | $(BUILD_DIR)

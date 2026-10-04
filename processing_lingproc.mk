@@ -166,7 +166,7 @@ check-lingproc-inputs:
 
 help-processing::
 	@echo "LINGUISTIC PROCESSING:"
-	@echo "  lingproc-target   # Process rebuilt newspaper content with linguistic analysis"
+	@echo "  make lingproc-target   # Process rebuilt newspaper content with linguistic analysis"
 	@echo "                    # Also contributes to processing-target"
 	@echo ""
 	@echo "LINGPROC VARIABLES:"

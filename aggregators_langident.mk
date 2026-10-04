@@ -44,9 +44,9 @@ verify-and-clean::
 
 help-aggregation::
 	@echo "LANGIDENT AGGREGATION:"
-	@echo "  aggregate           # Aggregate language identification results for a newspaper"
-	@echo "  aggregate-for-floret-stats # Build floret statistics aggregate"
-	@echo "  verify-data         # Verify that all language identification data files are readable"
+	@echo "  make aggregate           # Aggregate language identification results for a newspaper"
+	@echo "  make aggregate-for-floret-stats # Build floret statistics aggregate"
+	@echo "  make verify-data         # Verify that all language identification data files are readable"
 	@echo "                      # Usage: make verify-data [VERIFY_EXTENSIONS='json jsonl.gz']"
-	@echo "  verify-and-clean    # Verify data and DELETE corrupted files"
+	@echo "  make verify-and-clean    # Verify data and DELETE corrupted files"
 	@echo "                      # Usage: make verify-and-clean [VERIFY_EXTENSIONS='json jsonl.gz']"

@@ -46,12 +46,12 @@ verify-and-clean::
 
 help-aggregation::
 	@echo "MEDIA-SOURCES AGGREGATION:"
-	@echo "  aggregate-mediasources # Aggregate media-source NER output and strip redundant fields"
-	@echo "  aggregate-mediasources-low-confidence # Aggregate only mentions with confidence_ner < 0.8"
-	@echo "  aggregate              # Conventional alias for aggregate-mediasources"
-	@echo "  verify-data            # Verify that media-source data files are readable"
+	@echo "  make aggregate-mediasources # Aggregate media-source NER output and strip redundant fields"
+	@echo "  make aggregate-mediasources-low-confidence # Aggregate only mentions with confidence_ner < 0.8"
+	@echo "  make aggregate              # Conventional alias for aggregate-mediasources"
+	@echo "  make verify-data            # Verify that media-source data files are readable"
 	@echo "                         # Usage: make verify-data [VERIFY_EXTENSIONS='json jsonl.gz']"
-	@echo "  verify-and-clean       # Verify data and DELETE corrupted files"
+	@echo "  make verify-and-clean       # Verify data and DELETE corrupted files"
 	@echo "                         # Usage: make verify-and-clean [VERIFY_EXTENSIONS='json jsonl.gz']"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_mediasources.mk)

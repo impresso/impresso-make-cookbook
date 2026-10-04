@@ -12,8 +12,8 @@ $(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_MEDIASOURCES))
 help-sync::
 	@echo ""
 	@echo "MEDIA-SOURCES SYNC TARGETS:"
-	@echo "  sync-mediasources       # Sync media-source output stamps from S3"
-	@echo "  clean-sync-mediasources # Remove local media-source sync state for the selected scope"
+	@echo "  make sync-mediasources       # Sync media-source output stamps from S3"
+	@echo "  make clean-sync-mediasources # Remove local media-source sync state for the selected scope"
 
 
 # Record the last successful check without caching the remote inventory forever.

@@ -114,7 +114,7 @@ sync-reocr-input:
 help-sync::
 	@echo ""
 	@echo "RE-OCR INPUT SYNC:"
-	@echo "  sync-reocr-input # Synchronize re-OCR input issue archives from S3 to local stamp files"
+	@echo "  make sync-reocr-input # Synchronize re-OCR input issue archives from S3 to local stamp files"
 	@echo "                   # Set REOCR_YEARS=1814 to limit sync/processing to one or more years"
 
 # Refresh done markers before validation, which also requests sync-reocr-pages.
@@ -127,7 +127,7 @@ sync-reocr:
 help-sync::
 	@echo ""
 	@echo "RE-OCR OUTPUT STATE SYNC:"
-	@echo "  sync-reocr       # Synchronize remote re-OCR done markers, validate page coverage, and prune stale local done markers"
+	@echo "  make sync-reocr       # Synchronize remote re-OCR done markers, validate page coverage, and prune stale local done markers"
 	@echo "                   # Set REOCR_YEARS=1814 to limit output-state sync to selected years"
 
 sync-reocr-pages:
@@ -136,7 +136,7 @@ sync-reocr-pages:
 .PHONY: sync-reocr-pages
 
 help-sync::
-	@echo "  sync-reocr-pages # Synchronize remote re-OCR page outputs to local stamp files"
+	@echo "  make sync-reocr-pages # Synchronize remote re-OCR page outputs to local stamp files"
 
 sync-reocr-collected:
 	$(MAKE) -f $(firstword $(MAKEFILE_LIST)) -B $(LOCAL_reocr_COLLECTED_SYNC_STAMP_FILE)
@@ -144,7 +144,7 @@ sync-reocr-collected:
 .PHONY: sync-reocr-collected
 
 help-sync::
-	@echo "  sync-reocr-collected # Synchronize collected re-OCR year packages to local stamp files"
+	@echo "  make sync-reocr-collected # Synchronize collected re-OCR year packages to local stamp files"
 
 clean-sync:: clean-sync-reocr-input clean-sync-reocr-output
 

@@ -47,7 +47,7 @@ endif
 
 
 help-setup::
-	@echo "  warm-langident-cache # Warm Hugging Face model cache for langident/OCRQA"
+	@echo "  make warm-langident-cache # Warm Hugging Face model cache for langident/OCRQA"
 	@echo "                       # Controlled by LANGIDENT_WARM_CACHE=$(LANGIDENT_WARM_CACHE)"
 
 

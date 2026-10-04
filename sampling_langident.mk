@@ -153,13 +153,13 @@ sampling-langident: sampling-langident-ids sampling-langident-compile
 help-sampling::
 	@echo ""
 	@echo "LANGIDENT SAMPLING:"
-	@echo "  sampling-langident         # IDs then fulltext compilation for de/fr/en/lb"
-	@echo "  sampling-langident-ids     # Collect IDs from langident aggregate"
-	@echo "  sampling-langident-compile # Compile full records from collected IDs"
-	@echo "  sampling-langident-de      # Run IDs+compile for de"
-	@echo "  sampling-langident-fr      # Run IDs+compile for fr"
-	@echo "  sampling-langident-en      # Run IDs+compile for en"
-	@echo "  sampling-langident-lb      # Run IDs+compile for lb"
+	@echo "  make sampling-langident         # IDs then fulltext compilation for de/fr/en/lb"
+	@echo "  make sampling-langident-ids     # Collect IDs from langident aggregate"
+	@echo "  make sampling-langident-compile # Compile full records from collected IDs"
+	@echo "  make sampling-langident-de      # Run IDs+compile for de"
+	@echo "  make sampling-langident-fr      # Run IDs+compile for fr"
+	@echo "  make sampling-langident-en      # Run IDs+compile for en"
+	@echo "  make sampling-langident-lb      # Run IDs+compile for lb"
 
 
 # Per-language entry points

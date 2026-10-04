@@ -90,19 +90,12 @@ NEWSPAPER_PREFIX ?=
 NEWSPAPER_FNMATCH ?=
   $(call log.info, NEWSPAPER_FNMATCH)
 
-help-orchestration::
-	@echo ""
-	@echo "NEWSPAPER LIST TARGETS:"
-	@echo "  newspaper-list-target # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
-	@echo "  refresh-newspaper-list # Replace the selected list with fresh S3 discovery (run before collection)"
-	@echo "  help-newspaper-list   # Show newspaper list generation modes and variables"
-
 help-newspaper-list:
 	@echo ""
 	@echo "NEWSPAPER LIST GENERATION:"
-	@echo "  newspaper-list-target       # Discover collection items into NEWSPAPERS_TO_PROCESS_FILE"
-	@echo "  refresh-newspaper-list      # Explicitly replace NEWSPAPERS_TO_PROCESS_FILE from S3"
-	@echo "  clean-newspaper-list-target # Remove generated list and log files"
+	@echo "  make newspaper-list-target       # Discover collection items into NEWSPAPERS_TO_PROCESS_FILE"
+	@echo "  make refresh-newspaper-list      # Explicitly replace NEWSPAPERS_TO_PROCESS_FILE from S3"
+	@echo "  make clean-newspaper-list-target # Remove generated list and log files"
 	@echo ""
 	@echo "OUTPUT FILES:"
 	@echo "  NEWSPAPERS_TO_PROCESS_FILE=$(NEWSPAPERS_TO_PROCESS_FILE)"

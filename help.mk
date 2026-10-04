@@ -5,7 +5,7 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/help.mk)
 # Shared help index and debug-variable inspection.
 ###############################################################################
 
-.PHONY: help help-orchestration help-processing help-sync help-setup
+.PHONY: help help-orchestration help-orchestration-settings help-processing help-sync help-setup
 .PHONY: help-path-variables help-sampling help-aggregation help-clean help-debug
 .PHONY: debug-vars print-debug-vars
 
@@ -26,20 +26,21 @@ help::
 	@echo "  make help-<topic>"
 	@echo ""
 	@echo "Help topics:"
-	@echo "  help-orchestration  # Core newspaper, collection, and parallel run targets"
-	@echo "  help-newspaper-list # Newspaper list discovery, filters, year modes, and output files"
-	@echo "  help-processing     # Generic and active processing targets and flags"
-	@echo "  help-sync           # S3 synchronization and sync cleanup targets"
-	@echo "  help-setup          # Local setup, Python, AWS, and tool-check targets"
-	@echo "  help-path-variables # S3/local path variable families and active values"
-	@echo "  help-sampling       # Sampling workflow targets"
-	@echo "  help-aggregation    # Aggregation and verification targets"
-	@echo "  help-clean          # Local cleanup targets"
-	@echo "  help-debug          # Make variable and logging diagnostics"
+	@echo "  make help-orchestration          # Core newspaper, collection, and parallel run targets"
+	@echo "  make help-orchestration-settings # Worker counts, load controls, and orchestration variables"
+	@echo "  make help-newspaper-list         # Newspaper list discovery, filters, year modes, and output files"
+	@echo "  make help-processing             # Generic and active processing targets and flags"
+	@echo "  make help-sync                   # S3 synchronization and sync cleanup targets"
+	@echo "  make help-setup                  # Local setup, Python, AWS, and tool-check targets"
+	@echo "  make help-path-variables         # S3/local path variable families and active values"
+	@echo "  make help-sampling               # Sampling workflow targets"
+	@echo "  make help-aggregation            # Aggregation and verification targets"
+	@echo "  make help-clean                  # Local cleanup targets"
+	@echo "  make help-debug                  # Make variable and logging diagnostics"
 
 help-debug::
 	@echo "Debug and inspection targets:"
-	@echo "  debug-vars          # Re-run Make with LOGGING_LEVEL=DEBUG and print curated variables"
+	@echo "  make debug-vars          # Re-run Make with LOGGING_LEVEL=DEBUG and print curated variables"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make debug-vars"
@@ -58,14 +59,14 @@ help-path-variables::
 
 help-processing::
 	@echo "PROCESSING HELP:"
-	@echo "  processing-target # Generic entry point extended by processing_*.mk fragments"
+	@echo "  make processing-target # Generic entry point extended by processing_*.mk fragments"
 	@echo "  Component-specific targets and flags appear below when their fragments are included."
 
 help-sync::
 	@echo "SYNC HELP:"
-	@echo "  sync              # Generic synchronization entry point when sync.mk is included"
-	@echo "  sync-input        # Input synchronization hook extended by included fragments"
-	@echo "  sync-output       # Output synchronization hook extended by included fragments"
+	@echo "  make sync              # Generic synchronization entry point when sync.mk is included"
+	@echo "  make sync-input        # Input synchronization hook extended by included fragments"
+	@echo "  make sync-output       # Output synchronization hook extended by included fragments"
 	@echo "  Component-specific sync targets appear below when their fragments are included."
 
 help-setup::
@@ -74,18 +75,16 @@ help-setup::
 
 help-sampling::
 	@echo "SAMPLING HELP:"
-	@echo "  sample-target     # Generic sampling entry point when sampling.mk is included"
 	@echo "  Sampling workflow details appear below when sampling_*.mk fragments are included."
 
 help-aggregation::
 	@echo "AGGREGATION HELP:"
-	@echo "  aggregate         # Conventional aggregation entry point when an aggregator fragment is included"
 	@echo "  Aggregation and verification details appear below when aggregator fragments are included."
 
 help-clean::
 	@echo "CLEAN HELP:"
-	@echo "  clean             # Generic cleanup entry point when clean.mk is included"
-	@echo "  clean-sync        # Generic sync cleanup hook when clean.mk is included"
+	@echo "  make clean             # Generic cleanup entry point when clean.mk is included"
+	@echo "  make clean-sync        # Generic sync cleanup hook when clean.mk is included"
 	@echo "  Component-specific cleanup targets appear below when their fragments are included."
 
 # TARGET: debug-vars

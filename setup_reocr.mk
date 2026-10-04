@@ -42,8 +42,8 @@ check-reocr-tunnel: check-reocr-tools check-reocr-tunnel-env
 .PHONY: check-reocr-tunnel
 
 help-setup::
-	@echo "  setup-reocr-tesseract-model # Download/cache configured HF Tesseract and font models"
-	@echo "  reocr-tunnel       # Open and keep the IIIF SSH tunnel alive for parallel re-OCR"
-	@echo "  check-reocr-tunnel # Check whether the local IIIF tunnel port is already open"
+	@echo "  make setup-reocr-tesseract-model # Download/cache configured HF Tesseract and font models"
+	@echo "  make reocr-tunnel       # Open and keep the IIIF SSH tunnel alive for parallel re-OCR"
+	@echo "  make check-reocr-tunnel # Check whether the local IIIF tunnel port is already open"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_reocr.mk)

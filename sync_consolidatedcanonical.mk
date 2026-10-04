@@ -108,8 +108,8 @@ sync-consolidatedcanonical:
 help-sync::
 	@echo ""
 	@echo "CONSOLIDATED CANONICAL SYNC:"
-	@echo "  sync-consolidatedcanonical       # Refresh consolidated issues and selected record stamps from S3"
-	@echo "  sync-consolidatedcanonical-input # Refresh canonical inputs and final langident enrichments"
+	@echo "  make sync-consolidatedcanonical       # Refresh consolidated issues and selected record stamps from S3"
+	@echo "  make sync-consolidatedcanonical-input # Refresh canonical inputs and final langident enrichments"
 	@echo "                                   # Always queries S3 even when completion markers exist"
 
 # DOUBLE-COLON-TARGET: clean-sync

@@ -20,7 +20,7 @@ sync-rebuilt: $(LOCAL_REBUILT_SYNC_STAMP_FILE)
 help-sync::
 	@echo ""
 	@echo "REBUILT INPUT SYNC:"
-	@echo "  sync-rebuilt    # Synchronize rebuilt input data from S3 to local stamp files"
+	@echo "  make sync-rebuilt    # Synchronize rebuilt input data from S3 to local stamp files"
 	@echo "                  # Refreshes S3 discovery on every invocation; preserves unchanged file timestamps"
 	@echo "                  # Set NEWSPAPER_YEARS='1850 1875' to limit sync/processing to selected years"
 

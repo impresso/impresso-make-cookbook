@@ -359,7 +359,7 @@ sync-langident: sync-langident-stage1 sync-langident-final
 help-sync::
 	@echo ""
 	@echo "LANGIDENT SYNC:"
-	@echo "  sync-langident # Synchronize langident stage1 and ensemble data from/to S3"
+	@echo "  make sync-langident # Synchronize langident stage1 and ensemble data from/to S3"
 	@echo "                 # Always refreshes S3 discovery; persistent markers record completion"
 
 # TARGET: clean-sync-langident
@@ -376,6 +376,6 @@ clean-sync-langident:
 .PHONY: clean-sync-langident
 
 help-clean::
-	@echo "  clean-sync-langident # Remove local langident sync stamp files"
+	@echo "  make clean-sync-langident # Remove local langident sync stamp files"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_langident.mk)

@@ -258,15 +258,15 @@ compute-frequencies: compute-frequencies-de
 
 help-aggregation::
 	@echo "LINGPROC FREQUENCY AGGREGATION:"
-	@echo "  compute-frequencies       # Compute German word frequencies for all newspapers"
-	@echo "  compute-frequencies-de    # Compute German word frequencies for all newspapers"
-	@echo "  compute-frequencies-fr    # Compute French word frequencies for all newspapers"
-	@echo "  compute-frequencies-en    # Compute English word frequencies for all newspapers"
-	@echo "  compute-all-frequencies   # Compute all supported language frequencies"
-	@echo "  aggregate-frequencies-de  # Aggregate German newspaper frequencies"
-	@echo "  aggregate-frequencies-fr  # Aggregate French newspaper frequencies"
-	@echo "  aggregate-frequencies-en  # Aggregate English newspaper frequencies"
-	@echo "  list-newspapers           # Show newspapers selected for frequency computation"
+	@echo "  make compute-frequencies       # Compute German word frequencies for all newspapers"
+	@echo "  make compute-frequencies-de    # Compute German word frequencies for all newspapers"
+	@echo "  make compute-frequencies-fr    # Compute French word frequencies for all newspapers"
+	@echo "  make compute-frequencies-en    # Compute English word frequencies for all newspapers"
+	@echo "  make compute-all-frequencies   # Compute all supported language frequencies"
+	@echo "  make aggregate-frequencies-de  # Aggregate German newspaper frequencies"
+	@echo "  make aggregate-frequencies-fr  # Aggregate French newspaper frequencies"
+	@echo "  make aggregate-frequencies-en  # Aggregate English newspaper frequencies"
+	@echo "  make list-newspapers           # Show newspapers selected for frequency computation"
 
 
 
