@@ -155,7 +155,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	{ set +e ; \
 	  if [ -z "$(TOPICS_DRY_RUN_OPTION)" ] ; then \
 	    if [ -n "$(TOPICS_WIP_ENABLED)" ] ; then \
-	      python3 -m impresso_cookbook.manage_s3_wip acquire \
+	      $(PYTHON) -m impresso_cookbook.manage_s3_wip acquire \
 	        --s3-target $(call LocalToS3,$@) \
 	        --wip-max-age $(TOPICS_WIP_MAX_AGE) \
 	        --log-level $(TOPICS_LOGGING_LEVEL) \
@@ -165,7 +165,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	      status=$$? ; \
 	      case $$status in 0) ;; 2|3) exit 0 ;; *) exit $$status ;; esac ; \
 	    elif [ -n "$(TOPICS_SKIP_IF_OUTPUT_EXISTS_OPTION)" ] && [ -z "$(TOPICS_EFFECTIVE_FORCE_OVERWRITE_OPTION)" ] ; then \
-	      python3 -m impresso_cookbook.local_to_s3 \
+	      $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	        --s3-file-exists $(call LocalToS3,$@) \
 	        --log-level $(TOPICS_LOGGING_LEVEL) ; \
 	      status=$$? ; \
@@ -173,7 +173,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	    fi ; \
 	  fi ; \
 		  $(if $(TOPICS_MALLET_HOME),MALLET_HOME=$(TOPICS_MALLET_HOME),) \
-		  python -m lib.mallet_topic_inferencer \
+		  $(PYTHON) -m lib.mallet_topic_inferencer \
 		    --input $(call LocalToS3,$<) \
 		    --input-format impresso \
 		    --output $@ \
@@ -194,14 +194,14 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	  if [ $$status -ne 0 ] ; then \
 	    rm -f $@ ; \
 	    if [ -z "$(TOPICS_DRY_RUN_OPTION)" ] && [ -n "$(TOPICS_WIP_ENABLED)" ] ; then \
-	      python3 -m impresso_cookbook.manage_s3_wip release \
+	      $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
 	        --s3-target $(call LocalToS3,$@) \
 	        --log-level $(TOPICS_LOGGING_LEVEL) || true ; \
 	    fi ; \
 	    exit $$status ; \
 	  fi ; \
 	  if [ -z "$(TOPICS_DRY_RUN_OPTION)" ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --set-timestamp $(TOPICS_UPLOAD_IF_NEWER_OPTION) \
 	      $(TOPICS_EFFECTIVE_FORCE_OVERWRITE_OPTION) \
 	      $(TOPICS_KEEP_TIMESTAMP_ONLY_OPTION) \
@@ -210,7 +210,7 @@ $(LOCAL_PATH_TOPICS)/%.jsonl.bz2: $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2
 	      $@.log.gz $(call LocalToS3,$@).log.gz ; \
 	    status=$$? ; \
 	    if [ -n "$(TOPICS_WIP_ENABLED)" ] ; then \
-	      python3 -m impresso_cookbook.manage_s3_wip release \
+	      $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
 	        --s3-target $(call LocalToS3,$@) \
 	        --log-level $(TOPICS_LOGGING_LEVEL) || true ; \
 	    fi ; \

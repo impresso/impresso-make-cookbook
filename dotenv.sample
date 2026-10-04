@@ -4,6 +4,9 @@ SE_ACCESS_KEY=<YOUR VALUE>
 SE_SECRET_KEY=<YOUR VALUE>
 SE_HOST=<YOUR VALUE>
 
+# create python venv inside the project (.venv); make uses it automatically
+PIPENV_VENV_IN_PROJECT=enabled
+
 # to set the cookbook's logging to DEBUG for troubleshooting
 #LOGGING_LEVEL=DEBUG
 

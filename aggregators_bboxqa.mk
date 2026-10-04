@@ -1,16 +1,16 @@
 
 aggregate-pagestats:
-	python cookbook/lib/s3_aggregator.py --jq-filter lib/pagestats.jq \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/pagestats.jq \
 	--s3-prefix s3://$(S3_BUCKET_BBOXQA)/$(PROCESS_LABEL_BBOXQA)/$(RUN_ID_BBOXQA) \
 	-o s3://$(S3_BUCKET_BBOXQA)/$(PROCESS_LABEL_BBOXQA)/$(RUN_ID_BBOXQA)__AGGREGATED_pagestats.jsonl.gz 
 
 aggregate-iiif-errors:
-	python cookbook/lib/s3_aggregator.py --jq-filter lib/iiif-errors.jq \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/iiif-errors.jq \
 	--s3-prefix s3://$(S3_BUCKET_BBOXQA)/$(PROCESS_LABEL_BBOXQA)/$(RUN_ID_BBOXQA) \
 	-o s3://$(S3_BUCKET_BBOXQA)/$(PROCESS_LABEL_BBOXQA)/$(RUN_ID_BBOXQA)__AGGREGATED_iiif-errors.jsonl.gz 
 
 aggregate-page-dimensions:
-	python cookbook/lib/s3_aggregator.py --jq-filter lib/image-dimensions.jq \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/image-dimensions.jq \
 	--s3-prefix s3://$(S3_BUCKET_BBOXQA)/$(PROCESS_LABEL_BBOXQA)/$(RUN_ID_BBOXQA) \
 	-o s3://$(S3_BUCKET_BBOXQA)/$(PROCESS_LABEL_BBOXQA)/$(RUN_ID_BBOXQA)__AGGREGATED_image-dimensions.jsonl.gz
 

@@ -44,7 +44,7 @@ endif
 # TARGET: check-python-installation
 #: Checks whether the Python environment is ready for Mallet topic inference
 check-python-installation:
-	$(if $(TOPICS_MALLET_HOME),MALLET_HOME=$(TOPICS_MALLET_HOME) ,)python3 lib/test_jpype_installation.py \
+	$(if $(TOPICS_MALLET_HOME),MALLET_HOME=$(TOPICS_MALLET_HOME) ,)$(PYTHON) lib/test_jpype_installation.py \
 	  $(if $(TOPICS_DE_CONFIG),--config $(TOPICS_DE_CONFIG),) \
 	  $(if $(TOPICS_FR_CONFIG),--config $(TOPICS_FR_CONFIG),) \
 	  $(if $(TOPICS_EN_CONFIG),--config $(TOPICS_EN_CONFIG),) \

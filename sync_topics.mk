@@ -45,7 +45,7 @@ TOPICS_DESCRIPTIONS_DRY_RUN_OPTION ?=
 # TARGET: upload-topic-descriptions
 #: Uploads topic model descriptions as jsonl.gz run metadata files
 upload-topic-descriptions:
-	python3 lib/upload_topic_descriptions.py \
+	$(PYTHON) lib/upload_topic_descriptions.py \
 	  --s3-prefix $(S3_PATH_TOPICS_RUN_ROOT) \
 	  $(TOPICS_DESCRIPTIONS_DRY_RUN_OPTION) \
 	  $(if $(TOPICS_DE_CONFIG),--language-config de=$(TOPICS_DE_CONFIG),) \

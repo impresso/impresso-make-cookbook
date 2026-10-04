@@ -81,7 +81,7 @@ Do not casually replace stamp-based flows with normal file copies; a lot of depe
 
 ### 3. S3 upload path
 
-The normal upload mechanism is `python3 -m impresso_cookbook.local_to_s3`, not raw `aws s3 cp`.
+The normal upload mechanism is `$(PYTHON) -m impresso_cookbook.local_to_s3`, not raw `aws s3 cp`.
 
 AWS CLI is mainly used for:
 
@@ -331,6 +331,9 @@ When changing a pipeline, inspect the matching family of files together:
   - user variables are exposed with comments
   - generic targets are extended with double-colon rules
   - target/help comments are part of the repo’s documentation style
+  - recipes call Python as `$(PYTHON)`, never as bare `python3` or `python`;
+    `make_settings.mk` resolves and exports `PYTHON` (explicit override,
+    activated venv, project `.venv`, then `python3`)
 
 ## Practical Validation
 

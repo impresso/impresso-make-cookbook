@@ -194,7 +194,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PA
 	{ acquired_wip=0 ; \
 	  status=0 ; \
 	  if [ -n "$(LINGPROC_WIP_ENABLED)" ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip acquire \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip acquire \
 	      --s3-target $(call LocalToS3,$@) \
 	      --wip-max-age $(LINGPROC_WIP_MAX_AGE) \
 	      --log-level $(LINGPROC_LOGGING_LEVEL) \
@@ -207,7 +207,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PA
 	      *) exit "$$status" ;; \
 	    esac ; \
 	  elif [ -z "$(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION)" ] && [ -z "$(LINGPROC_UPLOAD_IF_NEWER_OPTION)" ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --s3-file-exists $(call LocalToS3,$@) \
 	      --exit-2-if-exists \
 	      --log-level $(LINGPROC_LOGGING_LEVEL) || status=$$? ; \
@@ -218,7 +218,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PA
 	    esac ; \
 	  fi ; \
 	  status=0 ; \
-	  python3 lib/spacy_linguistic_processing.py \
+	  $(PYTHON) lib/spacy_linguistic_processing.py \
 	    $(call LocalToS3,$<) \
 	    --lid $(call LocalToS3,$(word 2,$^)) \
 	    $(LINGPROC_VALIDATE_OPTION) \
@@ -228,7 +228,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PA
 	    --log-level $(LINGPROC_LOGGING_LEVEL) \
 	    --log-file $@.log.gz || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --set-timestamp \
 	      $(LINGPROC_UPLOAD_IF_NEWER_OPTION) \
 	      $(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION) \
@@ -241,7 +241,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PA
 	  fi ; \
 	  release_status=0 ; \
 	  if [ "$$acquired_wip" -eq 1 ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip release \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
 	      --s3-target $(call LocalToS3,$@) \
 	      --log-level $(LINGPROC_LOGGING_LEVEL) || release_status=$$? ; \
 	  fi ; \
@@ -261,7 +261,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	{ acquired_wip=0 ; \
 	  status=0 ; \
 	  if [ -n "$(LINGPROC_WIP_ENABLED)" ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip acquire \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip acquire \
 	      --s3-target $(call LocalToS3,$@) \
 	      --wip-max-age $(LINGPROC_WIP_MAX_AGE) \
 	      --log-level $(LINGPROC_LOGGING_LEVEL) \
@@ -274,7 +274,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	      *) exit "$$status" ;; \
 	    esac ; \
 	  elif [ -z "$(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION)" ] && [ -z "$(LINGPROC_UPLOAD_IF_NEWER_OPTION)" ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --s3-file-exists $(call LocalToS3,$@) \
 	      --exit-2-if-exists \
 	      --log-level $(LINGPROC_LOGGING_LEVEL) || status=$$? ; \
@@ -285,7 +285,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	    esac ; \
 	  fi ; \
 	  status=0 ; \
-	  python3 lib/spacy_linguistic_processing.py \
+	  $(PYTHON) lib/spacy_linguistic_processing.py \
 	    $(call LocalToS3,$<) \
 	    $(LINGPROC_VALIDATE_OPTION) \
 	    --max-doc-length 100000 \
@@ -295,7 +295,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	    --log-level $(LINGPROC_LOGGING_LEVEL) \
 	    --log-file $@.log.gz || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --set-timestamp \
 	      $(LINGPROC_UPLOAD_IF_NEWER_OPTION) \
 	      $(LINGPROC_EFFECTIVE_FORCE_OVERWRITE_OPTION) \
@@ -308,7 +308,7 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	  fi ; \
 	  release_status=0 ; \
 	  if [ "$$acquired_wip" -eq 1 ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip release \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
 	      --s3-target $(call LocalToS3,$@) \
 	      --log-level $(LINGPROC_LOGGING_LEVEL) || release_status=$$? ; \
 	  fi ; \

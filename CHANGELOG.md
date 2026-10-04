@@ -5,6 +5,23 @@ All notable changes to the Impresso Make Cookbook project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+#### Single Python interpreter for all recipes
+- `PYTHON` is now resolved once in `make_settings.mk` and exported: explicit `PYTHON=...`, then an activated venv (`$(VIRTUAL_ENV)/bin/python`), then the project-local `$(VENV_PATH)/bin/python` (default `.venv`), then `python3`
+- All recipes call `$(PYTHON)` instead of bare `python3` or `python`; recipes that relied on an activated shell keep working through the `VIRTUAL_ENV` step
+- The fallback interpreter changed from `python3.$(PYTHON_MINOR_VERSION)` to `python3`; `PYTHON_MINOR_VERSION` now only affects the installer targets
+- `STAMP_SYNC_PYTHON` was removed in favor of `PYTHON`; setting it prints a warning
+
+### Added
+- `make check-python-env` verifies that `PYTHON` can import `impresso_cookbook`; `make setup` runs it
+- `VENV_PATH` user variable (default `.venv`), also used by `check-venv-filesystem`
+
+### Fixed
+- `refresh-newspaper-list` and year-scoped stamp sync no longer pass the unexpanded `PYTHON` definition to the shell
+
 ## [1.4.0] - 2026-04-22
 
 ### Added

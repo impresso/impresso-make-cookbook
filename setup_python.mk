@@ -18,11 +18,8 @@ help-setup::
 PYTHON_MINOR_VERSION ?= 11
   $(call log.debug, PYTHON_MINOR_VERSION)
 
-PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3.$(PYTHON_MINOR_VERSION))
-  $(call log.info, PYTHON)
-
-# Export PYTHON so it's available in recursive make calls and subshells
-export PYTHON
+# PYTHON and VENV_PATH are defined in make_settings.mk. PYTHON_MINOR_VERSION
+# only selects the interpreter that the installer targets below provide.
 
 
 # TARGET: setup-python

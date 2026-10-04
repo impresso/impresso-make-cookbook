@@ -4,25 +4,25 @@ VERIFY_EXTENSIONS ?= jsonl.bz2 json
 
 verify-data::
 	@echo "Verifying data readability for $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=)"
-	python cookbook/lib/s3_aggregator.py --verify \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --verify \
 	--s3-prefix $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=) \
 	$(if $(VERIFY_EXTENSIONS),--verify-file-extensions $(VERIFY_EXTENSIONS),)
 verify-data::
 	@echo "Verifying data readability for $(S3_PATH_LANGIDENT_STAGE1:/$(NEWSPAPER)=)"
-	python cookbook/lib/s3_aggregator.py --verify \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --verify \
 	--s3-prefix $(S3_PATH_LANGIDENT_STAGE1:/$(NEWSPAPER)=) \
 	$(if $(VERIFY_EXTENSIONS),--verify-file-extensions $(VERIFY_EXTENSIONS),)
 
 verify-and-clean::
 	@echo "Verifying and cleaning corrupted data for $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=)"
 	@echo "WARNING: This will DELETE corrupted files!"
-	python cookbook/lib/s3_aggregator.py --verify --verify-and-delete \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --verify --verify-and-delete \
 	--s3-prefix $(S3_PATH_LANGIDENT:/$(NEWSPAPER)=) \
 	$(if $(VERIFY_EXTENSIONS),--verify-file-extensions $(VERIFY_EXTENSIONS),)
 verify-and-clean::
 	@echo "Verifying and cleaning corrupted data for $(S3_PATH_LANGIDENT_STAGE1:/$(NEWSPAPER)=)"
 	@echo "WARNING: This will DELETE corrupted files!"
-	python cookbook/lib/s3_aggregator.py --verify --verify-and-delete \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --verify --verify-and-delete \
 	--s3-prefix $(S3_PATH_LANGIDENT_STAGE1:/$(NEWSPAPER)=) \
 	$(if $(VERIFY_EXTENSIONS),--verify-file-extensions $(VERIFY_EXTENSIONS),)
 

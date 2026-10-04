@@ -159,7 +159,7 @@ Use AWS CLI with project-local config files so commands do not depend on global 
 
 Important distinction in this cookbook:
 
-- Most data uploads in processing/sampling recipes are done with `python3 -m impresso_cookbook.local_to_s3`.
+- Most data uploads in processing/sampling recipes are done with `$(PYTHON) -m impresso_cookbook.local_to_s3`.
 - AWS CLI is used mainly for setup, connectivity checks, bucket/prefix inspection, and occasional manual operations.
 - Do not replace `local_to_s3` upload steps in recipes unless you explicitly want to change reliability/verification behavior.
 
@@ -205,7 +205,7 @@ Typical AWS CLI use in this repository:
 
 Typical upload path in this repository:
 
-- Make recipes call `python3 -m impresso_cookbook.local_to_s3 ...` for file uploads
+- Make recipes call `$(PYTHON) -m impresso_cookbook.local_to_s3 ...` for file uploads
 
 ### 3. Quick connectivity test via Make
 
@@ -345,8 +345,8 @@ This design ensures that:
 ```make
 # Correct: Convert local input prerequisite to S3 URL, write output locally
 $(OUTPUT_FILE): $(INPUT_FILE)
-    python3 -m some_processor --infile $(call LocalToS3,$<,'') --outfile $@
-    python3 -m impresso_cookbook.local_to_s3 --upload $(call LocalToS3,$@,'') --keep-timestamp-only
+    $(PYTHON) -m some_processor --infile $(call LocalToS3,$<,'') --outfile $@
+    $(PYTHON) -m impresso_cookbook.local_to_s3 --upload $(call LocalToS3,$@,'') --keep-timestamp-only
 ```
 
 **Never** pass input prerequisite `$<` or `$^` directly to Python scripts for reading data - these may be zero-byte stamp files. Always use `$(call LocalToS3,...)` to read from S3. Output files `$@` can be written directly to local paths, then uploaded.
@@ -446,7 +446,7 @@ In this pattern:
 #   2 - WIP exists, skip processing (used to signal concurrent work in progress)
 #
 # Makefile Pattern for WIP Handling:
-#   python3 -m impresso_cookbook.local_to_s3 \
+#   $(PYTHON) -m impresso_cookbook.local_to_s3 \
 #       --s3-file-exists $(call LocalToS3,$@) \
 #       --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 #       --log-level $(LANGIDENT_LOGGING_LEVEL) \
@@ -581,9 +581,20 @@ If `make --version` does not report GNU Make 4+, use `gmake` for the commands be
 5. **Install Python dependencies:**
 
    ```bash
-   pipenv install
-   # or
+   PIPENV_VENV_IN_PROJECT=enabled pipenv install
+   # or, inside an activated venv of your choice
    python3 -m pip install -r requirements.txt
+   ```
+
+   Make uses the interpreter in `PYTHON`, resolved once in `make_settings.mk`:
+   an explicit `PYTHON=...` wins, then an activated venv (`pipenv shell` or
+   `pipenv run make`), then the project-local `.venv`, then `python3`. With
+   `PIPENV_VENV_IN_PROJECT=enabled` (set in `dotenv.sample`), `pipenv install`
+   creates `.venv`, so plain `make` works without activating anything. Check the
+   choice with:
+   
+   ```bash
+   make check-python-env
    ```
 
 6. **Configure AWS CLI:**

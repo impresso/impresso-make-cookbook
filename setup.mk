@@ -50,7 +50,7 @@ endif
 
 # DOUBLE-COLON-TARGET: setup
 #: Sets up the build directory and runs the active setup-<TARGET> targets
-setup:: check-cfg-file | $(BUILD_DIR)
+setup:: check-cfg-file check-python-env | $(BUILD_DIR)
 
 .PHONY: setup
 
@@ -64,10 +64,25 @@ check-cfg-file:
 
 .PHONY: check-cfg-file
 
+# TARGET: check-python-env
+#: Verify that PYTHON can import the impresso_cookbook package
+check-python-env:
+	@if ! "$(PYTHON)" -c 'import impresso_cookbook' 2>/dev/null; then \
+		echo "ERROR: PYTHON=$(PYTHON) cannot import impresso_cookbook." >&2; \
+		echo "       Run 'pipenv install' with PIPENV_VENV_IN_PROJECT=enabled (see dotenv.sample)," >&2; \
+		echo "       activate the intended venv, or set PYTHON=/path/to/python." >&2; \
+		exit 1; \
+	fi
+	@echo "PYTHON=$(PYTHON) can import impresso_cookbook"
+
+.PHONY: check-python-env
+
 help-setup::
 	@echo "SETUP TARGETS:"
 	@echo "  make setup                        # Create local directories and run active setup targets"
 	@echo "  make check-cfg-file               # Validate that CFG points to an existing file when provided"
+	@echo "  make check-python-env             # Verify that PYTHON can import impresso_cookbook"
+	@echo "  PYTHON=$(PYTHON)"
 
 # USER-VARIABLE: GIT_VERSION
 # The current git version of the repository

@@ -98,7 +98,7 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	{ acquired_wip=0 ; \
 	  status=0 ; \
 	  if [ -n "$(BBOXQA_WIP_ENABLED)" ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip acquire \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip acquire \
 	      --s3-target $(call LocalToS3,$@) \
 	      --wip-max-age $(BBOXQA_WIP_MAX_AGE) \
 	      --log-level $(LOGGING_LEVEL) \
@@ -111,7 +111,7 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	      *) exit "$$status" ;; \
 	    esac ; \
 	  elif [ -z "$(BBOXQA_FORCE_OVERWRITE_OPTION)" ] && [ -z "$(BBOXQA_UPLOAD_IF_NEWER_OPTION)" ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --s3-file-exists $(call LocalToS3,$@) \
 	      --exit-2-if-exists \
 	      --log-level $(LOGGING_LEVEL) || status=$$? ; \
@@ -122,13 +122,13 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	    esac ; \
 	  fi ; \
 	  status=0 ; \
-	  python3 lib/bboxqa.py \
+	  $(PYTHON) lib/bboxqa.py \
 	    --git_version $(GIT_VERSION) \
 	    --output $@ \
 	    --log-file $@.log.gz \
 	    $(call LocalToS3,$<,.stamp) || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      $(BBOXQA_FORCE_OVERWRITE_OPTION) $(BBOXQA_UPLOAD_IF_NEWER_OPTION) \
 	      $(PROCESSING_KEEP_TIMESTAMP_ONLY_OPTION) \
 	      --set-timestamp \
@@ -140,7 +140,7 @@ $(LOCAL_PATH_BBOXQA)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stamp
 	  fi ; \
 	  release_status=0 ; \
 	  if [ "$$acquired_wip" -eq 1 ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip release \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
 	      --s3-target $(call LocalToS3,$@) \
 	      --log-level $(LOGGING_LEVEL) || release_status=$$? ; \
 	  fi ; \

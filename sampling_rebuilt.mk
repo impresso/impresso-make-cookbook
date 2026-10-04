@@ -79,7 +79,7 @@ help-sampling::
 $(SAMPLE_IDS_FILE): | $(BUILD_DIR)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	python3 cookbook/lib/s3_sampler.py \
+	$(PYTHON) cookbook/lib/s3_sampler.py \
 	  --s3-prefix $(SAMPLE_SOURCE_PREFIX) \
 	  --output $@ \
 	  --sampling-rate $(SAMPLE_RATE) \
@@ -90,7 +90,7 @@ $(SAMPLE_IDS_FILE): | $(BUILD_DIR)
 	  --log-level $(SAMPLE_LOG_LEVEL) \
 	  --log-file $@.log.gz \
 	&& \
-	python3 -m impresso_cookbook.local_to_s3 \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 \
 	  $@ $(SAMPLE_IDS_S3) \
 	  $@.log.gz $(SAMPLE_IDS_S3).log.gz
 
@@ -98,7 +98,7 @@ $(SAMPLE_IDS_FILE): | $(BUILD_DIR)
 $(SAMPLE_COMPILED_FILE): $(SAMPLE_IDS_FILE)
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	python3 cookbook/lib/s3_compiler.py \
+	$(PYTHON) cookbook/lib/s3_compiler.py \
 	  --input-file $< \
 	  --s3-prefix $(SAMPLE_SOURCE_PREFIX) \
 	  --output $@ \
@@ -106,7 +106,7 @@ $(SAMPLE_COMPILED_FILE): $(SAMPLE_IDS_FILE)
 	  --log-level $(SAMPLE_LOG_LEVEL) \
 	  --log-file $@.log.gz \
 	&& \
-	python3 -m impresso_cookbook.local_to_s3 \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 \
 	  $@ $(SAMPLE_COMPILED_S3) \
 	  $@.log.gz $(SAMPLE_COMPILED_S3).log.gz
 

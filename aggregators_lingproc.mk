@@ -61,18 +61,18 @@ LOCAL_FREQS_BASE_PATH := $(BUILD_DIR)/$(S3_BUCKET_LINGPROC_COMPONENT)/token-freq
 compute-frequencies-%-de:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/de
 	@set +e; \
-	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz ; status=$$?; \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz $(S3_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz ; status=$$?; \
 	set -e; \
 	if [ $$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $*_de_freqs.jsonl.bz2"; \
 	elif [ $$status -ne 0 ]; then \
 		exit $$status; \
 	else \
-		LANGUAGE=de python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
+		LANGUAGE=de $(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
 		-o $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.jsonl.bz2 \
 		--log-file $(LOCAL_FREQS_BASE_PATH)/de/$*_de_freqs.log.gz && \
-		python3 -m impresso_cookbook.local_to_s3 \
+		$(PYTHON) -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
@@ -92,18 +92,18 @@ compute-frequencies-%-de:
 compute-frequencies-%-fr:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/fr
 	@set +e; \
-	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz ; status=$$?; \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz $(S3_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz ; status=$$?; \
 	set -e; \
 	if [ $$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $*_fr_freqs.jsonl.bz2"; \
 	elif [ $$status -ne 0 ]; then \
 		exit $$status; \
 	else \
-		LANGUAGE=fr python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
+		LANGUAGE=fr $(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
 		-o $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.jsonl.bz2 \
 		--log-file $(LOCAL_FREQS_BASE_PATH)/fr/$*_fr_freqs.log.gz && \
-		python3 -m impresso_cookbook.local_to_s3 \
+		$(PYTHON) -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
@@ -123,18 +123,18 @@ compute-frequencies-%-fr:
 compute-frequencies-%-en:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)/en
 	@set +e; \
-	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz ; status=$$?; \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz $(S3_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz ; status=$$?; \
 	set -e; \
 	if [ $$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $*_en_freqs.jsonl.bz2"; \
 	elif [ $$status -ne 0 ]; then \
 		exit $$status; \
 	else \
-		LANGUAGE=en python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
+		LANGUAGE=en $(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$* \
 		-o $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.jsonl.bz2 \
 		--log-file $(LOCAL_FREQS_BASE_PATH)/en/$*_en_freqs.log.gz && \
-		python3 -m impresso_cookbook.local_to_s3 \
+		$(PYTHON) -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
@@ -150,18 +150,18 @@ define compute_frequency_rule
 compute-frequencies-$(1)-$(2):
 	@mkdir -p $(dir $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2)
 	@set +e; \
-	python3 -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz ; status=$$$$?; \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 --exit-2-if-exists --s3-file-exists $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 --wip --wip-max-age 2 --create-wip $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz $(S3_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz ; status=$$$$?; \
 	set -e; \
 	if [ $$$$status -eq 2 ]; then \
 		echo "File already exists or WIP in progress, skipping processing for $(1)_$(2)_freqs.jsonl.bz2"; \
 	elif [ $$$$status -ne 0 ]; then \
 		exit $$$$status; \
 	else \
-		LANGUAGE=$(2) python cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
+		LANGUAGE=$(2) $(PYTHON) cookbook/lib/s3_aggregator.py --jq-filter lib/compute_word_frequencies.jq \
 		--s3-prefix s3://$(PATH_LINGPROC_BASE)/$(1) \
 		-o $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.jsonl.bz2 \
 		--log-file $(LOCAL_FREQS_BASE_PATH)/$(2)/$(1)_$(2)_freqs.log.gz && \
-		python3 -m impresso_cookbook.local_to_s3 \
+		$(PYTHON) -m impresso_cookbook.local_to_s3 \
 		--keep-timestamp-only \
 		--set-timestamp \
 		--ts-key __file__ \
@@ -183,13 +183,13 @@ $(foreach newspaper,$(ALL_NEWSPAPERS),$(foreach language,de fr en,$(eval $(call 
 # with comprehensive logging for data provenance tracking.
 aggregate-frequencies-%:
 	@mkdir -p $(LOCAL_FREQS_BASE_PATH)
-	python cookbook/lib/s3_aggregator.py --s3-prefix $(S3_FREQS_BASE_PATH) \
+	$(PYTHON) cookbook/lib/s3_aggregator.py --s3-prefix $(S3_FREQS_BASE_PATH) \
 	--filter filename=*_$*_freqs.jsonl.bz2 \
 	--jq-filter lib/merge_word_frequencies.jq \
 	--keys content \
 	-o $(LOCAL_FREQS_BASE_PATH)/ALL_$*_freqs.jsonl.bz2 \
 	--log-file $(LOCAL_FREQS_BASE_PATH)/ALL_$*_freqs.log.gz
-	python3 -m impresso_cookbook.local_to_s3 \
+	$(PYTHON) -m impresso_cookbook.local_to_s3 \
 	--keep-timestamp-only \
 	--set-timestamp \
 	--ts-key __file__ \

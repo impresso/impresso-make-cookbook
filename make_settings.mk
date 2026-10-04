@@ -35,6 +35,31 @@ export SHELLOPTS := errexit:pipefail
 export MAKEFLAGS += --warn-undefined-variables --no-builtin-rules --no-builtin-variables 
   $(call log.debug, MAKEFLAGS)
 
+# USER-VARIABLE: VENV_PATH
+# Project-local virtual environment, as created by pipenv with
+# PIPENV_VENV_IN_PROJECT=enabled (see dotenv.sample).
+VENV_PATH ?= .venv
+  $(call log.debug, VENV_PATH)
+
+# USER-VARIABLE: PYTHON
+# Python interpreter used by all cookbook recipes. Recipes must call $(PYTHON),
+# never a bare python3. Resolution order:
+#   1. PYTHON set on the command line, in the environment, or in a config file
+#   2. $(VIRTUAL_ENV)/bin/python of an activated venv (pipenv shell, pipenv run)
+#   3. $(VENV_PATH)/bin/python of the project-local venv
+#   4. python3
+# The value is resolved once and exported, so recursive make calls and
+# collection workers use the same interpreter.
+ifeq ($(origin PYTHON),undefined)
+  PYTHON := $(firstword \
+    $(if $(filter-out undefined,$(origin VIRTUAL_ENV)),$(wildcard $(VIRTUAL_ENV)/bin/python)) \
+    $(wildcard $(abspath $(VENV_PATH))/bin/python) \
+    python3)
+endif
+  $(call log.info, PYTHON)
+export PYTHON
+
+
 # SPECIAL TARGET: .SECONDARY
 # Preserve intermediate files generated during the build process.
 #

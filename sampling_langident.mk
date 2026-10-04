@@ -211,7 +211,7 @@ check-langident-output-bucket:
 $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR) check-langident-output-bucket
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	python3 lib/sampling_langident_ids.py \
+	$(PYTHON) lib/sampling_langident_ids.py \
 	  --input-file $(LANGIDENT_AGGREGATED_S3) \
 	  --output-file $@ \
 	  --language $* \
@@ -223,7 +223,7 @@ $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR) check-langident-output-bu
 	  --log-file $@.log.gz \
 	&& \
 	if [ "$(LANGIDENT_UPLOAD_ENABLED)" = "1" ]; then \
-	  python3 -m impresso_cookbook.local_to_s3 \
+	  $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	    $@ $(call LocalLangidentToS3,$@) \
 	    $@.log.gz $(call LocalLangidentToS3,$@).log.gz ; \
 	else \
@@ -234,7 +234,7 @@ $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz: | $(BUILD_DIR) check-langident-output-bu
 $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl.bz2: $(LANGIDENT_SAMPLE_DIR)/%.ids.jsonl.gz | check-langident-output-bucket
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-	python3 cookbook/lib/s3_compiler.py \
+	$(PYTHON) cookbook/lib/s3_compiler.py \
 	  --input-file $< \
 	  --s3-prefix $(LANGIDENT_FULLTEXT_PREFIX) \
 	  --output $@ \
@@ -245,7 +245,7 @@ $(LANGIDENT_SAMPLE_DIR)/%.compiled.jsonl.bz2: $(LANGIDENT_SAMPLE_DIR)/%.ids.json
 	  --log-file $@.log.gz \
 	&& \
 	if [ "$(LANGIDENT_UPLOAD_ENABLED)" = "1" ]; then \
-	  python3 -m impresso_cookbook.local_to_s3 \
+	  $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	    $@ $(call LocalLangidentToS3,$@) \
 	    $@.log.gz $(call LocalLangidentToS3,$@).log.gz ; \
 	else \

@@ -111,7 +111,7 @@ help-processing::
 $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE)mkdir -p $(@D) && \
 	{  set +e ; \
-     python3 lib/ocrqa_bloom.py \
+     $(PYTHON) lib/ocrqa_bloom.py \
           --languages $(OCRQA_LANGUAGES_OPTION) \
           --bloomdicts $(OCRQA_BLOOMFILTERS_OPTION) \
           --input $(call LocalToS3,$<) \
@@ -130,7 +130,7 @@ $(LOCAL_PATH_OCRQA)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2 $(LOCAL_PATH_
     echo "Processing exit code: $$EXIT_CODE" ; \
       if [ $$EXIT_CODE -eq 0 ] ; then \
           echo "Processing completed successfully. Uploading logfile..." ; \
-          python3  -m impresso_cookbook.s3_to_local_stamps  \
+          $(PYTHON)  -m impresso_cookbook.s3_to_local_stamps  \
               $(call LocalToS3,$@,.stamp).log.gz \
               --upload-file $@.log.gz \
         --force-overwrite ; \
