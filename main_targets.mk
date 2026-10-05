@@ -112,6 +112,7 @@ help-orchestration-settings::
 	@printf '  %-32s %s\n' 'COLLECTION_MEMFREE ($(COLLECTION_MEMFREE))' 'GNU parallel minimum free memory; empty disables this throttle'
 	@printf '  %-32s %s\n' 'NEWSPAPER_LOAD ($(NEWSPAPER_LOAD))' 'Child Make load limit; empty disables this throttle'
 	@printf '  %-32s %s\n' 'PARALLEL_DELAY ($(PARALLEL_DELAY))' 'Seconds between starts of GNU parallel collection jobs; default 3'
+	@printf '  %-32s %s\n' 'COLLECTION_LOG ($(COLLECTION_LOG))' 'Copy of all collection output; empty disables; see collection-latest.log'
 	@printf '  %-32s %s\n' 'HALT_ON_ERROR ($(HALT_ON_ERROR))' 'Set to 1 to stop GNU parallel on the first failing job; default 0'
 	@echo ""
 	@echo "TUNING:"
@@ -124,6 +125,25 @@ help-orchestration-settings::
 	@echo "  make collection COLLECTION_JOBS=8 NEWSPAPER_JOBS=2 MAX_LOAD=12"
 	@echo "  make collection COLLECTION_JOBS=6 NEWSPAPER_JOBS=1 COLLECTION_LOAD= COLLECTION_MEMFREE= NEWSPAPER_LOAD= PARALLEL_DELAY=0"
 	@echo "  tail -f build.d/collection.joblog  # Monitor collection progress"
+	@echo "  less -R build.d/logs/collection-latest.log  # Inspect output and errors of the last collection run"
+# Log file that receives a copy of all collection output (stdout and stderr)
+#
+# The output is still shown on the terminal. Each run writes a new timestamped
+# file, and collection-latest.log points to the most recent one. Set
+# COLLECTION_LOG= to disable logging.
+ifeq ($(origin COLLECTION_LOG),undefined)
+COLLECTION_LOG := $(BUILD_DIR)/logs/collection-$(shell date +%Y%m%d-%H%M%S).log
+endif
+  $(call log.debug, COLLECTION_LOG)
+
+# Internal: tee the parallel pipeline into COLLECTION_LOG and keep its exit
+# status (dash has no pipefail, so the status goes through a side file).
+ifneq ($(COLLECTION_LOG),)
+COLLECTION_LOG_REDIRECT := 2>&1; echo $$? > $(COLLECTION_LOG).rc; } | tee -a $(COLLECTION_LOG); rc=$$(cat $(COLLECTION_LOG).rc); rm -f $(COLLECTION_LOG).rc; exit $$rc
+else
+COLLECTION_LOG_REDIRECT := ; }
+endif
+
 # If set to 1, GNU parallel stops on the first error
 HALT_ON_ERROR ?= 0
 
@@ -222,7 +242,8 @@ check-parallel:
 collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	@printf '%s\n' 'INFO: Collection worker target: $(COLLECTION_TARGET). List: $(NEWSPAPERS_TO_PROCESS_FILE).'
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
-	+tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	$(if $(COLLECTION_LOG),@mkdir -p $(dir $(COLLECTION_LOG)) && ln -sfn $(notdir $(COLLECTION_LOG)) $(dir $(COLLECTION_LOG))collection-latest.log && printf '%s\n' 'INFO: Logging collection output to $(COLLECTION_LOG)')
+	+{ tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v \
 	   --progress \
 	   --joblog $(BUILD_DIR)/collection.joblog \
@@ -232,7 +253,8 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   $(COLLECTION_MEMFREE_OPTION) \
 	   $(COLLECTION_LOAD_OPTION) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)'
+	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)' \
+	   $(COLLECTION_LOG_REDIRECT)
 
 define collection_newspaper_scope_target
 	+tr -s '[:space:]' '\n' < $(NEWSPAPERS_TO_PROCESS_FILE) | \

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `make check-python-env` verifies that `PYTHON` can import `impresso_cookbook`; `make setup` runs it
 - `VENV_PATH` user variable (default `.venv`), also used by `check-venv-filesystem`
+- `make collection` copies all its output (stdout and stderr) to a timestamped `COLLECTION_LOG` under `$(BUILD_DIR)/logs/`, with `collection-latest.log` pointing to the newest run; the exit status is preserved and `COLLECTION_LOG=` disables logging
 
 ### Fixed
 - `refresh-newspaper-list` and year-scoped stamp sync no longer pass the unexpanded `PYTHON` definition to the shell
