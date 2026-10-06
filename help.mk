@@ -33,7 +33,7 @@ help::
 	@echo "  make help-sync                   # S3 synchronization and sync cleanup targets"
 	@echo "  make help-setup                  # Local setup, Python, AWS, and tool-check targets"
 	@echo "  make help-path-variables         # S3/local path variable families and active values"
-	@echo "  make help-sampling               # Sampling workflow targets"
+	$(if $(filter sampling_%.mk,$(notdir $(MAKEFILE_LIST))),@echo "  make help-sampling               # Sampling workflow targets")
 	@echo "  make help-aggregation            # Aggregation and verification targets"
 	@echo "  make help-clean                  # Local cleanup targets"
 	@echo "  make help-debug                  # Make variable and logging diagnostics"
@@ -59,14 +59,10 @@ help-path-variables::
 
 help-processing::
 	@echo "PROCESSING HELP:"
-	@echo "  make processing-target                  # Generic entry point extended by processing_*.mk fragments"
 	@echo "  Component-specific targets and flags appear below when their fragments are included."
 
 help-sync::
 	@echo "SYNC HELP:"
-	@echo "  make sync                             # Generic synchronization entry point when sync.mk is included"
-	@echo "  make sync-input                       # Input synchronization hook extended by included fragments"
-	@echo "  make sync-output                      # Output synchronization hook extended by included fragments"
 	@echo "  Component-specific sync targets appear below when their fragments are included."
 
 help-setup::
@@ -83,8 +79,6 @@ help-aggregation::
 
 help-clean::
 	@echo "CLEAN HELP:"
-	@echo "  make clean                            # Generic cleanup entry point when clean.mk is included"
-	@echo "  make clean-sync                       # Generic sync cleanup hook when clean.mk is included"
 	@echo "  Component-specific cleanup targets appear below when their fragments are included."
 
 # TARGET: debug-vars

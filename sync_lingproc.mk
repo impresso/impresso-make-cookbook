@@ -44,6 +44,8 @@ help-sync::
 	@echo ""
 	@echo "LINGPROC SYNC:"
 	@echo "  make sync-lingproc                    # Synchronize linguistic processing data from/to S3"
+	@echo "  sync-input and sync-output both refresh lingproc input stamps."
+	$(if $(filter sync_topics.mk,$(notdir $(MAKEFILE_LIST))),@echo "  sync-output also refreshes topic output stamps; resync-output clears and refreshes both scopes.")
 
 
 # TARGET: clean-sync

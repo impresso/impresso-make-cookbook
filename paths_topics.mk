@@ -87,4 +87,12 @@ LOCAL_PATH_TOPICS := $(BUILD_DIR)/$(PATH_TOPICS)
   $(call log.debug, LOCAL_PATH_TOPICS)
 
 
+help-path-variables::
+	@echo ""
+	@echo "TOPICS PATHS:"
+	@echo "  S3_BUCKET_TOPICS=$(S3_BUCKET_TOPICS)"
+	@echo "  RUN_ID_TOPICS=$(RUN_ID_TOPICS)"
+	@echo "  S3_PATH_TOPICS=$(S3_PATH_TOPICS)"
+	@echo "  LOCAL_PATH_TOPICS=$(LOCAL_PATH_TOPICS)"
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/paths_topics.mk)
