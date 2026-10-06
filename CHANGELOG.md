@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `STAMP_SYNC_PYTHON` was removed in favor of `PYTHON`; setting it prints a warning
 
 ### Added
+- `completeness.mk` provides read-only collection/newspaper audit targets and help, with processing configuration propagation and optional single-newspaper year selection.
+- Read-only consolidated-canonical completeness CLI with paginated S3 inventories, exact page/audio key coverage, issue prerequisite checks, lock observations, and JSON/TSV reports. Automatic repair remains a separate follow-up phase.
 - `make check-python-env` verifies that `PYTHON` can import `impresso_cookbook`; `make setup` runs it
 - `VENV_PATH` user variable (default `.venv`), also used by `check-venv-filesystem`
 - `make collection` copies all its output (stdout and stderr) to a timestamped `COLLECTION_LOG` under `$(BUILD_DIR)/logs/`, with `collection-latest.log` pointing to the newest run; the exit status is preserved and `COLLECTION_LOG=` disables logging

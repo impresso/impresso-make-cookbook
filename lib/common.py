@@ -60,8 +60,12 @@ def get_timestamp() -> str:
     return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get_s3_client() -> Any:  # "boto3.client":
+def get_s3_client(max_pool_connections: Optional[int] = None) -> Any:  # "boto3.client":
     """Returns a boto3.client object for interacting with S3.
+
+    Args:
+        max_pool_connections (Optional[int]): Maximum number of connections in the pool.
+            Useful for multithreaded operations (defaults to botocore's default of 10).
 
     Returns:
         boto3.client: A boto3.client object for interacting with S3.
@@ -72,8 +76,15 @@ def get_s3_client() -> Any:  # "boto3.client":
         aws_secret_access_key=os.getenv("SE_SECRET_KEY"),
     )
 
+    client_config = (
+        Config(max_pool_connections=max_pool_connections)
+        if max_pool_connections
+        else None
+    )
     return boto3.client(
-        "s3", endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/")
+        "s3",
+        endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/"),
+        config=client_config,
     )
 
 

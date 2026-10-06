@@ -4,6 +4,7 @@ Welcome to the Impresso Make-Based Offline (NLP) Processing Cookbook! This repos
 
 ## Table of Contents
 
+- [Collection Completeness Audit](#collection-completeness-audit)
 - [Build System Structure](#build-system-structure)
 - [Uploading to impresso S3 bucket](#uploading-to-impresso-s3-bucket)
 - [Deleting Newspaper Output From S3](#deleting-newspaper-output-from-s3)
@@ -38,6 +39,87 @@ python3 -m pip install git+https://github.com/impresso/impresso-make-cookbook.gi
 impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.git", ref = "main", subdirectory = "lib"}
 
 ```
+
+## Collection Completeness Audit
+
+The read-only `check_collection_completeness` CLI currently supports the
+`consolidatedcanonical` profile. It compares canonical yearly issues and exact
+relative page/audio JSONL keys with consolidated output, checking nonzero sizes.
+It also reports missing issue prerequisites and active/stale WIP locks. It does
+not read JSONL contents or certify record completeness, schema validity, or
+freshness. Objects can change during a scan; audit again after workers finish.
+
+In the consolidated-canonical processing repository, the Make targets use the
+resolved processing configuration:
+
+```bash
+make check-collection-completeness CFG=configs/config_consolidatedcanonical_v2025-11-23_initial.mk
+make check-newspaper-completeness CFG=configs/config_consolidatedcanonical_v2025-11-23_initial.mk PROVIDER=BL NEWSPAPER=WTCH
+make help-completeness
+```
+
+The collection target reads the existing `NEWSPAPERS_TO_PROCESS_FILE` without
+regenerating it. Lists may contain whitespace-separated entries. For a single
+newspaper, `NEWSPAPER_YEARS="1900 1901"` restricts the audit in provider mode.
+Both targets accept `COMPLETENESS_STREAMS`, `COMPLETENESS_CONCURRENCY`, and
+`COMPLETENESS_REPORT_DIR` overrides. They do not run sync or processing targets.
+GNU Make reports a failure for either audit exit code 1 or 2; inspect the JSON
+`exit_code` to distinguish incomplete coverage from an audit error.
+
+With the cookbook Python package installed, the equivalent direct CLI is:
+
+```bash
+python3 -m impresso_cookbook.check_collection_completeness \
+  --task consolidatedcanonical \
+  --canonical-bucket "$S3_BUCKET_CANONICAL" \
+  --consolidated-bucket "$S3_BUCKET_CONSOLIDATEDCANONICAL" \
+  --run-version "$RUN_VERSION_CONSOLIDATEDCANONICAL" \
+  --langident-root "s3://$S3_BUCKET_LANGIDENT/$PROCESS_LABEL_LANGIDENT/$RUN_ID_LANGIDENT" \
+  --has-provider 1 \
+  --newspaper-list "$NEWSPAPERS_TO_PROCESS_FILE" \
+  --canonical-input-kind auto \
+  --wip-max-age "$CONSOLIDATEDCANONICAL_WIP_MAX_AGE" \
+  --output-dir build.d/reports/completeness/consolidatedcanonical
+```
+
+Set these shell variables to the resolved values from your processing
+configuration; the CLI does not load Make configuration files. S3 connection
+settings use the existing cookbook client and `.env` loading. Parents can include `completeness.mk` after task settings and set
+`COMPLETENESS_TASK := consolidatedcanonical`. The consolidated-canonical parent
+repository already includes it.
+
+Use `--newspaper BL/WTCH` instead of `--newspaper-list` for one item. Provider
+mode accepts `PROVIDER/NEWSPAPER` and `PROVIDER/NEWSPAPER/YEAR`; providerless mode
+(`--has-provider 0`) accepts newspaper names only. Blank lines and full-line
+comments are ignored, and overlapping scopes are merged before scanning.
+
+The default checks issues plus available pages/audios in `auto` mode. Pass the
+pipeline's `pages` or `audios` input kind when explicitly configured. Override
+with `--check-streams pages`, for example, to check only page copies; an explicitly
+selected empty stream is a blocker. `--langident-root` is required whenever
+issues are checked and points to the collection root **before** the provider or
+newspaper segment. `--concurrency` defaults to 16; reduce it to limit simultaneous
+inventories and memory use.
+
+Reports include JSON with per-stream/per-year missing and invalid keys,
+prerequisites, lock observations, resolved configuration, audit ID, and primary
+status counts; a TSV coverage summary; and missing/incomplete scope lists.
+Unexpected outputs cannot compensate for missing expected objects. Exit codes
+are `0` for complete coverage without blockers or active locks, `1` for remaining
+work or unverified completeness, and `2` for configuration, inventory, or report
+errors.
+
+Automatic repair is disabled. JSON identifies `repair_candidate` scopes, but
+`rerun_eligible` is false and `newspapers_rerun.txt` is empty until a tested repair
+adapter can refresh inputs, invalidate precise local stamps, and overwrite
+invalid outputs. Passing a missing/incomplete list to collection alone does not
+guarantee rebuilding remote gaps.
+
+Use a distinct report directory for concurrent audits. Consumers must require
+`report_complete.json` and match its audit ID to `completeness_report.json`;
+publication removes the previous marker before replacing files and writes the
+new marker last. A marker means report publication succeeded, not that coverage
+is complete: also inspect `exit_code`.
 
 ## Build System Structure
 
