@@ -54,6 +54,13 @@ Important: some documentation and recipes still refer to paths like `cookbook/..
   - root `Pipfile` / `requirements.txt`
   - `lib/pyproject.toml` for the installable `impresso_cookbook` package
 - AWS/S3 access is configured from a local `.env` file and optional repo-local `.aws/` files.
+- Every direct AWS CLI command, including examples in documentation and help,
+  must explicitly use the consuming repository's local configuration and credentials:
+  `AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws ...`.
+  Run from that repository's root, following `aws.mk`. Do not rely on the user's
+  default AWS configuration. If the local files are missing, `create-aws-config`
+  generates them from `.env` (`SE_HOST_URL`, `SE_ACCESS_KEY`, and `SE_SECRET_KEY`);
+  never print or commit their secret values.
 
 If you need to run Make successfully on macOS, prefer Homebrew GNU Make (`gmake`) or another GNU Make 4+ binary.
 
