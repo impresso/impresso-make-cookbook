@@ -2,7 +2,7 @@
 """Read-only S3 artifact coverage audits; no record/schema validity is implied.
 
 Run as a script or as ``python -m impresso_cookbook.check_collection_completeness``.
-Only consolidatedcanonical is currently supported. Repair is deliberately disabled.
+Supports consolidatedcanonical and topics. Repair is deliberately disabled.
 """
 from __future__ import annotations
 
@@ -78,10 +78,10 @@ def normalize_scopes(entries, has_provider, provider=None):
 
 @dataclass(frozen=True)
 class Config:
-    canonical_bucket: str
-    consolidated_bucket: str
-    run_version: str
-    has_provider: bool
+    canonical_bucket: str = ''
+    consolidated_bucket: str = ''
+    run_version: str = ''
+    has_provider: bool = True
     langident_root: str | None = None
     canonical_input_kind: str = 'auto'
     check_streams: tuple[str, ...] = ()
@@ -89,9 +89,24 @@ class Config:
     concurrency: int = 16
     task: str = 'consolidatedcanonical'
 
+    lingproc_root: str | None = None
+    topics_root: str | None = None
+
     def validate(self):
         if self.task not in PROFILES:
             raise ValueError(f'Unsupported task: {self.task}')
+        if not math.isfinite(self.wip_max_age) or self.wip_max_age < 0:
+            raise ValueError('WIP maximum age must be a finite nonnegative number')
+        if self.concurrency < 1:
+            raise ValueError('Concurrency must be positive')
+        if self.task == 'topics':
+            if self.check_streams:
+                raise ValueError('--check-streams is only supported for consolidatedcanonical')
+            for root in (self.lingproc_root, self.topics_root):
+                if not root:
+                    raise ValueError('--lingproc-root and --topics-root are required for topics')
+                parse_root(root)
+            return
         for bucket in (self.canonical_bucket, self.consolidated_bucket):
             if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', bucket):
                 raise ValueError('Buckets must be bare bucket names')
@@ -116,7 +131,7 @@ class Config:
 def parse_root(root):
     match = re.fullmatch(r's3://([A-Za-z0-9][A-Za-z0-9.-]*)/(.+?)/?', root)
     if not match or not all(COMPONENT.fullmatch(p) for p in match[2].split('/')):
-        raise ValueError('Langident root must be s3://BUCKET/PROCESS/RUN (without newspaper)')
+        raise ValueError('S3 root must be s3://BUCKET/PROCESS/RUN (without newspaper)')
     return match[1], match[2].rstrip('/')
 
 
@@ -161,6 +176,9 @@ def list_metadata(client, bucket, prefix):
 
 def data_year(newspaper, stream, key):
     name = re.escape(newspaper)
+    if stream == 'topics':
+        match = re.fullmatch(rf'{name}-(\d{{4}})\.jsonl\.bz2', key)
+        return match[1] if match else None
     pattern = (rf'{name}-(\d{{4}})-issues\.jsonl\.bz2' if stream == 'issues'
                else rf'{name}-(\d{{4}})/.+\.jsonl\.bz2')
     match = re.fullmatch(pattern, key)
@@ -280,7 +298,48 @@ class ConsolidatedCanonical:
                                           + ['repair adapter not implemented'])), 'errors': []}
 
 
-PROFILES = {'consolidatedcanonical': ConsolidatedCanonical}
+class Topics:
+    repair_supported = False
+
+    def audit(self, client, config, scope, now):
+        source_bucket, source_root = parse_root(config.lingproc_root)
+        output_bucket, output_root = parse_root(config.topics_root)
+        expected, _ = inventory(client, source_bucket, f'{source_root}/{scope.segment}/',
+                                scope, 'topics', now, config.wip_max_age)
+        found, locks = inventory(client, output_bucket, f'{output_root}/{scope.segment}/',
+                                 scope, 'topics', now, config.wip_max_age)
+        detail = compare(expected, found)
+        grouped = []
+        for values in (expected, found):
+            years = {}
+            for key, size in values.items():
+                year = data_year(scope.newspaper, 'topics', key)
+                years.setdefault(year, {})[key] = size
+            grouped.append(years)
+        detail['years'] = {year: compare(grouped[0].get(year, {}), grouped[1].get(year, {}))
+                           for year in sorted(grouped[0].keys() | grouped[1].keys())}
+        detail['locks'] = locks
+        detail['empty_reason'] = 'required lingproc input absent' if not expected else None
+        blockers = [f'zero-byte lingproc source {key}' for key in detail['invalid_source']]
+        blockers.extend(f'{year}: requested year absent upstream'
+                        for year in sorted(set(scope.years) - grouped[0].keys()))
+        if not expected:
+            blockers.append('required lingproc input is empty')
+        status = ('EMPTY_INPUT' if not expected else
+                  'COMPLETE' if detail['covered'] == detail['expected'] and not blockers else
+                  'MISSING' if not detail['present'] else 'INCOMPLETE')
+        active = any(lock['state'] == 'active' for lock in locks)
+        return {'scope': asdict(scope), 'entries': scope.entries(), 'status': status,
+                'streams': {'topics': detail}, 'selected_streams': ['topics'],
+                'inapplicable_streams': [], 'upstream_blockers': sorted(blockers),
+                'active_locks': active,
+                'repair_candidate': status in ('MISSING', 'INCOMPLETE') and not blockers and not active,
+                'rerun_eligible': False,
+                'repair_blockers': sorted(blockers + (['active lock'] if active else [])
+                                          + ['repair adapter not implemented']), 'errors': []}
+
+
+PROFILES = {'consolidatedcanonical': ConsolidatedCanonical, 'topics': Topics}
 
 
 def audit_collection(client, config, scopes, original_selection, now=None, audit_id=None):
@@ -356,9 +415,11 @@ def write_reports(report, output_dir):
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument('--task', required=True, choices=sorted(PROFILES))
-    result.add_argument('--canonical-bucket', required=True)
-    result.add_argument('--consolidated-bucket', required=True)
-    result.add_argument('--run-version', required=True)
+    result.add_argument('--canonical-bucket', default='')
+    result.add_argument('--consolidated-bucket', default='')
+    result.add_argument('--run-version', default='')
+    result.add_argument('--lingproc-root', help='Input collection root s3://BUCKET/PROCESS/RUN for topics')
+    result.add_argument('--topics-root', help='Output collection root s3://BUCKET/PROCESS/RUN for topics')
     selection = result.add_mutually_exclusive_group(required=True)
     selection.add_argument('--newspaper-list', type=Path)
     selection.add_argument('--newspaper')
@@ -370,13 +431,15 @@ def parser():
     result.add_argument('--check-streams', help='Comma-separated override; default issues plus configured content streams')
     result.add_argument('--wip-max-age', type=float, default=24, help='Hours (pass the pipeline configuration)')
     result.add_argument('--concurrency', type=int, default=16)
-    result.add_argument('--output-dir', type=Path, default=Path('build.d/reports/completeness/consolidatedcanonical'))
+    result.add_argument('--output-dir', type=Path)
     result.add_argument('--log-level', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'), default='INFO')
     return result
 
 
 def main(argv=None, client=None):
     args = parser().parse_args(argv)
+    if args.output_dir is None:
+        args.output_dir = Path('build.d/reports/completeness') / args.task
     try:
         # Invalidate previous publication even when new configuration is rejected.
         (args.output_dir / 'report_complete.json').unlink(missing_ok=True)
@@ -396,7 +459,7 @@ def main(argv=None, client=None):
         config = Config(args.canonical_bucket, args.consolidated_bucket, args.run_version,
                         bool(args.has_provider), args.langident_root, args.canonical_input_kind,
                         tuple(args.check_streams.split(',')) if args.check_streams is not None else (),
-                        args.wip_max_age, args.concurrency, args.task)
+                        args.wip_max_age, args.concurrency, args.task, args.lingproc_root, args.topics_root)
         config.validate()
         if client is None:
             from dotenv import load_dotenv

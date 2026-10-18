@@ -42,8 +42,9 @@ impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.g
 
 ## Collection Completeness Audit
 
-The read-only `check_collection_completeness` CLI currently supports the
-`consolidatedcanonical` profile. It compares canonical yearly issues and exact
+The read-only `check_collection_completeness` CLI supports the
+`consolidatedcanonical` and `topics` profiles. The consolidatedcanonical profile
+compares canonical yearly issues and exact
 relative page/audio JSONL keys with consolidated output, checking nonzero sizes.
 It also reports missing issue prerequisites and active/stale WIP locks. It does
 not read JSONL contents or certify record completeness, schema validity, or
@@ -1208,3 +1209,19 @@ This program is provided as open source under the [GNU Affero General Public Lic
 <p align="center">
   <img src="https://github.com/impresso/impresso.github.io/blob/master/assets/images/3x1--Yellow-Impresso-Black-on-White--transparent.png?raw=true" width="350" alt="Impresso Project Logo"/>
 </p>
+
+### Topic Completeness Profile
+
+Topic processing parents set `COMPLETENESS_TASK := topics` and include
+`completeness.mk` after their lingproc/topic paths and processing settings.
+The same `check-collection-completeness` and `check-newspaper-completeness`
+commands then compare lingproc year files with topic year files, using the
+configured buckets, run identifiers, and `TOPICS_WIP_MAX_AGE`. The topics profile
+also reports missing requested years, zero-byte sources, and active/stale locks.
+`COMPLETENESS_STREAMS` applies only to consolidatedcanonical.
+
+The standalone topics CLI takes `--task topics`, `--lingproc-root` and
+`--topics-root` (collection roots without a newspaper), plus the common selection,
+provider-mode, concurrency, lock-age, and report-directory options. Canonical
+bucket and consolidated run arguments are not required for topics. Audits remain
+read-only and do not certify record-level completeness.

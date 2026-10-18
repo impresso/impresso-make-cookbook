@@ -12,7 +12,7 @@ PARENT = COOKBOOK.parent
 
 
 class CompletenessMakeTests(unittest.TestCase):
-    def invoke(self, target, variables=(), status=0, fixture=False):
+    def invoke(self, target, variables=(), status=0, fixture=True):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             shim = root / 'python'
@@ -48,6 +48,23 @@ class CompletenessMakeTests(unittest.TestCase):
             calls = [json.loads(line[len('CAPTURE='):]) for line in result.stdout.splitlines()
                      if line.startswith('CAPTURE=')]
             return result, calls
+
+    def test_topics_parent_configuration(self):
+        result, calls = self.invoke('check-newspaper-completeness', [
+            'S3_BUCKET_LINGPROC=input-topics', 'RUN_ID_LINGPROC=lingproc-test',
+            'S3_BUCKET_TOPICS=output-topics', 'RUN_ID_TOPICS=topics-test',
+            'NEWSPAPER=BL/P', 'NEWSPAPER_YEARS=1900 1901', 'TOPICS_WIP_MAX_AGE=5'],
+            fixture=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(calls), 1)
+        args = calls[0]
+        pairs = dict(zip(args[1::2], args[2::2]))
+        self.assertEqual(pairs['--task'], 'topics')
+        self.assertEqual(pairs['--lingproc-root'], 's3://input-topics/lingproc/lingproc-test')
+        self.assertEqual(pairs['--topics-root'], 's3://output-topics/topics/topics-test')
+        self.assertEqual(pairs['--wip-max-age'], '5')
+        self.assertEqual(pairs['--years'], '1900 1901')
+        self.assertNotIn('--canonical-bucket', args)
 
     def test_parent_configuration_and_quoted_paths(self):
         result, calls = self.invoke('check-collection-completeness', [

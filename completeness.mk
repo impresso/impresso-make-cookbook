@@ -16,7 +16,7 @@ COMPLETENESS_REPORT_DIR ?= $(BUILD_DIR)/reports/completeness/$(COMPLETENESS_TASK
 COMPLETENESS_CONCURRENCY ?= 16
   $(call log.debug, COMPLETENESS_CONCURRENCY)
 # USER-VARIABLE: COMPLETENESS_STREAMS
-# Empty follows CANONICAL_INPUT_KIND; otherwise comma-separated issues,pages,audios.
+# Consolidatedcanonical only: empty follows CANONICAL_INPUT_KIND; otherwise issues,pages,audios.
 COMPLETENESS_STREAMS ?=
   $(call log.debug, COMPLETENESS_STREAMS)
 
@@ -24,14 +24,24 @@ COMPLETENESS_STREAMS ?=
 COMPLETENESS_SCRIPT := $(dir $(lastword $(MAKEFILE_LIST)))lib/check_collection_completeness.py
 # Quote each argument for the recipe shell, including paths containing spaces.
 completeness.quote = '$(subst ','"'"',$(1))'
-COMPLETENESS_ARGS = --task $(call completeness.quote,$(COMPLETENESS_TASK)) \
- --canonical-bucket $(call completeness.quote,$(S3_BUCKET_CANONICAL)) \
+ifeq ($(COMPLETENESS_TASK),topics)
+COMPLETENESS_TASK_ARGS = --lingproc-root $(call completeness.quote,s3://$(S3_BUCKET_LINGPROC)/$(PROCESS_LABEL_LINGPROC)/$(RUN_ID_LINGPROC)) \
+ --topics-root $(call completeness.quote,s3://$(S3_BUCKET_TOPICS)/$(PROCESS_LABEL_TOPICS)/$(RUN_ID_TOPICS))
+COMPLETENESS_WIP_MAX_AGE ?= $(TOPICS_WIP_MAX_AGE)
+else
+COMPLETENESS_TASK_ARGS = --canonical-bucket $(call completeness.quote,$(S3_BUCKET_CANONICAL)) \
  --consolidated-bucket $(call completeness.quote,$(S3_BUCKET_CONSOLIDATEDCANONICAL)) \
  --run-version $(call completeness.quote,$(RUN_VERSION_CONSOLIDATEDCANONICAL)) \
  --langident-root $(call completeness.quote,s3://$(S3_BUCKET_LANGIDENT)/$(PROCESS_LABEL_LANGIDENT)/$(RUN_ID_LANGIDENT)) \
+ --canonical-input-kind $(call completeness.quote,$(CANONICAL_INPUT_KIND))
+COMPLETENESS_WIP_MAX_AGE ?= $(CONSOLIDATEDCANONICAL_WIP_MAX_AGE)
+endif
+# USER-VARIABLE: COMPLETENESS_WIP_MAX_AGE
+# Defaults to the selected pipeline's lock age in hours.
+COMPLETENESS_ARGS = --task $(call completeness.quote,$(COMPLETENESS_TASK)) \
+ $(COMPLETENESS_TASK_ARGS) \
  --has-provider $(call completeness.quote,$(NEWSPAPER_HAS_PROVIDER)) \
- --canonical-input-kind $(call completeness.quote,$(CANONICAL_INPUT_KIND)) \
- --wip-max-age $(call completeness.quote,$(CONSOLIDATEDCANONICAL_WIP_MAX_AGE)) \
+ --wip-max-age $(call completeness.quote,$(COMPLETENESS_WIP_MAX_AGE)) \
  --concurrency $(call completeness.quote,$(COMPLETENESS_CONCURRENCY)) \
  --output-dir $(call completeness.quote,$(COMPLETENESS_REPORT_DIR)) \
  --log-level $(call completeness.quote,$(LOGGING_LEVEL)) \
@@ -66,8 +76,16 @@ help-completeness::
 	  $(call completeness.quote,  COMPLETENESS_CONCURRENCY=$(COMPLETENESS_CONCURRENCY)) \
 	  $(call completeness.quote,  COMPLETENESS_STREAMS=$(COMPLETENESS_STREAMS)) \
 	  $(call completeness.quote,  NEWSPAPERS_TO_PROCESS_FILE=$(NEWSPAPERS_TO_PROCESS_FILE)) \
-	  $(call completeness.quote,  CANONICAL_INPUT_KIND=$(CANONICAL_INPUT_KIND)) \
-	  $(call completeness.quote,  CONSOLIDATEDCANONICAL_WIP_MAX_AGE=$(CONSOLIDATEDCANONICAL_WIP_MAX_AGE))
+	  $(call completeness.quote,  COMPLETENESS_WIP_MAX_AGE=$(COMPLETENESS_WIP_MAX_AGE))
+ifeq ($(COMPLETENESS_TASK),consolidatedcanonical)
+	@printf '%s\n' $(call completeness.quote,  CANONICAL_INPUT_KIND=$(CANONICAL_INPUT_KIND))
+endif
+ifeq ($(COMPLETENESS_TASK),topics)
+	@printf '%s\n' $(call completeness.quote,  LINGPROC_ROOT=s3://$(S3_BUCKET_LINGPROC)/$(PROCESS_LABEL_LINGPROC)/$(RUN_ID_LINGPROC)) \
+	  $(call completeness.quote,  TOPICS_ROOT=s3://$(S3_BUCKET_TOPICS)/$(PROCESS_LABEL_TOPICS)/$(RUN_ID_TOPICS))
+	@echo "  Topics coverage compares lingproc year files with nonempty topic output files."
+endif
+
 	@echo ""
 	@echo "Checks artifact presence/nonzero sizes, prerequisites, and locks; not record/schema validity."
 	@echo "Writes JSON/TSV locally. Does not sync, process, or repair. Use distinct report directories for concurrent audits."

@@ -319,7 +319,7 @@ class AuditTests(unittest.TestCase):
             with patch.object(impresso_cookbook, 'get_s3_client', return_value=self.client) as factory, \
                     patch.object(impresso_cookbook, 'setup_logging') as logging:
                 self.assertEqual(audit.main(argv), 1)
-                factory.assert_called_once_with()
+                factory.assert_called_once_with(max_pool_connections=16)
                 logging.assert_called_once_with('INFO', None)
 
     def test_cli_exit_codes_and_configuration_failure_invalidates_publication(self):
@@ -336,6 +336,80 @@ class AuditTests(unittest.TestCase):
             self.client.failures['input', 'BL/P/pages/', None] = [S3Error('AccessDenied')]
             self.assertEqual(audit.main(argv, self.client), 2)
             self.assertEqual((Path(directory) / 'newspapers_rerun.txt').read_text(), '')
+
+
+class TopicsTests(unittest.TestCase):
+    def setUp(self):
+        self.client = FakeS3(page_size=1)
+        self.config = audit.Config(task='topics', lingproc_root='s3://input/lingproc/run',
+                                   topics_root='s3://output/topics/run', wip_max_age=1)
+
+    def source(self, year, size=10):
+        self.client.put_fixture('input', f'lingproc/run/BL/P/P-{year}.jsonl.bz2', size=size)
+
+    def output(self, year, size=10, suffix='', age=0):
+        self.client.put_fixture('output', f'topics/run/BL/P/P-{year}.jsonl.bz2{suffix}',
+                                size=size, age=age)
+
+    def run_audit(self, entries=('BL/P',)):
+        return audit.audit_collection(self.client, self.config,
+                                      audit.normalize_scopes(entries, True), entries, NOW)
+
+    def test_missing_zero_byte_and_unexpected_outputs(self):
+        for year in ('1900', '1901', '1902'):
+            self.source(year)
+        self.output('1900')
+        self.output('1901', size=0)
+        self.output('1903')
+        report = self.run_audit()
+        detail = report['items'][0]['streams']['topics']
+        self.assertEqual(report['exit_code'], 1)
+        self.assertEqual(detail['covered'], 1)
+        self.assertEqual(detail['missing'], ['P-1902.jsonl.bz2'])
+        self.assertEqual(detail['invalid'], ['P-1901.jsonl.bz2'])
+        self.assertEqual(detail['unexpected'], ['P-1903.jsonl.bz2'])
+
+    def test_year_scoping_and_locks(self):
+        self.source('1900')
+        self.source('1901')
+        self.output('1900')
+        self.output('1901', suffix='.wip')
+        self.assertEqual(self.run_audit(('BL/P/1900',))['exit_code'], 0)
+        report = self.run_audit()
+        self.assertTrue(report['items'][0]['active_locks'])
+        self.output('1901', suffix='.wip', age=2)
+        self.assertEqual(self.run_audit()['observation_counts']['stale_locks'], 1)
+
+    def test_empty_invalid_source_and_absent_requested_year(self):
+        self.assertEqual(self.run_audit()['items'][0]['status'], 'EMPTY_INPUT')
+        self.source('1900', size=0)
+        self.output('1900')
+        self.assertEqual(self.run_audit()['items'][0]['status'], 'INCOMPLETE')
+        self.source('1900')
+        report = self.run_audit(('BL/P/1900', 'BL/P/1901'))
+        self.assertEqual(report['exit_code'], 1)
+        self.assertIn('1901: requested year absent upstream', report['items'][0]['upstream_blockers'])
+
+    def test_topics_cli_and_reports(self):
+        self.source('1900')
+        self.output('1900')
+        with tempfile.TemporaryDirectory() as directory:
+            args = ['--task', 'topics', '--lingproc-root', self.config.lingproc_root,
+                    '--topics-root', self.config.topics_root, '--has-provider', '1',
+                    '--newspaper', 'BL/P', '--years', '1900', '--output-dir', directory]
+            self.assertEqual(audit.main(args, self.client), 0)
+            report = json.loads((Path(directory) / 'completeness_report.json').read_text())
+            self.assertEqual(report['task'], 'topics')
+            self.assertEqual(report['items'][0]['streams']['topics']['coverage_percent'], 100)
+            self.assertTrue((Path(directory) / 'report_complete.json').exists())
+
+    def test_listing_failure_and_invalid_configuration(self):
+        self.client.failures['input', 'lingproc/run/BL/P/', None] = [S3Error('AccessDenied')]
+        self.assertEqual(self.run_audit()['exit_code'], 2)
+        with self.assertRaises(ValueError):
+            replace(self.config, topics_root=None).validate()
+        with self.assertRaises(ValueError):
+            replace(self.config, check_streams=('pages',)).validate()
 
 
 if __name__ == '__main__':
