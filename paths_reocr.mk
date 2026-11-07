@@ -21,10 +21,19 @@ TASK_reocr ?= page-tesseract
 REOCR_ENGINE ?= $(if $(findstring pero,$(TASK_reocr)),pero,tesseract)
   $(call log.debug, REOCR_ENGINE)
 
+TASK_reocr := $(if $(filter pero,$(REOCR_ENGINE)),page-pero,$(TASK_reocr))
+  $(call log.debug, TASK_reocr)
+
+REOCR_SEGMENTATION ?= canonical
+  $(call log.debug, REOCR_SEGMENTATION)
+
+PARSENET_CONFIG_reocr ?= models/pero_eu_cz_print_newspapers_2022-09-26/config_cpu.ini
+  $(call log.debug, PARSENET_CONFIG_reocr)
+
 PERO_MODEL_CONFIG_reocr ?= models/pero_eu_cz_print_newspapers_2022-09-26/ocr_engine.json
   $(call log.debug, PERO_MODEL_CONFIG_reocr)
 
-MODEL_ID_reocr ?= german_print_20
+MODEL_ID_reocr ?= $(if $(filter pero,$(REOCR_ENGINE)),pero_eu_cz_print,german_print_20)
   $(call log.debug, MODEL_ID_reocr)
 
 HF_TESSERACT_REPO_reocr ?= impresso-project/german_print_20
@@ -93,7 +102,8 @@ REOCR_SYNTHESIZE_FALLBACK_LINES ?= 1
 RUN_VERSION_reocr ?= v1-0-0
   $(call log.debug, RUN_VERSION_reocr)
 
-RUN_ID_reocr := $(PROCESS_LABEL_reocr)-$(TASK_reocr)-$(MODEL_ID_reocr)_$(RUN_VERSION_reocr)
+RUN_SEGMENTATION_SUFFIX := $(if $(filter-out canonical,$(REOCR_SEGMENTATION)),-$(REOCR_SEGMENTATION))
+RUN_ID_reocr := $(PROCESS_LABEL_reocr)-$(TASK_reocr)$(RUN_SEGMENTATION_SUFFIX)-$(MODEL_ID_reocr)_$(RUN_VERSION_reocr)
   $(call log.debug, RUN_ID_reocr)
 
 PATH_REOCR_INPUT := $(S3_BUCKET_REOCR_INPUT)/$(CANONICAL_PATH_SEGMENT)/pages
