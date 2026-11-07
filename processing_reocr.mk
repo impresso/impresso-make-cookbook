@@ -127,6 +127,8 @@ $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	  --output-prefix $(S3_PATH_reocr) \
 	  --work-root $(LOCAL_PATH_reocr_WORK) \
 	  --done-marker $@ \
+	  --engine $(REOCR_ENGINE) \
+	  $(if $(PERO_MODEL_CONFIG_reocr),--pero-model $(PERO_MODEL_CONFIG_reocr)) \
 	  --tesseract-repo $(HF_TESSERACT_REPO_reocr) \
 	  --tesseract-model $(HF_TESSERACT_MODEL_reocr) \
 	  $(if $(TESSERACT_MODEL_URL_reocr),--tesseract-model-url $(TESSERACT_MODEL_URL_reocr)) \

@@ -18,6 +18,12 @@ PROCESS_SUBTYPE_LABEL_reocr ?=
 TASK_reocr ?= page-tesseract
   $(call log.debug, TASK_reocr)
 
+REOCR_ENGINE ?= $(if $(findstring pero,$(TASK_reocr)),pero,tesseract)
+  $(call log.debug, REOCR_ENGINE)
+
+PERO_MODEL_CONFIG_reocr ?= models/pero_eu_cz_print_newspapers_2022-09-26/ocr_engine.json
+  $(call log.debug, PERO_MODEL_CONFIG_reocr)
+
 MODEL_ID_reocr ?= german_print_20
   $(call log.debug, MODEL_ID_reocr)
 
