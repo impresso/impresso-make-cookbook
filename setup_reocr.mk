@@ -5,6 +5,11 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_reocr.mk)
 
 setup:: check-reocr-tools setup-reocr-tesseract-model
 
+setup-reocr-lexicon:
+	$(PYTHON) scripts/build_french_lexicon.py
+
+.PHONY: setup-reocr-lexicon
+
 check-reocr-tools:
 	@command -v tesseract >/dev/null 2>&1 || (echo "Missing required command: tesseract"; exit 1)
 	@tesseract --version >/dev/null 2>&1 || (echo "Tesseract is installed but cannot run"; exit 1)
@@ -43,6 +48,7 @@ check-reocr-tunnel: check-reocr-tools check-reocr-tunnel-env
 
 help-setup::
 	@echo "  make setup-reocr-tesseract-model  # Download/cache configured HF Tesseract and font models"
+	@echo "  make setup-reocr-lexicon          # Build and cache French frequency lexicon with Swiss gazetteer"
 	@echo "  make reocr-tunnel                 # Open and keep the IIIF SSH tunnel alive for parallel re-OCR"
 	@echo "  make check-reocr-tunnel           # Check whether the local IIIF tunnel port is already open"
 
