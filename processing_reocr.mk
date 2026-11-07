@@ -213,4 +213,41 @@ $(LOCAL_PATH_reocr_COLLECTED_STATS)/%.stats.json: $(LOCAL_PATH_REOCR_INPUT)/%.la
 	  $(LOCAL_PATH_reocr_COLLECTED_LOGS)/$*.stats.log.gz $(S3_PATH_reocr_COLLECTED_LOGS)/$*.stats.log.gz \
 	|| { rm -vf $@ ; exit 1; }
 
+INPUT ?=
+PAGE_IDX ?=
+IMAGE ?=
+OUTPUT ?=
+ENGINE ?=
+MAX_LINES ?=
+REOCR_NO_LM ?=
+
+visualize-layout:
+	@if [ -z "$(INPUT)" ]; then \
+	  echo "ERROR: Missing INPUT. Usage: make visualize-layout INPUT=<s3_or_local_path> [PAGE_IDX=0] [OUTPUT=out.html]"; \
+	  exit 1; \
+	fi
+	$(PYTHON) benchmarks/visualize_layout.py \
+	  --input $(INPUT) \
+	  $(if $(PAGE_IDX),--page-idx $(PAGE_IDX)) \
+	  $(if $(IMAGE),--image $(IMAGE)) \
+	  $(if $(OUTPUT),--output $(OUTPUT))
+
+.PHONY: visualize-layout
+
+compare-lines:
+	@if [ -z "$(INPUT)" ]; then \
+	  echo "ERROR: Missing INPUT. Usage: make compare-lines INPUT=<s3_or_local_path> [ENGINE=pero] [PAGE_IDX=0] [OUTPUT=out.html]"; \
+	  exit 1; \
+	fi
+	$(PYTHON) benchmarks/compare_lines.py \
+	  --input $(INPUT) \
+	  $(if $(ENGINE),--engine $(ENGINE)) \
+	  $(if $(PAGE_IDX),--page-idx $(PAGE_IDX)) \
+	  $(if $(IMAGE),--image $(IMAGE)) \
+	  $(if $(MAX_LINES),--max-lines $(MAX_LINES)) \
+	  $(if $(OUTPUT),--output $(OUTPUT)) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_NO_LM)),--no-lm)
+
+.PHONY: compare-lines
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_reocr.mk)
