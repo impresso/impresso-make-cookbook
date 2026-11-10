@@ -336,6 +336,16 @@ LANGIDENT_LOCAL_FILES_ONLY_OPTION ?= --local-files-only
   $(call log.debug, LANGIDENT_LOCAL_FILES_ONLY_OPTION)
 
 
+# USER-VARIABLE: LANGIDENT_IMAGE_CAPTIONS_OPTION
+# Option to identify the language of image captions (Stage 1, statistics and
+# ensemble).
+#
+# Set to --image-captions to output captioned images as content items, or leave
+# empty (default) to keep the behavior of older configurations.
+LANGIDENT_IMAGE_CAPTIONS_OPTION ?=
+  $(call log.debug, LANGIDENT_IMAGE_CAPTIONS_OPTION)
+
+
 # === USER-CONFIGURABLE VARIABLES (Work-In-Progress Management) ===============
 
 # USER-VARIABLE: LANGIDENT_WIP_MAX_AGE
@@ -710,6 +720,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_PAGES)/%.stam
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_LOCAL_FILES_ONLY_OPTION) \
+		$(LANGIDENT_IMAGE_CAPTIONS_OPTION) \
 		$(LANGIDENT_OCRQA_OPTION) \
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
@@ -757,6 +768,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_CANONICAL_AUDIOS)/%.sta
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_LOCAL_FILES_ONLY_OPTION) \
+		$(LANGIDENT_IMAGE_CAPTIONS_OPTION) \
 		$(LANGIDENT_OCRQA_OPTION) \
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
@@ -806,6 +818,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 		--log-file $@.log.gz \
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		$(LANGIDENT_LOCAL_FILES_ONLY_OPTION) \
+		$(LANGIDENT_IMAGE_CAPTIONS_OPTION) \
 		$(LANGIDENT_OCRQA_OPTION) \
 		$(if $(LANGIDENT_OCRQA_REPO_OPTION),--ocrqa-repo $(LANGIDENT_OCRQA_REPO_OPTION),) \
 		$(if $(LANGIDENT_OCRQA_VERSION_OPTION),--ocrqa-version $(LANGIDENT_OCRQA_VERSION_OPTION),) \
@@ -870,6 +883,7 @@ $(LOCAL_PATH_LANGIDENT_STAGE1)/stats.json: $(LOCAL_LANGIDENT_SYSTEMS_FILES) FORC
 		--log-level $(LANGIDENT_LOGGING_LEVEL) \
 		--log-file $(dir $@)stats.json.log.gz \
 		--outfile $(dir $@)stats.json \
+		$(LANGIDENT_IMAGE_CAPTIONS_OPTION) \
 		$(call LocalToS3,$(dir $<)) \
 	&& \
 	$(PYTHON) -m impresso_cookbook.local_to_s3 \
@@ -943,6 +957,7 @@ $(LOCAL_PATH_LANGIDENT)/%.jsonl.bz2: $(LOCAL_PATH_LANGIDENT_STAGE1)/%.jsonl.bz2 
     --log-level $(LANGIDENT_LOGGING_LEVEL) \
     --log-file $@.log.gz \
     $(LANGIDENT_VALIDATE_OPTION) \
+    $(LANGIDENT_IMAGE_CAPTIONS_OPTION) \
     $(if $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),--admissible-languages $(LANGIDENT_ADMISSIBLE_LANGUAGES_OPTION),) \
     $(if $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),--exclude-lb $(LANGIDENT_ENSEMBLE_EXCLUDE_LB_OPTION),) \
   && \
