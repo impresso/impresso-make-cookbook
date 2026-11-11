@@ -34,6 +34,25 @@ LINGPROC_LOGGING_LEVEL ?= $(LOGGING_LEVEL)
 LINGPROC_VALIDATE_OPTION ?= --validate
   $(call log.debug, LINGPROC_VALIDATE_OPTION)
 
+# USER-VARIABLE: LINGPROC_MIN_DOC_LENGTH
+# Minimum document length in characters (title plus full text). Shorter content
+# items are skipped entirely (counted as CONTENT-ITEMS-SHORT).
+LINGPROC_MIN_DOC_LENGTH ?= 50
+  $(call log.debug, LINGPROC_MIN_DOC_LENGTH)
+
+# USER-VARIABLE: LINGPROC_MAX_DOC_LENGTH
+# Maximum document length in characters (title plus full text). Longer content
+# items are skipped entirely (counted as CONTENT-ITEMS-LONG), not truncated.
+LINGPROC_MAX_DOC_LENGTH ?= 500000
+  $(call log.debug, LINGPROC_MAX_DOC_LENGTH)
+
+# USER-VARIABLE: LINGPROC_CHUNK_SIZE
+# Texts longer than this many characters are split at whitespace into chunks
+# that spaCy processes separately; the results are concatenated, with token
+# offsets relative to the full text. 0 disables chunking.
+LINGPROC_CHUNK_SIZE ?= 50000
+  $(call log.debug, LINGPROC_CHUNK_SIZE)
+
 # USER-VARIABLE: LINGPROC_QUIET_OPTION
 # Reserved for quiet processing mode (@TODO: Implement in script)
 LINGPROC_QUIET_OPTION ?= 
@@ -170,6 +189,9 @@ help-processing::
 	@echo "                                          # Also contributes to processing-target"
 	@echo ""
 	@echo "LINGPROC VARIABLES:"
+	@echo "  LINGPROC_MIN_DOC_LENGTH=$(LINGPROC_MIN_DOC_LENGTH) # Skip items shorter than this many characters (title + text)"
+	@echo "  LINGPROC_MAX_DOC_LENGTH=$(LINGPROC_MAX_DOC_LENGTH) # Skip items longer than this many characters (title + text)"
+	@echo "  LINGPROC_CHUNK_SIZE=$(LINGPROC_CHUNK_SIZE) # Process longer texts in chunks of at most this many characters (0 = off)"
 	@echo "  LINGPROC_ALLOW_EMPTY_INPUT=$(LINGPROC_ALLOW_EMPTY_INPUT) # Set to 1 to allow an intentionally empty selection"
 	@echo "  LINGPROC_LOGGING_LEVEL=$(LINGPROC_LOGGING_LEVEL)"
 	@echo "  LINGPROC_VALIDATE_OPTION=$(LINGPROC_VALIDATE_OPTION)"
@@ -288,7 +310,9 @@ $(LOCAL_PATH_LINGPROC)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	  $(PYTHON) lib/spacy_linguistic_processing.py \
 	    $(call LocalToS3,$<) \
 	    $(LINGPROC_VALIDATE_OPTION) \
-	    --max-doc-length 100000 \
+	    --min-doc-length $(LINGPROC_MIN_DOC_LENGTH) \
+	    --max-doc-length $(LINGPROC_MAX_DOC_LENGTH) \
+	    --chunk-size $(LINGPROC_CHUNK_SIZE) \
 	    --git-version $(GIT_VERSION) \
 	    $(LINGPROC_QUIET_OPTION) \
 	    -o $@ \

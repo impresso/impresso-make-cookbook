@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### Lingproc length limits
+- The maximum document length for linguistic processing was hardcoded to 100000 characters; it now defaults to 500000 via `LINGPROC_MAX_DOC_LENGTH`. Texts longer than `LINGPROC_CHUNK_SIZE` are processed in chunks, so long items that were previously skipped are now annotated
+
 #### Single Python interpreter for all recipes
 - `PYTHON` is now resolved once in `make_settings.mk` and exported: explicit `PYTHON=...`, then an activated venv (`$(VIRTUAL_ENV)/bin/python`), then the project-local `$(VENV_PATH)/bin/python` (default `.venv`), then `python3`
 - All recipes call `$(PYTHON)` instead of bare `python3` or `python`; recipes that relied on an activated shell keep working through the `VIRTUAL_ENV` step
@@ -16,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `STAMP_SYNC_PYTHON` was removed in favor of `PYTHON`; setting it prints a warning
 
 ### Added
+- `LINGPROC_MIN_DOC_LENGTH` (default 50), `LINGPROC_MAX_DOC_LENGTH` (default 500000), and `LINGPROC_CHUNK_SIZE` (default 50000) user variables in `processing_lingproc.mk`, passed to the lingproc script as `--min-doc-length`, `--max-doc-length`, and `--chunk-size` and listed in `make help-processing`
 - `completeness.mk` provides read-only collection/newspaper audit targets and help, with processing configuration propagation and optional single-newspaper year selection.
 - Read-only consolidated-canonical completeness CLI with paginated S3 inventories, exact page/audio key coverage, issue prerequisite checks, lock observations, and JSON/TSV reports. Automatic repair remains a separate follow-up phase.
 - `make check-python-env` verifies that `PYTHON` can import `impresso_cookbook`; `make setup` runs it
