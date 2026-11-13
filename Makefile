@@ -19,6 +19,10 @@ include help.mk
 # General setup targets
 include setup.mk
 
+# INCLUDE-FILES: setup_python.mk
+# Python environment setup and requirements.txt regeneration targets
+include setup_python.mk
+
 # INCLUDE-FILES: setup_lingproc.mk
 # Setup targets for linguistic processing environment
 include setup_lingproc.mk
