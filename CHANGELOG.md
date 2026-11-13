@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### Slimmer release process
+- `RELEASE_PROCESS.md` is now a short checklist for releasing from `main`: it runs `pytest` and a fresh-install check, explains the `requirements.txt` cookbook pin, adds a step for bumping the submodule in parent repositories, and fixes the hotfix flow so release notes are committed before tagging
+
 #### Lingproc length limits
 - The maximum document length for linguistic processing was hardcoded to 100000 characters; it now defaults to 500000 via `LINGPROC_MAX_DOC_LENGTH`. Texts longer than `LINGPROC_CHUNK_SIZE` are processed in chunks, so long items that were previously skipped are now annotated
 
