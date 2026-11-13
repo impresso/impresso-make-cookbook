@@ -187,7 +187,7 @@ When using this cookbook in your repository (typically as a git submodule at `co
 2. Load `cookbook/help.mk` - help system
 3. Define config and user variables with `$(call log.info, VARIABLE_NAME)`
 4. Load `cookbook/make_settings.mk` - shell options and make settings
-5. Load `cookbook/setup.mk` - general setup
+5. Load `cookbook/setup.mk` - general setup (optionally `cookbook/setup_python.mk` for pip/pipenv/uv environment and `requirements.txt` targets)
 6. Load domain-specific includes (`newspaper_list.mk`, `paths_*.mk`, `sync_*.mk`, `processing_*.mk`)
 7. Load utilities (`local_to_s3.mk`)
 8. Load repo-specific addons LAST
@@ -661,6 +661,9 @@ If `make --version` does not report GNU Make 4+, use `gmake` for the commands be
    # This installs Python 3.11, pip, and pipenv
    ```
 
+   With uv, skip this step: `make setup-uv` only checks that uv is installed,
+   and `uv venv` fetches Python 3.11 itself if it is missing.
+
 5. **Install Python dependencies:**
 
    ```bash
@@ -674,7 +677,9 @@ If `make --version` does not report GNU Make 4+, use `gmake` for the commands be
    The `Pipfile` stays the source of truth for dependencies. uv only installs
    the pinned `requirements.txt`; after changing the `Pipfile`, run
    `make update-pip-requirements-file` first. `make sync-venv-uv` also removes
-   packages that are not in `requirements.txt`.
+   packages that are not in `requirements.txt`. Because the `Pipfile` tracks
+   `impresso-cookbook` at `ref = "main"`, regenerating `requirements.txt` also
+   moves that git pin to the current `main` commit.
 
    Make uses the interpreter in `PYTHON`, resolved once in `make_settings.mk`:
    an explicit `PYTHON=...` wins, then an activated venv (`pipenv shell` or
@@ -871,6 +876,8 @@ There must be at least six runnable collection items left in
 - `make refresh-newspaper-list`: Explicitly replace `NEWSPAPERS_TO_PROCESS_FILE` using current S3 discovery and filters; run before collection in a separate invocation. Failed or empty discovery preserves the existing list. This command also replaces a custom selection file if specified, so ordinary collection runs never call it automatically.
 - `make help-newspaper-list`: Show newspaper list generation modes and variables
 - `make update-pip-requirements-file`: Update requirements.txt from Pipfile
+- `make setup-uv`: Check that uv is installed (prints install hints otherwise)
+- `make create-venv-uv`: Create `VENV_PATH` with uv for Python 3.`PYTHON_MINOR_VERSION` if missing
 - `make setup-venv-uv`: Create `VENV_PATH` with uv if missing and install `requirements.txt` into it
 - `make sync-venv-uv`: Make `VENV_PATH` match `requirements.txt` exactly with uv
 

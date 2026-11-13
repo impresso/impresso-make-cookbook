@@ -51,7 +51,10 @@ Important: some documentation and recipes still refer to paths like `cookbook/..
 
 - GNU Make 4.0+ is required. On macOS, `/usr/bin/make` is too old (`3.81`) and fails immediately.
 - Python packaging is split between:
-  - root `Pipfile` / `requirements.txt`
+  - root `Pipfile` / `requirements.txt`; the `Pipfile` is the source of truth,
+    and `make update-pip-requirements-file` regenerates `requirements.txt`
+    with pipenv. uv is optional and only installs `requirements.txt`
+    (`make setup-venv-uv`, `make sync-venv-uv` in `setup_python.mk`)
   - `lib/pyproject.toml` for the installable `impresso_cookbook` package
 - AWS/S3 access is configured from a local `.env` file and optional repo-local `.aws/` files.
 - Every direct AWS CLI command, including examples in documentation and help,

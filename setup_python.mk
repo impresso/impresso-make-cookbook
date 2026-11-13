@@ -2,7 +2,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_python.mk)
 
 ###############################################################################
 # PYTHON SETUP TARGETS
-# Targets for setting up the Python environment including pip and pipenv
+# Targets for setting up the Python environment with pip and pipenv, or
+# optionally uv (see UV SUPPORT), and for regenerating requirements.txt
 ###############################################################################
 
 # DOUBLE COLON TARGET specifications
