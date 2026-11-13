@@ -228,7 +228,7 @@ help::
 - Use `help::` (double colon) so addons can extend help
 - Never define manual `log.info` or `log.debug` - use the functions from `log.mk`
 
-See [AGENT.md](AGENT.md) for detailed integration patterns and common mistakes.
+See [AGENTS.md](AGENTS.md) for detailed integration patterns and common mistakes.
 
 ## Uploading to impresso S3 bucket
 

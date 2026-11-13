@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-13
+
+### Breaking changes
+- `NEWSPAPER_LIST_YEAR_ANCHOR` was removed; year-aware collection items (`PROVIDER/NEWSPAPER/YEAR`) replace it
+- `STAMP_SYNC_PYTHON` was removed in favor of `PYTHON`; setting it only prints a warning
+- The fallback interpreter is `python3` instead of `python3.$(PYTHON_MINOR_VERSION)` (see "Single Python interpreter" below)
+- `make collection` runs `COLLECTION_TARGET` (default `newspaper`) per item instead of `all`
+- Explicit sync targets (`sync-canonical`, `sync-langident`, consolidatedcanonical sync) always query S3 and force a stamp refresh; `.last_synced` files remain as dependency markers only
+- Default buckets changed: `S3_BUCKET_REBUILT` is `122-rebuilt-final` (was `22-rebuilt-final`) and `S3_BUCKET_LINGPROC` is `142-processed-data-final` (was `40-processed-data-sandbox`)
+- `AGENT.md` was renamed to `AGENTS.md`
+
+### Removed
+- Leftover release summaries and task reports (`RELEASE_SUMMARY_v1.3.0.md`, `RELEASE_SUMMARY_v1.4.0.md`, `RELEASE_DOCUMENTATION_SUMMARY.md`, `TASK_COMPLETION_REPORT.md`, `UPDATE_RELEASE_INSTRUCTIONS.md`) and the completed `COLLECTION_COMPLETENESS_PLAN.md`; `.github/copilot-instructions.md` now only points to `AGENTS.md`
+
 ### Changed
 
 #### Slimmer release process
@@ -22,6 +36,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `STAMP_SYNC_PYTHON` was removed in favor of `PYTHON`; setting it prints a warning
 
 ### Added
+
+#### New pipelines and aggregators
+- Media sources pipeline (`paths_`/`sync_`/`setup_`/`processing_mediasources.mk`, `aggregators_mediasources.mk`) with `MIN_YEAR`, `SAMPLE`/`SAMPLE_SEED`, `DTYPE_MEDIASOURCES`, `FILTER_ANACHRONISTIC_MEDIASOURCES` and `OUTER_BATCH_MAX_CHARS` options
+- S3 on-demand aggregation (`paths_`/`sync_`/`setup_`/`processing_s3aggregation.mk`, `aggregators_s3aggregation.mk`) with configurable inputs and an `aggregate-all` target
+- `aggregators_topics.mk` (run-level topic assignment aggregates) and `aggregators_reocr.mk`
+- `langident_main.mk`; `LANGIDENT_IMAGE_CAPTIONS_OPTION` for image-caption language identification
+
+#### Re-OCR
+- PERO engine, segmentation (parsenet), Tesseract and HF font-model setup; IIIF tunnel targets; `setup-reocr-lexicon`
+- Re-OCR sampling, year-package sync, `collect-reocr-stats`, `aggregate-reocr-stats`, and `visualize-layout` / `compare-lines` benchmark targets
+
+#### Orchestration and S3 helpers
+- S3 preflight checks and WIP-lock lifecycle in the nel, newsagencies and consolidatedcanonical recipes
+- Year-scoped stamp sync, `make -n` propagation through collection runs, and year-aware collection items
+- `show-delete-newspaper-s3` (dry-run delete command, auto-wired per pipeline, multiple prefixes) and an S3 cross-bucket folder move in `aws.mk`
+- Canonical and consolidated-canonical audio input support
+- Preflight `--exit-2-if-exists` mode and stdout output in `local_to_s3`
+- `lib/cli_TEMPLATE.py` template for new S3-aware CLI scripts
+
+#### Help, setup and safety
+- Central `help.mk` with per-topic `help-*` pages and `debug-vars`
+- `.githooks/pre-commit` that refuses commits from a detached `HEAD` in cookbook checkouts
+- `setup-aws` target, warnings when AWS setup is missing, and network-filesystem warning for the venv (`check-venv-filesystem`)
+- `update-pip-requirements-file` and `clean-setup` targets
+- HuggingFace model revision support (`:revision`) for content item classification and newsagencies
+
+#### Python environment
 - Optional uv support in `setup_python.mk`: `setup-uv` checks for uv and prints install hints, `create-venv-uv` creates `VENV_PATH` for Python 3.`PYTHON_MINOR_VERSION`, `setup-venv-uv` installs `UV_REQUIREMENTS_FILE` (default `requirements.txt`) into it, and `sync-venv-uv` makes the venv match that file exactly. The `Pipfile` remains the dependency source of truth; `UV` selects the uv executable
 - The example root `Makefile` now includes `make_settings.mk` and `setup_python.mk`, so `PYTHON`/`VENV_PATH` are defined and `make update-pip-requirements-file` works in a standalone checkout
 - `LINGPROC_MIN_DOC_LENGTH` (default 50), `LINGPROC_MAX_DOC_LENGTH` (default 500000), and `LINGPROC_CHUNK_SIZE` (default 50000) user variables in `processing_lingproc.mk`, passed to the lingproc script as `--min-doc-length`, `--max-doc-length`, and `--chunk-size` and listed in `make help-processing`
