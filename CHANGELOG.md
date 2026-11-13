@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `STAMP_SYNC_PYTHON` was removed in favor of `PYTHON`; setting it prints a warning
 
 ### Added
+- Optional uv support in `setup_python.mk`: `setup-uv` checks for uv and prints install hints, `create-venv-uv` creates `VENV_PATH` for Python 3.`PYTHON_MINOR_VERSION`, `setup-venv-uv` installs `UV_REQUIREMENTS_FILE` (default `requirements.txt`) into it, and `sync-venv-uv` makes the venv match that file exactly. The `Pipfile` remains the dependency source of truth; `UV` selects the uv executable
+- The example root `Makefile` now includes `make_settings.mk` and `setup_python.mk`, so `PYTHON`/`VENV_PATH` are defined and `make update-pip-requirements-file` works in a standalone checkout
 - `LINGPROC_MIN_DOC_LENGTH` (default 50), `LINGPROC_MAX_DOC_LENGTH` (default 500000), and `LINGPROC_CHUNK_SIZE` (default 50000) user variables in `processing_lingproc.mk`, passed to the lingproc script as `--min-doc-length`, `--max-doc-length`, and `--chunk-size` and listed in `make help-processing`
 - `completeness.mk` provides read-only collection/newspaper audit targets and help, with processing configuration propagation and optional single-newspaper year selection.
 - Read-only consolidated-canonical completeness CLI with paginated S3 inventories, exact page/audio key coverage, issue prerequisite checks, lock observations, and JSON/TSV reports. Automatic repair remains a separate follow-up phase.

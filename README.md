@@ -667,7 +667,14 @@ If `make --version` does not report GNU Make 4+, use `gmake` for the commands be
    PIPENV_VENV_IN_PROJECT=enabled pipenv install
    # or, inside an activated venv of your choice
    python3 -m pip install -r requirements.txt
+   # or, with uv (faster; creates .venv if missing)
+   make setup-venv-uv
    ```
+
+   The `Pipfile` stays the source of truth for dependencies. uv only installs
+   the pinned `requirements.txt`; after changing the `Pipfile`, run
+   `make update-pip-requirements-file` first. `make sync-venv-uv` also removes
+   packages that are not in `requirements.txt`.
 
    Make uses the interpreter in `PYTHON`, resolved once in `make_settings.mk`:
    an explicit `PYTHON=...` wins, then an activated venv (`pipenv shell` or
@@ -864,6 +871,8 @@ There must be at least six runnable collection items left in
 - `make refresh-newspaper-list`: Explicitly replace `NEWSPAPERS_TO_PROCESS_FILE` using current S3 discovery and filters; run before collection in a separate invocation. Failed or empty discovery preserves the existing list. This command also replaces a custom selection file if specified, so ordinary collection runs never call it automatically.
 - `make help-newspaper-list`: Show newspaper list generation modes and variables
 - `make update-pip-requirements-file`: Update requirements.txt from Pipfile
+- `make setup-venv-uv`: Create `VENV_PATH` with uv if missing and install `requirements.txt` into it
+- `make sync-venv-uv`: Make `VENV_PATH` match `requirements.txt` exactly with uv
 
 ### Aggregation Targets
 

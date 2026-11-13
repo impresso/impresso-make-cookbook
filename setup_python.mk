@@ -141,6 +141,73 @@ help-setup::
 	@echo "  make update-pip-requirements-file # Lock deps and regenerate requirements.txt"
 
 
+###
+# UV SUPPORT
+# Optional fast alternative to pip for creating and filling the venv.
+# Pipfile stays the source of truth; uv installs from requirements.txt.
+#------------------------------------------------------------------------------
+
+# USER-VARIABLE: UV
+# uv executable used by the uv targets
+UV ?= uv
+  $(call log.debug, UV)
+
+# USER-VARIABLE: UV_REQUIREMENTS_FILE
+# Requirements file that the uv targets install into VENV_PATH
+UV_REQUIREMENTS_FILE ?= requirements.txt
+  $(call log.debug, UV_REQUIREMENTS_FILE)
+
+
+# TARGET: setup-uv
+#: Checks that uv is available and prints install hints otherwise
+#
+# uv is not installed automatically: pip --user installs are refused by
+# externally managed Pythons (PEP 668, e.g. Homebrew or Debian 12+).
+setup-uv:
+	@if ! command -v $(UV) > /dev/null; then \
+		echo "ERROR: uv not found (UV=$(UV)). Install it with one of:" >&2; \
+		echo "  brew install uv" >&2; \
+		echo "  pipx install uv" >&2; \
+		echo "  curl -LsSf https://astral.sh/uv/install.sh | sh" >&2; \
+		exit 1; \
+	fi
+	@echo "uv found: $$(command -v $(UV)) ($$($(UV) --version))"
+
+.PHONY: setup-uv
+
+
+# TARGET: create-venv-uv
+#: Creates VENV_PATH with uv for Python 3.$(PYTHON_MINOR_VERSION) if it does not exist
+create-venv-uv: setup-uv
+	if [ ! -x "$(VENV_PATH)/bin/python" ]; then \
+		$(UV) venv --python 3.$(PYTHON_MINOR_VERSION) "$(VENV_PATH)" ; \
+	fi
+
+.PHONY: create-venv-uv
+
+
+# TARGET: setup-venv-uv
+#: Creates VENV_PATH with uv (if missing) and installs UV_REQUIREMENTS_FILE into it
+setup-venv-uv: create-venv-uv
+	$(UV) pip install --python "$(VENV_PATH)/bin/python" -r "$(UV_REQUIREMENTS_FILE)"
+
+.PHONY: setup-venv-uv
+
+
+# TARGET: sync-venv-uv
+#: Makes VENV_PATH match UV_REQUIREMENTS_FILE exactly (removes extra packages)
+sync-venv-uv: create-venv-uv
+	$(UV) pip sync --python "$(VENV_PATH)/bin/python" "$(UV_REQUIREMENTS_FILE)"
+
+.PHONY: sync-venv-uv
+
+help-setup::
+	@echo "  make setup-uv                     # Check that uv is available (prints install hints otherwise)"
+	@echo "  make create-venv-uv               # Create $(VENV_PATH) with uv for Python 3.$(PYTHON_MINOR_VERSION) if missing"
+	@echo "  make setup-venv-uv                # Create $(VENV_PATH) with uv and install $(UV_REQUIREMENTS_FILE)"
+	@echo "  make sync-venv-uv                 # Make $(VENV_PATH) match $(UV_REQUIREMENTS_FILE) exactly"
+
+
 # TARGET: clean-setup
 #: Remove local Python setup/cache artifacts
 clean-setup::
