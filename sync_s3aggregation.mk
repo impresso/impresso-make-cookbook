@@ -16,7 +16,7 @@ LOCAL_s3aggregation_SYNC_STAMP_FILE := $(LOCAL_PATH_s3aggregation).last_synced
 #: Creates file stamps matching S3 object names exactly (no suffix)
 $(LOCAL_PATH_s3aggregation).last_synced:
 	mkdir -p $(@D) && \
-	python  -m impresso_cookbook.s3_to_local_stamps  \
+	$(PYTHON) -m impresso_cookbook.s3_to_local_stamps  \
 	   $(S3_PATH_s3aggregation) \
 	   --local-dir $(BUILD_DIR) \
 	   --stamp-mode per-file \

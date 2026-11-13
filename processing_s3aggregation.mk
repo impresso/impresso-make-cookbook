@@ -67,13 +67,13 @@ s3aggregation-target: $(LOCAL_s3aggregation_FILES)
 $(LOCAL_PATH_s3aggregation)/%.jsonl.bz2: $(LOCAL_PATH_INPUT_s3aggregation)/%.jsonl.bz2
 	$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
-    python3 lib/cli_s3aggregation.py \
+    $(PYTHON) lib/cli_s3aggregation.py \
       --input $(call LocalToS3,$<) \
       --output $@ \
       --log-file $@.log.gz \
       $(CLI_EXTRA_ARGS) \
     && \
-    python3 -m impresso_cookbook.local_to_s3 \
+    $(PYTHON) -m impresso_cookbook.local_to_s3 \
       $@        $(call LocalToS3,$@) \
       $@.log.gz $(call LocalToS3,$@).log.gz \
     || { rm -vf $@ ; exit 1 ; }
