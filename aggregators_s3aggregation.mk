@@ -26,12 +26,26 @@ aggregate:
 	  $(if $(AGGREGATE_JQ_FILTER_s3aggregation),--jq-filter $(AGGREGATE_JQ_FILTER_s3aggregation),) \
 	  -o $(S3_PATH_AGGREGATED_s3aggregation)
 
-.PHONY: aggregate
+# USER-VARIABLE: S3_PATH_AGGREGATED_ALL_s3aggregation
+# Destination S3 path for overall monolithic collection aggregated output
+S3_PATH_AGGREGATED_ALL_s3aggregation ?= s3://$(S3_BUCKET_s3aggregation)/$(PROCESS_LABEL_s3aggregation)/aggregated/all_person_mentions.jsonl.gz
+
+# TARGET: aggregate-all
+#: Aggregate all extracted mentions across the entire collection into a single monolithic file on S3
+aggregate-all:
+	$(PYTHON) cookbook/lib/s3_aggregator.py \
+	  --s3-prefix s3://$(S3_BUCKET_s3aggregation)/$(PROCESS_LABEL_s3aggregation)/$(RUN_ID_s3aggregation) \
+	  $(if $(AGGREGATE_KEYS_s3aggregation),--keys $(AGGREGATE_KEYS_s3aggregation),) \
+	  $(if $(AGGREGATE_JQ_FILTER_s3aggregation),--jq-filter $(AGGREGATE_JQ_FILTER_s3aggregation),) \
+	  -o $(S3_PATH_AGGREGATED_ALL_s3aggregation)
+
+.PHONY: aggregate aggregate-all
 
 help-aggregation::
 	@echo ""
 	@echo "S3 AGGREGATION TARGETS:"
 	@echo "  make aggregate NEWSPAPER=...       # Aggregate output files for a newspaper to S3"
 	@echo "  make collection COLLECTION_TARGET=aggregate  # Aggregate all newspapers in parallel"
+	@echo "  make aggregate-all                 # Aggregate all mentions into a single monolithic S3 file"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_s3aggregation.mk)
