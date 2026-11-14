@@ -137,23 +137,16 @@ $(LOCAL_PATH_MEDIASOURCES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	    esac ; \
 	  fi ; \
 	  status=0 ; \
-	  MIN_YEAR_MEDIASOURCES="$(MIN_YEAR_MEDIASOURCES)" \
-	  OUTER_BATCH_MAX_CHARS_MEDIASOURCES="$(OUTER_BATCH_MAX_CHARS_MEDIASOURCES)" \
-	  SAMPLE_MEDIASOURCES="$(SAMPLE_MEDIASOURCES)" \
-	  SAMPLE_SEED_MEDIASOURCES="$(SAMPLE_SEED_MEDIASOURCES)" \
-	  $(PYTHON) lib/cli_mediasources.py \
+	  TMPDIR=/tmp TORCHINDUCTOR_CACHE_DIR=/tmp/inductor TRITON_CACHE_DIR=/tmp/triton \
+	  $(PYTHON) -m impresso_inference.tasks.mediasources.cli.run \
 	    --input $(call LocalToS3,$<) \
 	    --output $@ \
-	    --log-file $@.log.gz \
-	    --log-level $(LOGGING_LEVEL) \
-	    --hf-model $(HF_MODEL_MEDIASOURCES) \
+	    --model-name $(HF_MODEL_MEDIASOURCES) \
 	    --revision $(HF_MODEL_REVISION_MEDIASOURCES) \
 	    --batch-size $(BATCH_SIZE_MEDIASOURCES) \
-	    --outer-batch-size $(OUTER_BATCH_SIZE_MEDIASOURCES) \
-	    --dtype $(DTYPE_MEDIASOURCES) \
-	    --device $(DEVICE_MEDIASOURCES) \
-	    $(FILTER_ANACHRONISTIC_MEDIASOURCES) \
-	    $(DIAGNOSTICS_MEDIASOURCES) || status=$$? ; \
+	    --precision $(if $(filter float32,$(DTYPE_MEDIASOURCES)),fp32,bf16) \
+	    --device $(if $(filter auto,$(DEVICE_MEDIASOURCES)),cuda,$(DEVICE_MEDIASOURCES)) \
+	    $(if $(filter --filter-anachronistic,$(FILTER_ANACHRONISTIC_MEDIASOURCES)),,--no-filter-anachronistic) || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
 	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      $(MEDIASOURCES_FORCE_OVERWRITE_OPTION) $(MEDIASOURCES_UPLOAD_IF_NEWER_OPTION) \
