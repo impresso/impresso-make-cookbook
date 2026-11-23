@@ -60,6 +60,14 @@ ifeq ($(filter $(MEDIAAGENCIES_STAGE),all prepare forward decode),)
 $(error MEDIAAGENCIES_STAGE must be one of: all prepare forward decode (got '$(MEDIAAGENCIES_STAGE)'))
 endif
 
+# USER-VARIABLE: MIN_YEAR_MEDIAAGENCIES
+# Years before this cutoff predate every label's founding year (Havas, 1835), so
+# the anachronism filter would drop every entity. In the all and prepare stages
+# such years skip the model and get empty results ({"id", "entities": []} per
+# article) written directly to the final output. Set empty to disable.
+MIN_YEAR_MEDIAAGENCIES ?=
+  $(call log.debug, MIN_YEAR_MEDIAAGENCIES)
+
 # USER-VARIABLE: CPU_WORKERS_MEDIAAGENCIES
 # CPU worker processes per prepare/decode/all call. Keep 1 when COLLECTION_JOBS
 # already uses all cores (for example COLLECTION_JOBS=30 on a 30-core machine).
@@ -70,6 +78,7 @@ help-processing::
 	@echo "MEDIAAGENCIES STAGES:"
 	@echo "  MEDIAAGENCIES_STAGE=$(MEDIAAGENCIES_STAGE)  # all | prepare (CPU) | forward (GPU) | decode (CPU)"
 	@echo "  CPU_WORKERS_MEDIAAGENCIES=$(CPU_WORKERS_MEDIAAGENCIES)"
+	@echo "  MIN_YEAR_MEDIAAGENCIES=$(MIN_YEAR_MEDIAAGENCIES)  # earlier years get empty results without the model"
 	@echo "  Example: make collection MEDIAAGENCIES_STAGE=prepare COLLECTION_JOBS=30 NEWSPAPER_JOBS=1 CFG=..."
 
 ifeq ($(MEDIAAGENCIES_STAGE),all)
@@ -80,8 +89,8 @@ S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES)
 endif
 ifeq ($(MEDIAAGENCIES_STAGE),prepare)
 sync-input :: sync-rebuilt
-sync-output :: sync-mediaagencies-stage1
-clean-sync-output :: clean-sync-mediaagencies-stages
+sync-output :: sync-mediaagencies-stage1 sync-mediaagencies
+clean-sync-output :: clean-sync-mediaagencies-stages clean-sync-mediaagencies
 S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES_STAGE1)
 endif
 ifeq ($(MEDIAAGENCIES_STAGE),forward)
@@ -116,15 +125,35 @@ list_mediaagencies_files = $(call filter_mediaagencies_year_files,$(shell ls -r 
 ifneq ($(filter $(MEDIAAGENCIES_STAGE),all prepare),)
 LOCAL_REBUILT_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_REBUILT),.jsonl.bz2)
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
+
+# Rebuilt year files <alias>-<year>.jsonl.bz2 with year < MIN_YEAR_MEDIAAGENCIES.
+ifneq ($(strip $(MIN_YEAR_MEDIAAGENCIES)),)
+LOCAL_REBUILT_EARLY_FILES := $(shell for f in $(LOCAL_REBUILT_STAMP_FILES); do \
+    y=$${f%.jsonl.bz2}; y=$${y##*-}; \
+    if [ "$$y" -lt $(MIN_YEAR_MEDIAAGENCIES) ] 2>/dev/null; then echo "$$f"; fi; \
+  done)
+else
+LOCAL_REBUILT_EARLY_FILES :=
+endif
+  $(call log.debug, LOCAL_REBUILT_EARLY_FILES)
+
+LOCAL_REBUILT_MODEL_FILES := $(filter-out $(LOCAL_REBUILT_EARLY_FILES),$(LOCAL_REBUILT_STAMP_FILES))
+
+# Final outputs that get empty results without running the model.
+LOCAL_MEDIAAGENCIES_EMPTY_FILES := \
+    $(LOCAL_REBUILT_EARLY_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2)
+  $(call log.debug, LOCAL_MEDIAAGENCIES_EMPTY_FILES)
 endif
 
 ifeq ($(MEDIAAGENCIES_STAGE),all)
 LOCAL_MEDIAAGENCIES_FILES := \
-    $(LOCAL_REBUILT_STAMP_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2)
+    $(LOCAL_REBUILT_MODEL_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2) \
+    $(LOCAL_MEDIAAGENCIES_EMPTY_FILES)
 endif
 ifeq ($(MEDIAAGENCIES_STAGE),prepare)
 LOCAL_MEDIAAGENCIES_FILES := \
-    $(LOCAL_REBUILT_STAMP_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)/%.stage1.parquet)
+    $(LOCAL_REBUILT_MODEL_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)/%.stage1.parquet) \
+    $(LOCAL_MEDIAAGENCIES_EMPTY_FILES)
 endif
 ifeq ($(MEDIAAGENCIES_STAGE),forward)
 LOCAL_MEDIAAGENCIES_STAGE1_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_MEDIAAGENCIES_STAGE1),.stage1.parquet)
@@ -215,11 +244,16 @@ MEDIAAGENCIES_CMD_decode = $(PYTHON) -m impresso_inference.tasks.mediaagencies.c
     --input $(call LocalToS3,$<) --output $@ \
     $(MEDIAAGENCIES_MODEL_OPTIONS) --num-workers $(CPU_WORKERS_MEDIAAGENCIES) $(MEDIAAGENCIES_FILTER_OPTION)
 
+MEDIAAGENCIES_CMD_empty = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.empty \
+    --input $(call LocalToS3,$<) --output $@ \
+    --reason "publication year before MIN_YEAR_MEDIAAGENCIES=$(MIN_YEAR_MEDIAAGENCIES)"
+
 # Intermediate parquet buffers are truncated to zero-byte stamps after upload.
 MEDIAAGENCIES_UPLOAD_OPTIONS_all :=
 MEDIAAGENCIES_UPLOAD_OPTIONS_prepare := --keep-timestamp-only
 MEDIAAGENCIES_UPLOAD_OPTIONS_forward := --keep-timestamp-only
 MEDIAAGENCIES_UPLOAD_OPTIONS_decode :=
+MEDIAAGENCIES_UPLOAD_OPTIONS_empty :=
 
 
 # FUNCTION: mediaagencies_stage_recipe
@@ -291,6 +325,13 @@ endef
 ifeq ($(MEDIAAGENCIES_STAGE),all)
 $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(call mediaagencies_stage_recipe,all)
+endif
+
+# Years before MIN_YEAR_MEDIAAGENCIES (all and prepare stages). A static pattern
+# rule takes precedence over the implicit rule of the all stage.
+ifneq ($(strip $(LOCAL_MEDIAAGENCIES_EMPTY_FILES)),)
+$(LOCAL_MEDIAAGENCIES_EMPTY_FILES): $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
+	$(call mediaagencies_stage_recipe,empty)
 endif
 
 ifeq ($(MEDIAAGENCIES_STAGE),prepare)
