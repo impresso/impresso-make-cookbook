@@ -55,10 +55,10 @@ help-sync::
 	@echo "  sync-mediaagencies-stage2 # Sync stage-2 parquet stamps from S3"
 
 $(LOCAL_MEDIAAGENCIES_STAGE1_SYNC_STAMP_FILE): force-mediaagencies-sync
-	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIAAGENCIES_STAGE1),$@,)
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIAAGENCIES_STAGE1),$@,--file-extensions stage1.parquet)
 
 $(LOCAL_MEDIAAGENCIES_STAGE2_SYNC_STAMP_FILE): force-mediaagencies-sync
-	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIAAGENCIES_STAGE2),$@,)
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIAAGENCIES_STAGE2),$@,--file-extensions stage2.parquet)
 
 # TARGET: sync-mediaagencies-stage1
 #: Synchronize stage-1 parquet stamps from S3
