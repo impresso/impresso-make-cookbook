@@ -31,7 +31,7 @@ TASK_MEDIAAGENCIES ?= ner
 
 # USER-VARIABLE: MODEL_ID_MEDIAAGENCIES
 # Path-safe model identifier used in S3 paths.
-MODEL_ID_MEDIAAGENCIES ?= mmbert-impresso-mediaagencies-ner_v2-0-0
+MODEL_ID_MEDIAAGENCIES ?= mmbert-impresso-mediaagencies-ner_v2-1-0
   $(call log.debug, MODEL_ID_MEDIAAGENCIES)
 
 
@@ -43,8 +43,32 @@ HF_MODEL_MEDIAAGENCIES ?= impresso-project/mmbert-impresso-mediaagencies-ner
 
 # USER-VARIABLE: HF_MODEL_REVISION_MEDIAAGENCIES
 # Hugging Face revision passed to the impresso-inference runner.
-HF_MODEL_REVISION_MEDIAAGENCIES ?= v2.0.0
+HF_MODEL_REVISION_MEDIAAGENCIES ?= v2.1.0
   $(call log.debug, HF_MODEL_REVISION_MEDIAAGENCIES)
+
+
+# Processing defaults; release configs normally set these explicitly.
+
+# USER-VARIABLE: BATCH_SIZE_MEDIAAGENCIES
+# GPU batch size in windows (keep equal to the value used for the parity check).
+BATCH_SIZE_MEDIAAGENCIES ?= 256
+  $(call log.debug, BATCH_SIZE_MEDIAAGENCIES)
+
+# USER-VARIABLE: DTYPE_MEDIAAGENCIES
+# bf16 (default) or float32.
+DTYPE_MEDIAAGENCIES ?= bf16
+  $(call log.debug, DTYPE_MEDIAAGENCIES)
+
+# USER-VARIABLE: DEVICE_MEDIAAGENCIES
+# cuda, cpu, or auto (= cuda).
+DEVICE_MEDIAAGENCIES ?= cuda
+  $(call log.debug, DEVICE_MEDIAAGENCIES)
+
+# USER-VARIABLE: FILTER_ANACHRONISTIC_MEDIAAGENCIES
+# --filter-anachronistic (default) drops entities published before the label's
+# founding year; set empty to keep them.
+FILTER_ANACHRONISTIC_MEDIAAGENCIES ?= --filter-anachronistic
+  $(call log.debug, FILTER_ANACHRONISTIC_MEDIAAGENCIES)
 
 
 # USER-VARIABLE: RUN_VERSION_MEDIAAGENCIES
