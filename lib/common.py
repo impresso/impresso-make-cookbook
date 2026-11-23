@@ -60,6 +60,25 @@ def get_timestamp() -> str:
     return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def s3_client_config() -> Optional[Config]:
+    """Return a botocore Config that keeps S3 uploads compatible with Switch.
+
+    boto3/botocore >=1.36 add CRC checksums to PutObject/UploadPart by default
+    ("flexible checksums"). The OpenStack Swift S3 endpoint at
+    os.zhdk.cloud.switch.ch rejects or mishandles those requests. Restricting
+    checksums to operations that require them restores the pre-1.36 behaviour.
+    Older botocore versions do not know these options and need no change, so
+    None is returned there.
+    """
+    try:
+        return Config(
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        )
+    except TypeError:
+        return None
+
+
 def get_s3_client() -> Any:  # "boto3.client":
     """Returns a boto3.client object for interacting with S3.
 
@@ -73,7 +92,9 @@ def get_s3_client() -> Any:  # "boto3.client":
     )
 
     return boto3.client(
-        "s3", endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/")
+        "s3",
+        endpoint_url=os.getenv("SE_HOST_URL", "https://os.zhdk.cloud.switch.ch/"),
+        config=s3_client_config(),
     )
 
 
@@ -739,4 +760,5 @@ def get_s3_resource(
         aws_secret_access_key=secret_key,
         aws_access_key_id=access_key,
         endpoint_url=host_url,
+        config=s3_client_config(),
     )
