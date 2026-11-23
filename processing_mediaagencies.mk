@@ -4,6 +4,10 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_mediaagencies.mk)
 # Targets for processing newspaper content with media-agency NER
 ###############################################################################
 
+# impresso-inference reads S3 credentials from the process environment, so the
+# values that Make reads from .env must be exported to the runner.
+export SE_ACCESS_KEY SE_SECRET_KEY SE_HOST_URL
+
 
 sync-output :: sync-mediaagencies
 
