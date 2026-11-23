@@ -4,10 +4,6 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_mediaagencies.mk)
 # Targets for processing newspaper content with media-agency NER
 ###############################################################################
 
-# impresso-inference reads S3 credentials from the process environment, so the
-# values that Make reads from .env must be exported to the runner.
-export SE_ACCESS_KEY SE_SECRET_KEY SE_HOST_URL
-
 
 sync-output :: sync-mediaagencies
 
@@ -150,7 +146,10 @@ $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	    --batch-size $(BATCH_SIZE_MEDIAAGENCIES) \
 	    --precision $(if $(filter float32,$(DTYPE_MEDIAAGENCIES)),fp32,bf16) \
 	    --device $(if $(filter auto,$(DEVICE_MEDIAAGENCIES)),cuda,$(DEVICE_MEDIAAGENCIES)) \
-	    $(if $(filter --filter-anachronistic,$(FILTER_ANACHRONISTIC_MEDIAAGENCIES)),,--no-filter-anachronistic) || status=$$? ; \
+	    $(if $(filter --filter-anachronistic,$(FILTER_ANACHRONISTIC_MEDIAAGENCIES)),,--no-filter-anachronistic) \
+	    > $@.log 2>&1 || status=$$? ; \
+	  tail -n 3 $@.log ; \
+	  gzip -f $@.log || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
 	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      $(MEDIAAGENCIES_FORCE_OVERWRITE_OPTION) $(MEDIAAGENCIES_UPLOAD_IF_NEWER_OPTION) \
