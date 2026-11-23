@@ -44,12 +44,15 @@ setup-python:
 # Nothing is installed into the system Python (externally managed on recent
 # Debian/Ubuntu); create a venv with plain python3 instead.
 setup-pip:
-	@if ! $(PYTHON) -m pip --version > /dev/null 2>&1; then \
+	@if $(PYTHON) -m pip --version > /dev/null 2>&1; then \
+		$(PYTHON) -m pip --version ; \
+	elif [ -f "$$(dirname $(PYTHON))/../pyvenv.cfg" ] && grep -q '^uv' "$$(dirname $(PYTHON))/../pyvenv.cfg"; then \
+		echo "$(PYTHON) is a uv-managed venv without pip (use uv pip install)." ; \
+	else \
 		echo "ERROR: pip is not available for $(PYTHON). Create the project venv:" >&2 ; \
 		echo "  $(SYSTEM_PYTHON) -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2 ; \
 		exit 1 ; \
 	fi
-	@$(PYTHON) -m pip --version
 
 .PHONY: setup-pip
 
