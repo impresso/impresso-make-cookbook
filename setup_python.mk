@@ -14,11 +14,13 @@ setup-python-env: setup-python setup-pip setup-pipenv check-venv-filesystem
 help-setup::
 	@echo "  setup-python-env # Set up the Python environment including pip and pipenv"
 
-# USER-VARIABLE: PYTHON_MAJOR_VERSION
-PYTHON_MINOR_VERSION ?= 11
-  $(call log.debug, PYTHON_MINOR_VERSION)
+# USER-VARIABLE: SYSTEM_PYTHON
+# System interpreter used to bootstrap the environment. Only a plain python3 is
+# assumed; no specific minor version is required.
+SYSTEM_PYTHON ?= python3
+  $(call log.debug, SYSTEM_PYTHON)
 
-PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3.$(PYTHON_MINOR_VERSION))
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,$(SYSTEM_PYTHON))
   $(call log.info, PYTHON)
 
 # Export PYTHON so it's available in recursive make calls and subshells
@@ -26,52 +28,50 @@ export PYTHON
 
 
 # TARGET: setup-python
-#: Installs Python 3.$(PYTHON_MINOR_VERSION) based on the operating system
+#: Check that the system python3 is available
 setup-python:
-ifeq ($(OS),Linux)
-	# Install Python 3.$(PYTHON_MINOR_VERSION) if not available
-	if ! which python3.$(PYTHON_MINOR_VERSION) > /dev/null; then \
-		sudo add-apt-repository ppa:deadsnakes/ppa && \
-		sudo apt update && \
-		sudo apt install -y python3.$(PYTHON_MINOR_VERSION) python3.$(PYTHON_MINOR_VERSION)-distutils ; \
+	@if ! command -v $(SYSTEM_PYTHON) > /dev/null; then \
+		echo "ERROR: $(SYSTEM_PYTHON) not found; install Python 3 or set SYSTEM_PYTHON." >&2 ; \
+		exit 1 ; \
 	fi
-else ifeq ($(OS),Darwin)
-	# Install Python 3.$(PYTHON_MINOR_VERSION) if not available
-	if ! which python3.$(PYTHON_MINOR_VERSION) > /dev/null; then \
-		brew install python@3.$(PYTHON_MINOR_VERSION); \
-	fi
-endif
+	@$(SYSTEM_PYTHON) --version
 
 .PHONY: setup-python
 
 
 # TARGET: setup-pip
-#: Installs pip for the specified Python version if not available
+#: Check that pip works for $(PYTHON) (the project .venv if present)
+# Nothing is installed into the system Python (externally managed on recent
+# Debian/Ubuntu); create a venv with plain python3 instead.
 setup-pip:
-	# Install pip if not available
-	if ! python3.$(PYTHON_MINOR_VERSION) -mpip help > /dev/null; then \
-		curl -sS https://bootstrap.pypa.io/get-pip.py | python3.$(PYTHON_MINOR_VERSION); \
+	@if ! $(PYTHON) -m pip --version > /dev/null 2>&1; then \
+		echo "ERROR: pip is not available for $(PYTHON). Create the project venv:" >&2 ; \
+		echo "  $(SYSTEM_PYTHON) -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2 ; \
+		exit 1 ; \
 	fi
+	@$(PYTHON) -m pip --version
 
 .PHONY: setup-pip
 
 help-setup::
-	@echo "  setup-python     # Install Python 3.$(PYTHON_MINOR_VERSION) if not available"
-	@echo "  setup-pip        # Install pip for Python 3.$(PYTHON_MINOR_VERSION) if not available"
+	@echo "  setup-python     # Check that $(SYSTEM_PYTHON) is available"
+	@echo "  setup-pip        # Check that pip works for $(PYTHON)"
 
 
 # TARGET: setup-pipenv
-#: Installs pipenv for the specified Python version if not available
+#: Report whether pipenv is available (only needed for update-pip-requirements-file)
 setup-pipenv:
-	# Install pipenv if not available
-	if ! python3.$(PYTHON_MINOR_VERSION) -mpipenv --version > /dev/null; then \
-		python3.$(PYTHON_MINOR_VERSION) -mpip install pipenv ; \
+	@if $(PYTHON) -m pipenv --version > /dev/null 2>&1; then \
+		$(PYTHON) -m pipenv --version ; \
+	else \
+		echo "NOTE: pipenv is not available for $(PYTHON); it is only needed to regenerate requirements.txt" \
+		     "($(PYTHON) -m pip install pipenv)." ; \
 	fi
 
 .PHONY: setup-pipenv
 
 help-setup::
-	@echo "  setup-pipenv     # Install pipenv for Python 3.$(PYTHON_MINOR_VERSION) if not available"
+	@echo "  setup-pipenv     # Report pipenv availability (needed only to regenerate requirements.txt)"
 
 
 # TARGET: check-venv-filesystem
@@ -94,7 +94,7 @@ ifeq ($(OS),Linux)
 			echo ""; \
 			echo "         RECOMMENDED SOLUTIONS:"; \
 			echo "         1. Create venv on local disk:"; \
-			echo "            python3.$(PYTHON_MINOR_VERSION) -m venv /tmp/.venv-impresso"; \
+			echo "            $(SYSTEM_PYTHON) -m venv /tmp/.venv-impresso"; \
 			echo "            /tmp/.venv-impresso/bin/pip install -r requirements.txt"; \
 			echo "            gmake VENV_PATH=/tmp/.venv-impresso ..."; \
 			echo ""; \

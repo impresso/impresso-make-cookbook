@@ -36,6 +36,15 @@ setup-mediaagencies:
 ifeq ($(MEDIAAGENCIES_WARM_CACHE),1)
 	mkdir -p $(BUILD_DIR)/setup-smoke-mediaagencies
 	printf '{"id":"setup-smoke","ft":"%s","d":"1950-01-01"}\n' "$(MEDIAAGENCIES_SETUP_TEST_TEXT)" > $(BUILD_DIR)/setup-smoke-mediaagencies/in.jsonl
+	# On a machine without a visible GPU (e.g. the CPU prepare/decode host) the
+	# smoke test runs on CPU in fp32 instead of the configured GPU settings.
+	if $(PYTHON) -c 'import sys, torch; sys.exit(0 if torch.cuda.is_available() else 1)'; then \
+	  device='$(if $(filter auto,$(DEVICE_MEDIAAGENCIES)),cuda,$(DEVICE_MEDIAAGENCIES))' ; \
+	  precision='$(if $(filter float32,$(DTYPE_MEDIAAGENCIES)),fp32,bf16)' ; \
+	else \
+	  echo "No CUDA device visible: running the smoke test on CPU in fp32." ; \
+	  device=cpu ; precision=fp32 ; \
+	fi ; \
 	TMPDIR=/tmp TORCHINDUCTOR_CACHE_DIR=/tmp/inductor TRITON_CACHE_DIR=/tmp/triton \
 	$(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.run \
 	  --input $(BUILD_DIR)/setup-smoke-mediaagencies/in.jsonl \
@@ -43,8 +52,8 @@ ifeq ($(MEDIAAGENCIES_WARM_CACHE),1)
 	  --model-name $(HF_MODEL_MEDIAAGENCIES) \
 	  --revision $(HF_MODEL_REVISION_MEDIAAGENCIES) \
 	  --batch-size 1 \
-	  --precision $(if $(filter float32,$(DTYPE_MEDIAAGENCIES)),fp32,bf16) \
-	  --device $(if $(filter auto,$(DEVICE_MEDIAAGENCIES)),cuda,$(DEVICE_MEDIAAGENCIES)) \
+	  --precision "$$precision" \
+	  --device "$$device" \
 	  --no-filter-anachronistic
 	grep -q '"org.ent.pressagency.reuters"' $(BUILD_DIR)/setup-smoke-mediaagencies/out.jsonl
 	@echo "mediaagencies setup smoke test ok"
