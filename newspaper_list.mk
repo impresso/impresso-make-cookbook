@@ -223,7 +223,7 @@ ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$
 # patterns for the current per-year stamp conventions.
 filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).jsonl.bz2 %-$(year).stamp,$(1))),$(1))
 
-STAMP_SYNC_PYTHON ?= $(or $(value PYTHON),python)
+STAMP_SYNC_PYTHON ?= $(or $(PYTHON),python3)
   $(call log.debug, STAMP_SYNC_PYTHON)
 
 # FUNCTION: newspaper_sync_stamp_file
