@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PIPELINES = ['mediasources', 'content_item_classification', 'nel', 'newsagencies', 'bboxqa', 'TEMPLATE']
+PIPELINES = ['mediaagencies', 'content_item_classification', 'nel', 'newsagencies', 'bboxqa', 'TEMPLATE']
 MOCK = r'''#!/usr/bin/env python3
 import json, os, pathlib, sys
 args = sys.argv[1:]
