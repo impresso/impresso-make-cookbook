@@ -41,4 +41,44 @@ clean-sync-mediaagencies:
 
 .PHONY: clean-sync-mediaagencies
 
+# Stage-1 and stage-2 parquet buffers of the staged pipeline
+#------------------------------------------------------------------------------
+
+LOCAL_MEDIAAGENCIES_STAGE1_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_MEDIAAGENCIES_STAGE1))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_MEDIAAGENCIES_STAGE1))
+
+LOCAL_MEDIAAGENCIES_STAGE2_SYNC_STAMP_FILE := $(call newspaper_sync_stamp_targets,$(LOCAL_PATH_MEDIAAGENCIES_STAGE2))
+$(call expand_newspaper_year_sync_targets,$(LOCAL_PATH_MEDIAAGENCIES_STAGE2))
+
+help-sync::
+	@echo "  sync-mediaagencies-stage1 # Sync stage-1 parquet stamps from S3"
+	@echo "  sync-mediaagencies-stage2 # Sync stage-2 parquet stamps from S3"
+
+$(LOCAL_MEDIAAGENCIES_STAGE1_SYNC_STAMP_FILE): force-mediaagencies-sync
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIAAGENCIES_STAGE1),$@,)
+
+$(LOCAL_MEDIAAGENCIES_STAGE2_SYNC_STAMP_FILE): force-mediaagencies-sync
+	$(call sync_year_aware_per_file_stamps,$(S3_PATH_MEDIAAGENCIES_STAGE2),$@,)
+
+# TARGET: sync-mediaagencies-stage1
+#: Synchronize stage-1 parquet stamps from S3
+sync-mediaagencies-stage1: $(LOCAL_MEDIAAGENCIES_STAGE1_SYNC_STAMP_FILE)
+
+# TARGET: sync-mediaagencies-stage2
+#: Synchronize stage-2 parquet stamps from S3
+sync-mediaagencies-stage2: $(LOCAL_MEDIAAGENCIES_STAGE2_SYNC_STAMP_FILE)
+
+.PHONY: sync-mediaagencies-stage1 sync-mediaagencies-stage2
+
+clean-sync:: clean-sync-mediaagencies-stages
+
+# TARGET: clean-sync-mediaagencies-stages
+#: Remove local synchronization stamp files for the stage-1 and stage-2 buffers
+clean-sync-mediaagencies-stages:
+	rm -vrf $(call newspaper_sync_clean_files,$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)) $(if $(strip $(NEWSPAPER_YEARS)),,$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)) || true
+	rm -vrf $(call newspaper_sync_clean_files,$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)) $(if $(strip $(NEWSPAPER_YEARS)),,$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)) || true
+
+.PHONY: clean-sync-mediaagencies-stages
+
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_mediaagencies.mk)

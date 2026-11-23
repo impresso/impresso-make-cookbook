@@ -5,16 +5,9 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/processing_mediaagencies.mk)
 ###############################################################################
 
 
-sync-output :: sync-mediaagencies
-
-sync-input :: sync-rebuilt
-
 # DOUBLE-COLON-TARGET: processing-target
 #: Contribute media-agency NER processing to generic processing
 processing-target :: mediaagencies-target
-
-# Newspaper-level processing output used by show-delete-newspaper-s3.
-S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES)
 
 BATCH_SIZE_MEDIAAGENCIES_HELP := $(if $(filter undefined,$(origin BATCH_SIZE_MEDIAAGENCIES)),not configured,$(BATCH_SIZE_MEDIAAGENCIES))
 OUTER_BATCH_SIZE_MEDIAAGENCIES_HELP := $(if $(filter undefined,$(origin OUTER_BATCH_SIZE_MEDIAAGENCIES)),not configured,$(OUTER_BATCH_SIZE_MEDIAAGENCIES))
@@ -48,29 +41,109 @@ help-processing:: ; @echo "  SAMPLE_MEDIAAGENCIES=$(SAMPLE_MEDIAAGENCIES_HELP)"
 help-processing:: ; @echo "  SAMPLE_SEED_MEDIAAGENCIES=$(SAMPLE_SEED_MEDIAAGENCIES_HELP)"
 
 
-LOCAL_REBUILT_STAMP_FILES := \
-    $(call filter_newspaper_year_files,$(shell ls -r $(LOCAL_PATH_REBUILT)/*.jsonl.bz2 2> /dev/null \
-    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)))
+###
+# Pipeline stage selection
+#------------------------------------------------------------------------------
+
+# USER-VARIABLE: MEDIAAGENCIES_STAGE
+# Which part of the pipeline this make invocation runs:
+#   all     - rebuilt JSONL -> final JSONL in one GPU process (cli.run)
+#   prepare - rebuilt JSONL -> stage-1 parquet (CPU: tokenization and windows)
+#   forward - stage-1 parquet -> stage-2 parquet (GPU: forward pass, sparse logits)
+#   decode  - stage-2 parquet -> final JSONL (CPU: Viterbi decoding and filtering)
+# Each stage syncs the stamps of its own input and output, so a collection run
+# only processes years whose input exists and whose output is missing.
+MEDIAAGENCIES_STAGE ?= all
+  $(call log.debug, MEDIAAGENCIES_STAGE)
+
+ifeq ($(filter $(MEDIAAGENCIES_STAGE),all prepare forward decode),)
+$(error MEDIAAGENCIES_STAGE must be one of: all prepare forward decode (got '$(MEDIAAGENCIES_STAGE)'))
+endif
+
+# USER-VARIABLE: CPU_WORKERS_MEDIAAGENCIES
+# CPU worker processes per prepare/decode/all call. Keep 1 when COLLECTION_JOBS
+# already uses all cores (for example COLLECTION_JOBS=30 on a 30-core machine).
+CPU_WORKERS_MEDIAAGENCIES ?= 1
+  $(call log.debug, CPU_WORKERS_MEDIAAGENCIES)
+
+help-processing::
+	@echo "MEDIAAGENCIES STAGES:"
+	@echo "  MEDIAAGENCIES_STAGE=$(MEDIAAGENCIES_STAGE)  # all | prepare (CPU) | forward (GPU) | decode (CPU)"
+	@echo "  CPU_WORKERS_MEDIAAGENCIES=$(CPU_WORKERS_MEDIAAGENCIES)"
+	@echo "  Example: make collection MEDIAAGENCIES_STAGE=prepare COLLECTION_JOBS=30 NEWSPAPER_JOBS=1 CFG=..."
+
+ifeq ($(MEDIAAGENCIES_STAGE),all)
+sync-input :: sync-rebuilt
+sync-output :: sync-mediaagencies
+clean-sync-output :: clean-sync-mediaagencies
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES)
+endif
+ifeq ($(MEDIAAGENCIES_STAGE),prepare)
+sync-input :: sync-rebuilt
+sync-output :: sync-mediaagencies-stage1
+clean-sync-output :: clean-sync-mediaagencies-stages
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES_STAGE1)
+endif
+ifeq ($(MEDIAAGENCIES_STAGE),forward)
+sync-input :: sync-mediaagencies-stage1
+sync-output :: sync-mediaagencies-stage2
+clean-sync-input :: clean-sync-mediaagencies-stages
+clean-sync-output :: clean-sync-mediaagencies-stages
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES_STAGE2)
+endif
+ifeq ($(MEDIAAGENCIES_STAGE),decode)
+sync-input :: sync-mediaagencies-stage2
+sync-output :: sync-mediaagencies
+clean-sync-input :: clean-sync-mediaagencies-stages
+clean-sync-output :: clean-sync-mediaagencies
+S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES)
+endif
+
+
+###
+# Input and output file lists
+#------------------------------------------------------------------------------
+
+# FUNCTION: filter_mediaagencies_year_files
+# Restrict a file list to NEWSPAPER_YEARS for files named <alias>-<year>$(2).
+filter_mediaagencies_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year)$(2),$(1))),$(1))
+
+# FUNCTION: list_mediaagencies_files
+# Local stamp/data files in directory $(1) with suffix $(2), year-filtered and sorted.
+list_mediaagencies_files = $(call filter_mediaagencies_year_files,$(shell ls -r $(1)/*$(2) 2> /dev/null \
+    | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)),$(2))
+
+ifneq ($(filter $(MEDIAAGENCIES_STAGE),all prepare),)
+LOCAL_REBUILT_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_REBUILT),.jsonl.bz2)
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
+endif
 
-
-define LocalRebuiltToMediaagenciesFile
-$(1:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2)
-endef
-
-
+ifeq ($(MEDIAAGENCIES_STAGE),all)
 LOCAL_MEDIAAGENCIES_FILES := \
-    $(call LocalRebuiltToMediaagenciesFile,$(LOCAL_REBUILT_STAMP_FILES))
-
+    $(LOCAL_REBUILT_STAMP_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2)
+endif
+ifeq ($(MEDIAAGENCIES_STAGE),prepare)
+LOCAL_MEDIAAGENCIES_FILES := \
+    $(LOCAL_REBUILT_STAMP_FILES:$(LOCAL_PATH_REBUILT)/%.jsonl.bz2=$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)/%.stage1.parquet)
+endif
+ifeq ($(MEDIAAGENCIES_STAGE),forward)
+LOCAL_MEDIAAGENCIES_STAGE1_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_MEDIAAGENCIES_STAGE1),.stage1.parquet)
+LOCAL_MEDIAAGENCIES_FILES := \
+    $(LOCAL_MEDIAAGENCIES_STAGE1_STAMP_FILES:$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)/%.stage1.parquet=$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)/%.stage2.parquet)
+endif
+ifeq ($(MEDIAAGENCIES_STAGE),decode)
+LOCAL_MEDIAAGENCIES_STAGE2_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_MEDIAAGENCIES_STAGE2),.stage2.parquet)
+LOCAL_MEDIAAGENCIES_FILES := \
+    $(LOCAL_MEDIAAGENCIES_STAGE2_STAMP_FILES:$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)/%.stage2.parquet=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2)
+endif
   $(call log.debug, LOCAL_MEDIAAGENCIES_FILES)
 
 
 # TARGET: mediaagencies-target
-#: Process newspaper content with media-agency NER
+#: Process newspaper content with media-agency NER (stage set by MEDIAAGENCIES_STAGE)
 mediaagencies-target: $(LOCAL_MEDIAAGENCIES_FILES)
 
 .PHONY: mediaagencies-target
-
 
 
 ###
@@ -107,8 +180,54 @@ help-processing::
 	@echo "  MEDIAAGENCIES_FORCE_OVERWRITE_OPTION=$(MEDIAAGENCIES_FORCE_OVERWRITE_OPTION)"
 	@echo "  MEDIAAGENCIES_UPLOAD_IF_NEWER_OPTION=$(MEDIAAGENCIES_UPLOAD_IF_NEWER_OPTION)"
 
-$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
-	$(MAKE_SILENCE_RECIPE) \
+
+###
+# Stage commands
+#------------------------------------------------------------------------------
+# Inputs are read directly from S3 ($(call LocalToS3,$<)); outputs are written
+# to the local target and uploaded afterwards. The local files are only stamps.
+
+MEDIAAGENCIES_MODEL_OPTIONS = \
+    --model-name $(HF_MODEL_MEDIAAGENCIES) \
+    --revision $(HF_MODEL_REVISION_MEDIAAGENCIES)
+
+MEDIAAGENCIES_GPU_OPTIONS = \
+    --batch-size $(BATCH_SIZE_MEDIAAGENCIES) \
+    --precision $(if $(filter float32,$(DTYPE_MEDIAAGENCIES)),fp32,bf16) \
+    --device $(if $(filter auto,$(DEVICE_MEDIAAGENCIES)),cuda,$(DEVICE_MEDIAAGENCIES))
+
+MEDIAAGENCIES_FILTER_OPTION = \
+    $(if $(filter --filter-anachronistic,$(FILTER_ANACHRONISTIC_MEDIAAGENCIES)),,--no-filter-anachronistic)
+
+MEDIAAGENCIES_CMD_all = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.run \
+    --input $(call LocalToS3,$<) --output $@ \
+    $(MEDIAAGENCIES_MODEL_OPTIONS) $(MEDIAAGENCIES_GPU_OPTIONS) $(MEDIAAGENCIES_FILTER_OPTION)
+
+MEDIAAGENCIES_CMD_prepare = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.prepare \
+    --input $(call LocalToS3,$<) --output $@ \
+    $(MEDIAAGENCIES_MODEL_OPTIONS) --num-workers $(CPU_WORKERS_MEDIAAGENCIES)
+
+MEDIAAGENCIES_CMD_forward = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.forward \
+    --input $(call LocalToS3,$<) --output $@ \
+    $(MEDIAAGENCIES_MODEL_OPTIONS) $(MEDIAAGENCIES_GPU_OPTIONS)
+
+MEDIAAGENCIES_CMD_decode = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.decode \
+    --input $(call LocalToS3,$<) --output $@ \
+    $(MEDIAAGENCIES_MODEL_OPTIONS) --num-workers $(CPU_WORKERS_MEDIAAGENCIES) $(MEDIAAGENCIES_FILTER_OPTION)
+
+# Intermediate parquet buffers are truncated to zero-byte stamps after upload.
+MEDIAAGENCIES_UPLOAD_OPTIONS_all :=
+MEDIAAGENCIES_UPLOAD_OPTIONS_prepare := --keep-timestamp-only
+MEDIAAGENCIES_UPLOAD_OPTIONS_forward := --keep-timestamp-only
+MEDIAAGENCIES_UPLOAD_OPTIONS_decode :=
+
+
+# FUNCTION: mediaagencies_stage_recipe
+# Acquire the S3 WIP lock (or skip if the output exists), run the stage command
+# $(MEDIAAGENCIES_CMD_<stage>) with its log in $@.log.gz, upload output and log,
+# and release the lock. Args: $(1) stage name.
+define mediaagencies_stage_recipe
+$(MAKE_SILENCE_RECIPE) \
 	mkdir -p $(@D) && \
 	{ acquired_wip=0 ; \
 	  status=0 ; \
@@ -138,21 +257,13 @@ $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	  fi ; \
 	  status=0 ; \
 	  TMPDIR=/tmp TORCHINDUCTOR_CACHE_DIR=/tmp/inductor TRITON_CACHE_DIR=/tmp/triton \
-	  $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.run \
-	    --input $(call LocalToS3,$<) \
-	    --output $@ \
-	    --model-name $(HF_MODEL_MEDIAAGENCIES) \
-	    --revision $(HF_MODEL_REVISION_MEDIAAGENCIES) \
-	    --batch-size $(BATCH_SIZE_MEDIAAGENCIES) \
-	    --precision $(if $(filter float32,$(DTYPE_MEDIAAGENCIES)),fp32,bf16) \
-	    --device $(if $(filter auto,$(DEVICE_MEDIAAGENCIES)),cuda,$(DEVICE_MEDIAAGENCIES)) \
-	    $(if $(filter --filter-anachronistic,$(FILTER_ANACHRONISTIC_MEDIAAGENCIES)),,--no-filter-anachronistic) \
-	    > $@.log 2>&1 || status=$$? ; \
+	  $(MEDIAAGENCIES_CMD_$(1)) > $@.log 2>&1 || status=$$? ; \
 	  tail -n 3 $@.log ; \
 	  gzip -f $@.log || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
 	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      $(MEDIAAGENCIES_FORCE_OVERWRITE_OPTION) $(MEDIAAGENCIES_UPLOAD_IF_NEWER_OPTION) \
+	      $(MEDIAAGENCIES_UPLOAD_OPTIONS_$(1)) \
 	      $@        $(call LocalToS3,$@) \
 	      $@.log.gz $(call LocalToS3,$@).log.gz || status=$$? ; \
 	  fi ; \
@@ -170,6 +281,32 @@ $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	  fi ; \
 	  exit "$$release_status" ; \
 	}
+endef
+
+
+###
+# Stage rules (only the selected stage's rule is defined)
+#------------------------------------------------------------------------------
+
+ifeq ($(MEDIAAGENCIES_STAGE),all)
+$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
+	$(call mediaagencies_stage_recipe,all)
+endif
+
+ifeq ($(MEDIAAGENCIES_STAGE),prepare)
+$(LOCAL_PATH_MEDIAAGENCIES_STAGE1)/%.stage1.parquet: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
+	$(call mediaagencies_stage_recipe,prepare)
+endif
+
+ifeq ($(MEDIAAGENCIES_STAGE),forward)
+$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)/%.stage2.parquet: $(LOCAL_PATH_MEDIAAGENCIES_STAGE1)/%.stage1.parquet
+	$(call mediaagencies_stage_recipe,forward)
+endif
+
+ifeq ($(MEDIAAGENCIES_STAGE),decode)
+$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_MEDIAAGENCIES_STAGE2)/%.stage2.parquet
+	$(call mediaagencies_stage_recipe,decode)
+endif
 
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_mediaagencies.mk)
