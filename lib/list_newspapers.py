@@ -62,8 +62,11 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set
 
 from botocore.client import BaseClient
+from dotenv import load_dotenv
 
 from common import get_s3_client, setup_logging, yield_s3_objects
+
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
