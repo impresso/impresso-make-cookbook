@@ -57,7 +57,7 @@ help-aggregation::
 	@echo "MEDIA-AGENCIES AGGREGATION:"
 	@echo "  aggregate-mediaagencies # Aggregate media-agency NER output and strip redundant fields"
 	@echo "  aggregate-mediaagencies-low-confidence # Aggregate only mentions with confidence_ner < 0.8"
-	@echo "  aggregate-mediaagencies-mentions # Collect all mentions, one JSON line each (ci_id, newspaper, date, label, wikidata_id, start, end)"
+	@echo "  aggregate-mediaagencies-mentions # Collect all mentions, one JSON line each (ci_id, newspaper, date, type, label, wikidata_id, start, end, surface, confidence_ner)"
 	@echo "  aggregate              # Conventional alias for aggregate-mediaagencies"
 	@echo "  verify-data            # Verify that media-agency data files are readable"
 	@echo "                         # Usage: make verify-data [VERIFY_EXTENSIONS='json jsonl.gz']"
