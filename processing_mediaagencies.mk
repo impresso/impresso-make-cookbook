@@ -240,9 +240,44 @@ MEDIAAGENCIES_CMD_forward = $(PYTHON) -m impresso_inference.tasks.mediaagencies.
     --input $(call LocalToS3,$<) --output $@ \
     $(MEDIAAGENCIES_MODEL_OPTIONS) $(MEDIAAGENCIES_GPU_OPTIONS)
 
+# Mention surfaces are rebuilt exactly from the stage-2 tokens and offsets: the
+# rebuilt 'ft' field has only spaces between tokens. Set
+# DECODE_TEXT_INPUT_MEDIAAGENCIES=1 to also read the rebuilt input text for spot
+# checks (surfaces from the source, offsets verified); it costs extra memory.
+DECODE_TEXT_INPUT_MEDIAAGENCIES ?=
+
+MEDIAAGENCIES_DECODE_TEXT_INPUT_OPTION = \
+    $(if $(DECODE_TEXT_INPUT_MEDIAAGENCIES),--text-input $(patsubst $(LOCAL_PATH_MEDIAAGENCIES)/%,$(S3_PATH_REBUILT)/%,$@),)
+
+# The decoder reads the content-item IDs of the rebuilt input (not its text) and
+# checks each stage-2 ID against them; empty stage-2 IDs are filled by position.
+# This repairs stage-2 files whose stage 1 missed the 'ci_id' field (v1-0-0 run:
+# all BNF and FedGaz files). The decode stops on a row-count or ID mismatch.
+# Set DECODE_ID_INPUT_MEDIAAGENCIES= to skip the check.
+DECODE_ID_INPUT_MEDIAAGENCIES ?= 1
+  $(call log.debug, DECODE_ID_INPUT_MEDIAAGENCIES)
+MEDIAAGENCIES_DECODE_ID_INPUT_OPTION = \
+    $(if $(DECODE_ID_INPUT_MEDIAAGENCIES),--id-input $(patsubst $(LOCAL_PATH_MEDIAAGENCIES)/%,$(S3_PATH_REBUILT)/%,$@),)
+
+# Validate every decoded row against the pinned impresso-schemas submodule
+# (entities-nel.v2). A failure stops the rule before upload.
+# Set DECODE_VALIDATE_SCHEMAS_MEDIAAGENCIES= to skip validation.
+DECODE_VALIDATE_SCHEMAS_MEDIAAGENCIES ?= impresso-schemas/json
+
+MEDIAAGENCIES_DECODE_VALIDATE_OPTION = \
+    $(if $(DECODE_VALIDATE_SCHEMAS_MEDIAAGENCIES),--validate-schemas $(DECODE_VALIDATE_SCHEMAS_MEDIAAGENCIES),)
+
+# Decode processes per job. 1 decodes in process and streams the stage-2 file in
+# blocks (about 1 GB peak on the largest files); run parallel jobs with make -j.
+# More workers use a process pool, which bounds memory only on Python 3.14+.
+DECODE_WORKERS_MEDIAAGENCIES ?= 1
+  $(call log.debug, DECODE_WORKERS_MEDIAAGENCIES)
+
 MEDIAAGENCIES_CMD_decode = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.decode \
     --input $(call LocalToS3,$<) --output $@ \
-    $(MEDIAAGENCIES_MODEL_OPTIONS) --num-workers $(CPU_WORKERS_MEDIAAGENCIES) $(MEDIAAGENCIES_FILTER_OPTION)
+    $(MEDIAAGENCIES_DECODE_TEXT_INPUT_OPTION) $(MEDIAAGENCIES_DECODE_ID_INPUT_OPTION) \
+    $(MEDIAAGENCIES_DECODE_VALIDATE_OPTION) \
+    $(MEDIAAGENCIES_MODEL_OPTIONS) --num-workers $(DECODE_WORKERS_MEDIAAGENCIES) $(MEDIAAGENCIES_FILTER_OPTION)
 
 MEDIAAGENCIES_CMD_empty = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.empty \
     --input $(call LocalToS3,$<) --output $@ \
