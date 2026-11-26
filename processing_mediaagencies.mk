@@ -122,7 +122,7 @@ filter_mediaagencies_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach yea
 list_mediaagencies_files = $(call filter_mediaagencies_year_files,$(shell ls -r $(1)/*$(2) 2> /dev/null \
     | $(if $(NEWSPAPER_YEAR_SORTING),$(NEWSPAPER_YEAR_SORTING),cat)),$(2))
 
-ifneq ($(filter $(MEDIAAGENCIES_STAGE),all prepare),)
+ifneq ($(filter $(MEDIAAGENCIES_STAGE),all prepare decode),)
 LOCAL_REBUILT_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_REBUILT),.jsonl.bz2)
   $(call log.debug, LOCAL_REBUILT_STAMP_FILES)
 
@@ -163,7 +163,8 @@ endif
 ifeq ($(MEDIAAGENCIES_STAGE),decode)
 LOCAL_MEDIAAGENCIES_STAGE2_STAMP_FILES := $(call list_mediaagencies_files,$(LOCAL_PATH_MEDIAAGENCIES_STAGE2),.stage2.parquet)
 LOCAL_MEDIAAGENCIES_FILES := \
-    $(LOCAL_MEDIAAGENCIES_STAGE2_STAMP_FILES:$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)/%.stage2.parquet=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2)
+    $(LOCAL_MEDIAAGENCIES_STAGE2_STAMP_FILES:$(LOCAL_PATH_MEDIAAGENCIES_STAGE2)/%.stage2.parquet=$(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2) \
+    $(LOCAL_MEDIAAGENCIES_EMPTY_FILES)
 endif
   $(call log.debug, LOCAL_MEDIAAGENCIES_FILES)
 
@@ -281,7 +282,8 @@ MEDIAAGENCIES_CMD_decode = $(PYTHON) -m impresso_inference.tasks.mediaagencies.c
 
 MEDIAAGENCIES_CMD_empty = $(PYTHON) -m impresso_inference.tasks.mediaagencies.cli.empty \
     --input $(call LocalToS3,$<) --output $@ \
-    --reason "publication year before MIN_YEAR_MEDIAAGENCIES=$(MIN_YEAR_MEDIAAGENCIES)"
+    --reason "publication year before MIN_YEAR_MEDIAAGENCIES=$(MIN_YEAR_MEDIAAGENCIES)" \
+    $(MEDIAAGENCIES_MODEL_OPTIONS) $(MEDIAAGENCIES_DECODE_VALIDATE_OPTION)
 
 # Intermediate parquet buffers are truncated to zero-byte stamps after upload.
 MEDIAAGENCIES_UPLOAD_OPTIONS_all :=
@@ -362,7 +364,7 @@ $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	$(call mediaagencies_stage_recipe,all)
 endif
 
-# Years before MIN_YEAR_MEDIAAGENCIES (all and prepare stages). A static pattern
+# Years before MIN_YEAR_MEDIAAGENCIES (all, prepare and decode stages). A static pattern
 # rule takes precedence over the implicit rule of the all stage.
 ifneq ($(strip $(LOCAL_MEDIAAGENCIES_EMPTY_FILES)),)
 $(LOCAL_MEDIAAGENCIES_EMPTY_FILES): $(LOCAL_PATH_MEDIAAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
