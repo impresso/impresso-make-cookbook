@@ -101,7 +101,8 @@ clean-sync-output :: clean-sync-mediaagencies-stages
 S3_DELETE_NEWSPAPER_PREFIX ?= $(S3_PATH_MEDIAAGENCIES_STAGE2)
 endif
 ifeq ($(MEDIAAGENCIES_STAGE),decode)
-sync-input :: sync-mediaagencies-stage2
+# Rebuilt stamps select the early years that get empty results.
+sync-input :: sync-mediaagencies-stage2 sync-rebuilt
 sync-output :: sync-mediaagencies
 clean-sync-input :: clean-sync-mediaagencies-stages
 clean-sync-output :: clean-sync-mediaagencies
