@@ -228,6 +228,11 @@ collection-xargs: newspaper-list-target | $(BUILD_DIR)
 		sh -c 'item="$$1"; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)' sh {}
 
 
+# USER-VARIABLE: COLLECTION_TMPDIR
+# Directory for GNU parallel's temporary files (independent of the shell's TMPDIR).
+COLLECTION_TMPDIR ?= $(BUILD_DIR)/tmp
+  $(call log.debug, COLLECTION_TMPDIR)
+
 check-parallel:
 	@parallel --version | grep -q 'GNU parallel' || \
 	( echo "ERROR: GNU parallel not installed or a wrong variant"; exit 1 )
@@ -242,9 +247,11 @@ check-parallel:
 collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	@printf '%s\n' 'INFO: Collection worker target: $(COLLECTION_TARGET). List: $(NEWSPAPERS_TO_PROCESS_FILE).'
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
+	@mkdir -p $(COLLECTION_TMPDIR)
 	$(if $(COLLECTION_LOG),@mkdir -p $(dir $(COLLECTION_LOG)) && ln -sfn $(notdir $(COLLECTION_LOG)) $(dir $(COLLECTION_LOG))collection-latest.log && printf '%s\n' 'INFO: Logging collection output to $(COLLECTION_LOG)')
 	+{ tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v \
+	   --tmpdir $(COLLECTION_TMPDIR) \
 	   --progress \
 	   --joblog $(BUILD_DIR)/collection.joblog \
 	   $(PARALLEL_DRY_RUN_OPTION) \

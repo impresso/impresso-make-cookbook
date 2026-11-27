@@ -469,16 +469,16 @@ The cookbook supports optional **WIP file management** to prevent concurrent pro
 - Can be disabled for faster processing when coordination is managed externally; check the processing fragment for each recipe's default
 - Prefer `make newspaper` or `make collection` for long processing runs. Use `make all` or `make collection COLLECTION_TARGET=all` when you explicitly want to force-refresh local sync state before processing.
 
-The `mediasources`, `content_item_classification`, `nel`, `newsagencies`, and
+The `mediaagencies`, `content_item_classification`, `nel`, `newsagencies`, and
 `bboxqa` recipes, plus `processing_TEMPLATE.mk`, enable WIP locking by default.
-Their configuration prefixes are `MEDIASOURCES`, `CONTENT_ITEM_CLASSIFICATION`,
+Their configuration prefixes are `MEDIAAGENCIES`, `CONTENT_ITEM_CLASSIFICATION`,
 `NEL`, `NEWSAGENCIES`, `BBOXQA`, and `TEMPLATE`, respectively. For example:
 
 ```makefile
-MEDIASOURCES_WIP_ENABLED := 1
-MEDIASOURCES_WIP_MAX_AGE := 24
-MEDIASOURCES_FORCE_OVERWRITE_OPTION :=
-MEDIASOURCES_UPLOAD_IF_NEWER_OPTION :=
+MEDIAAGENCIES_WIP_ENABLED := 1
+MEDIAAGENCIES_WIP_MAX_AGE := 24
+MEDIAAGENCIES_FORCE_OVERWRITE_OPTION :=
+MEDIAAGENCIES_UPLOAD_IF_NEWER_OPTION :=
 ```
 
 Set `WIP_ENABLED` empty to disable locking; existing-output checks remain active.

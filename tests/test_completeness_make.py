@@ -50,6 +50,9 @@ class CompletenessMakeTests(unittest.TestCase):
             return result, calls
 
     def test_topics_parent_configuration(self):
+        parent = PARENT / 'Makefile'
+        if parent.exists() and 'paths_topics.mk' not in parent.read_text():
+            self.skipTest('Parent processing repository is not a topics cookbook')
         result, calls = self.invoke('check-newspaper-completeness', [
             'S3_BUCKET_LINGPROC=input-topics', 'RUN_ID_LINGPROC=lingproc-test',
             'S3_BUCKET_TOPICS=output-topics', 'RUN_ID_TOPICS=topics-test',

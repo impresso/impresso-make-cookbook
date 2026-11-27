@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PIPELINES = ['mediasources', 'content_item_classification', 'nel', 'newsagencies', 'bboxqa', 'TEMPLATE']
+PIPELINES = ['mediaagencies', 'content_item_classification', 'nel', 'newsagencies', 'bboxqa', 'TEMPLATE']
 MOCK = r'''#!/usr/bin/env python3
 import json, os, pathlib, sys
 args = sys.argv[1:]
@@ -22,7 +22,8 @@ with open(os.environ['CALLS'], 'a') as f:
     f.write(json.dumps([stage, args]) + '\n')
 if stage == 'process':
     pathlib.Path(args[args.index('--output')+1]).write_text('output')
-    pathlib.Path(args[args.index('--log-file')+1]).write_text('log')
+    if '--log-file' in args:  # mediaagencies logs via stdout redirect instead
+        pathlib.Path(args[args.index('--log-file')+1]).write_text('log')
 status = int(os.environ.get(stage.upper() + '_STATUS', '0'))
 if stage == 'acquire' and status == 2 and '--force' in args:
     status = 0
