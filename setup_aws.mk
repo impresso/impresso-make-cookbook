@@ -1,3 +1,5 @@
+ifndef COOKBOOK_SETUP_AWS_INCLUDED
+COOKBOOK_SETUP_AWS_INCLUDED := 1
 $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_aws.mk)
 ###############################################################################
 # AWS CONFIGURATION TARGETS
@@ -34,7 +36,7 @@ test-aws: | .aws/credentials .aws/config
 	aws s3 ls s3://41-processed-data-staging/lingproc/lingproc-pos-spacy_v3.6.0-multilingual_v1-0-3/
 
 help-setup::
-	@echo "  test-aws        # Test local AWS CLI config by listing an S3 prefix"
+	@echo "  make test-aws                     # Test local AWS CLI config by listing an S3 prefix"
 
 
 # TARGET: create-aws-config
@@ -44,8 +46,17 @@ help-setup::
 # are generated from the environment variables defined in `.env`.
 create-aws-config: .aws/credentials .aws/config
 
+# TARGET: aws-setup
+#: Generate local AWS CLI configuration and credentials from .env
+aws-setup: create-aws-config
+
+.PHONY: aws-setup create-aws-config install-aws test-aws
+
 help-setup::
-	@echo "  create-aws-config # Create .aws/config and .aws/credentials from .env"
+	@echo "  make aws-setup                    # Create local AWS CLI config and credentials from .env"
+
+help-setup::
+	@echo "  make create-aws-config            # Create .aws/config and .aws/credentials from .env"
 
 
 # TARGET: install-aws
@@ -57,7 +68,7 @@ install-aws:
 	pipenv run pip install awscli
 
 help-setup::
-	@echo "  install-aws     # Install AWS CLI into the pipenv environment"
+	@echo "  make install-aws                  # Install AWS CLI into the pipenv environment"
 
 
 # FILE-RULE: .aws/config
@@ -87,3 +98,5 @@ help-setup::
 	@echo "aws_secret_access_key = $$(grep SE_SECRET_KEY .env | cut -d '=' -f2)" >> .aws/credentials
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_aws.mk)
+
+endif

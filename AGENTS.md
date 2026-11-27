@@ -22,6 +22,18 @@ The expected integration model is:
 - the parent repository includes or reuses these `*.mk` fragments
 - the parent repository defines the project-specific pipeline wiring, configs, scripts, and execution entrypoints
 
+## Commits From Submodule Checkouts
+
+A parent repository normally checks out this cookbook at a pinned commit, leaving
+its `HEAD` detached. Never commit in the cookbook from a detached `HEAD`. Switch
+to `main` or create a feature branch before committing. The
+`.githooks/pre-commit` hook enforces this rule; on `main`, it also requires
+`origin/main` as the upstream.
+
+Every repository that uses the cookbook as a submodule should activate the hook
+in its cookbook checkout with `git -C cookbook config core.hooksPath .githooks`.
+The hook must be executable, and Git does not activate tracked hooks automatically.
+
 Some files here, such as the root `Makefile`, are examples or local wiring for this checkout, but the lasting value of the repository is the reusable make fragments and helper Python code.
 
 ## Repository Layout
@@ -39,9 +51,19 @@ Important: some documentation and recipes still refer to paths like `cookbook/..
 
 - GNU Make 4.0+ is required. On macOS, `/usr/bin/make` is too old (`3.81`) and fails immediately.
 - Python packaging is split between:
-  - root `Pipfile` / `requirements.txt`
+  - root `Pipfile` / `requirements.txt`; the `Pipfile` is the source of truth,
+    and `make update-pip-requirements-file` regenerates `requirements.txt`
+    with pipenv. uv is optional and only installs `requirements.txt`
+    (`make setup-venv-uv`, `make sync-venv-uv` in `setup_python.mk`)
   - `lib/pyproject.toml` for the installable `impresso_cookbook` package
 - AWS/S3 access is configured from a local `.env` file and optional repo-local `.aws/` files.
+- Every direct AWS CLI command, including examples in documentation and help,
+  must explicitly use the consuming repository's local configuration and credentials:
+  `AWS_CONFIG_FILE=.aws/config AWS_SHARED_CREDENTIALS_FILE=.aws/credentials aws ...`.
+  Run from that repository's root, following `aws.mk`. Do not rely on the user's
+  default AWS configuration. If the local files are missing, `create-aws-config`
+  generates them from `.env` (`SE_HOST_URL`, `SE_ACCESS_KEY`, and `SE_SECRET_KEY`);
+  never print or commit their secret values.
 
 If you need to run Make successfully on macOS, prefer Homebrew GNU Make (`gmake`) or another GNU Make 4+ binary.
 
@@ -69,7 +91,7 @@ Do not casually replace stamp-based flows with normal file copies; a lot of depe
 
 ### 3. S3 upload path
 
-The normal upload mechanism is `python3 -m impresso_cookbook.local_to_s3`, not raw `aws s3 cp`.
+The normal upload mechanism is `$(PYTHON) -m impresso_cookbook.local_to_s3`, not raw `aws s3 cp`.
 
 AWS CLI is mainly used for:
 
@@ -162,7 +184,7 @@ The `log.info` function respects `LOGGING_LEVEL` and provides consistent formatt
 help:
 	@echo "Usage: make <target>"
 	@echo "Targets:"
-	@echo "  foo    # Do foo"
+	@echo "  make foo    # Do foo"
 ```
 
 **CORRECT:**
@@ -174,11 +196,28 @@ help::
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Main Targets:"
-	@echo "  foo    # Do foo"
+	@echo "  make foo    # Do foo"
 	@echo ""
 ```
 
 Use `help::` (double colon) so addon makefiles can extend help with their own sections.
+
+#### Online Help Formatting
+
+- Print runnable targets as copyable commands: `make <target>  # Short description`.
+  Include `make` in every target entry, not just in examples. Keep descriptions
+  after a shell `#` comment so the entire line can be pasted into a terminal.
+- Align descriptions within each section. Lines may be longer when that keeps
+  related information on one line and reduces the height of a help page.
+- Show variable names and current values separately from runnable commands;
+  do not prefix variables with `make`.
+- Put the most commonly used targets first. Move detailed variable meanings,
+  defaults, and tuning guidance to a dedicated `help-<topic>-settings` page
+  when the main topic would otherwise become long. Link to that page with a
+  copyable `make help-<topic>-settings` entry.
+- Advertise only targets defined by fragments included in the active Makefile.
+  After editing help, render the affected page with GNU Make 4+ and check that
+  newly advertised targets resolve.
 
 #### Section Markers
 
@@ -302,6 +341,9 @@ When changing a pipeline, inspect the matching family of files together:
   - user variables are exposed with comments
   - generic targets are extended with double-colon rules
   - target/help comments are part of the repo’s documentation style
+  - recipes call Python as `$(PYTHON)`, never as bare `python3` or `python`;
+    `make_settings.mk` resolves and exports `PYTHON` (explicit override,
+    activated venv, project `.venv`, then `python3`)
 
 ## Practical Validation
 

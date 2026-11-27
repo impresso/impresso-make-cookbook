@@ -86,60 +86,64 @@ MAKEFLAGS_SHORT_OPTIONS := $(firstword $(filter-out --%,$(MAKEFLAGS)))
 MAKE_DRY_RUN_OPTION := $(if $(findstring n,$(MAKEFLAGS_SHORT_OPTIONS)),-n)
 PARALLEL_DRY_RUN_OPTION := $(if $(MAKE_DRY_RUN_OPTION),--dry-run)
 
-#: Show detailed orchestration and parallelization help
+#: Show the main orchestration targets; use help-orchestration-settings for tuning
 help-orchestration::
-	@echo "PARALLELIZATION CONFIGURATION:"
-	@echo "  COLLECTION_JOBS   #  Number of different newspapers to process in parallel ($(COLLECTION_JOBS))"
-	@echo "                    #  Low numbers might not use all system resources effectively if newspapers are small and many CPU cores are available"
+	@echo "ORCHESTRATION TARGETS:"
+	@echo "  make newspaper                   # Sync normally, then process one newspaper"
+	@echo "  make collection                  # Process the newspaper list with GNU parallel; runs COLLECTION_TARGET for each item"
+	@echo "  make collection-xargs            # Process the list with xargs when GNU parallel is unavailable"
+	@echo "  make all                         # Force input/output resync, then process one newspaper"
+	@echo "  make refresh-newspaper-list      # Replace the collection list from S3 before a collection run"
 	@echo ""
-	@echo "  COLLECTION_TARGET #  Target executed for each collection item ($(COLLECTION_TARGET))"
-	@echo "                    #  Default: newspaper; set to 'all' to force input/output resync"
+	@echo "  make collection COLLECTION_JOBS=8 NEWSPAPER_JOBS=2 # Example with eight newspapers and two jobs each"
+	@echo "  make help-orchestration-settings # Variable meanings, defaults, tuning, and more examples"
+
+.PHONY: help-orchestration help-orchestration-settings
+
+#: Explain orchestration variables and resource controls
+help-orchestration-settings::
+	@echo "ORCHESTRATION SETTINGS (current values in parentheses):"
+	@printf '  %-32s %s\n' 'COLLECTION_TARGET ($(COLLECTION_TARGET))' 'Target run for each list item: newspaper by default; all forces input/output resync'
+	@printf '  %-32s %s\n' 'COLLECTION_JOBS ($(COLLECTION_JOBS))' 'Maximum concurrent newspaper workers; defaults to half of NPROC, at least one'
+	@printf '  %-32s %s\n' 'NEWSPAPER_JOBS ($(NEWSPAPER_JOBS))' 'Make jobs within each newspaper; defaults to NPROC / COLLECTION_JOBS, at least one'
+	@printf '  %-32s %s\n' 'NPROC ($(NPROC))' 'Detected CPU count used to calculate job defaults; override when detection is wrong'
+	@printf '  %-32s %s\n' 'MAX_LOAD ($(MAX_LOAD))' 'Default load limit for both collection and newspaper workers; defaults to NPROC'
+	@printf '  %-32s %s\n' 'COLLECTION_LOAD ($(COLLECTION_LOAD))' 'GNU parallel load limit; empty disables this throttle'
+	@printf '  %-32s %s\n' 'COLLECTION_MEMFREE ($(COLLECTION_MEMFREE))' 'GNU parallel minimum free memory; empty disables this throttle'
+	@printf '  %-32s %s\n' 'NEWSPAPER_LOAD ($(NEWSPAPER_LOAD))' 'Child Make load limit; empty disables this throttle'
+	@printf '  %-32s %s\n' 'PARALLEL_DELAY ($(PARALLEL_DELAY))' 'Seconds between starts of GNU parallel collection jobs; default 3'
+	@printf '  %-32s %s\n' 'COLLECTION_LOG ($(COLLECTION_LOG))' 'Copy of all collection output; empty disables; see collection-latest.log'
+	@printf '  %-32s %s\n' 'HALT_ON_ERROR ($(HALT_ON_ERROR))' 'Set to 1 to stop GNU parallel on the first failing job; default 0'
 	@echo ""
-	@echo "  NEWSPAPER_JOBS    #  Number of parallel jobs per newspaper ($(NEWSPAPER_JOBS))"
-	@echo "                    #  Auto-calculated and clamped to at least 1"
-	@echo "                    #  Controls fine-grained parallelism within each newspaper"
-	@echo "                    #  Auto-calculated to balance with COLLECTION_JOBS"
-	@echo ""
-	@echo "  MAX_LOAD          #  Maximum system load average ($(MAX_LOAD))"
-	@echo "                    #  Prevents system overload by limiting concurrent processes"
-	@echo "                    #  Set lower if system becomes unresponsive"
-	@echo ""
-	@echo "  NEWSPAPER_LOAD    #  Child make load throttle ($(NEWSPAPER_LOAD))"
-	@echo "                    #  Set empty to disable child make load throttling"
-	@echo ""
-	@echo "  COLLECTION_LOAD   #  GNU parallel load throttle ($(COLLECTION_LOAD))"
-	@echo "                    #  Set empty to disable load throttling for exact collection concurrency"
-	@echo ""
-	@echo "  COLLECTION_MEMFREE # GNU parallel free-memory throttle ($(COLLECTION_MEMFREE))"
-	@echo "                    #  Set empty to disable memory throttling for exact collection concurrency"
-	@echo ""
-	@echo "  NPROC             #  Number of CPU cores ($(NPROC))"
-	@echo "                    #  Override if auto-detection fails or for resource limiting"
-	@echo ""
-	@echo "  HALT_ON_ERROR     #  Stop collection run on first failing job (0 or 1; current: $(HALT_ON_ERROR))"
-	@echo ""
-	@echo "PERFORMANCE TUNING:"
-	@echo "  CPU-bound: use COLLECTION_JOBS as an upper limit and keep load throttles enabled"
-	@echo "  GPU-bound: use COLLECTION_JOBS as the target worker count and disable load/memory throttles"
-	@echo "  High memory usage: reduce COLLECTION_JOBS or raise COLLECTION_MEMFREE"
-	@echo "  System lag: reduce MAX_LOAD, COLLECTION_LOAD, or NEWSPAPER_LOAD"
-	@echo "  Dry run: make -n collection runs GNU parallel with --dry-run and passes -n to child makes"
+	@echo "TUNING:"
+	@echo "  CPU work: set COLLECTION_JOBS and NEWSPAPER_JOBS together; keep load limits enabled"
+	@echo "  GPU work: set COLLECTION_JOBS to desired workers; clear load/memory limits for exact concurrency"
+	@echo "  Memory pressure: reduce COLLECTION_JOBS or raise COLLECTION_MEMFREE; system lag: lower load limits"
+	@echo "  make -n collection  # Pass dry-run mode to GNU parallel and child Make processes"
 	@echo ""
 	@echo "EXAMPLES:"
-	@echo "  make newspaper PROVIDER=BL NEWSPAPER=WTCH"
 	@echo "  make collection COLLECTION_JOBS=8 NEWSPAPER_JOBS=2 MAX_LOAD=12"
 	@echo "  make collection COLLECTION_JOBS=6 NEWSPAPER_JOBS=1 COLLECTION_LOAD= COLLECTION_MEMFREE= NEWSPAPER_LOAD= PARALLEL_DELAY=0"
-	@echo "  make collection NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
-	@echo "  make all PROVIDER=BL NEWSPAPER=WTCH MAX_LOAD=8"
-	@echo "  make sync-input PROVIDER=SWA NEWSPAPER=actionfem"
-	@echo "  make show-delete-newspaper-s3 NEWSPAPER=BL/WTCH"
-	@echo ""
-	@echo "MONITORING:"
-	@echo "  tail -f build.d/collection.joblog          # Monitor collection progress"
-	@echo "  htop -u $${USER}                           # Monitor system resources"
-	@echo ""
+	@echo "  tail -f build.d/collection.joblog  # Monitor collection progress"
+	@echo "  less -R build.d/logs/collection-latest.log  # Inspect output and errors of the last collection run"
+# Log file that receives a copy of all collection output (stdout and stderr)
+#
+# The output is still shown on the terminal. Each run writes a new timestamped
+# file, and collection-latest.log points to the most recent one. Set
+# COLLECTION_LOG= to disable logging.
+ifeq ($(origin COLLECTION_LOG),undefined)
+COLLECTION_LOG := $(BUILD_DIR)/logs/collection-$(shell date +%Y%m%d-%H%M%S).log
+endif
+  $(call log.debug, COLLECTION_LOG)
 
-.PHONY: help-orchestration
+# Internal: tee the parallel pipeline into COLLECTION_LOG and keep its exit
+# status (dash has no pipefail, so the status goes through a side file).
+ifneq ($(COLLECTION_LOG),)
+COLLECTION_LOG_REDIRECT := 2>&1; echo $$? > $(COLLECTION_LOG).rc; } | tee -a $(COLLECTION_LOG); rc=$$(cat $(COLLECTION_LOG).rc); rm -f $(COLLECTION_LOG).rc; exit $$rc
+else
+COLLECTION_LOG_REDIRECT := ; }
+endif
+
 # If set to 1, GNU parallel stops on the first error
 HALT_ON_ERROR ?= 0
 
@@ -187,15 +191,9 @@ show-delete-newspaper-s3:
 
 help-orchestration::
 	@echo ""
-	@echo "CORE RUN TARGETS:"
-	@echo "  newspaper         # Sync normally, then process one newspaper"
-	@echo "  all               # Force resync input/output, then run processing-target"
-	@echo "                    # Prefer newspaper/collection for long runs with per-target S3 WIP checks"
-	@echo "  show-delete-newspaper-s3 # Print a manual S3 deletion command; never runs AWS"
-	@echo "                    # Uses the active processing S3_PATH_* and NEWSPAPER"
-	@echo "                    # Set S3_DELETE_NEWSPAPER_PREFIXES for Makefiles with multiple outputs"
-	@echo "                    # Include cookbook/aws.mk and set up AWS CLI credentials to run it"
-	@echo "                    # The printed command ends with --dryrun; remove it to delete"
+	@echo "RELATED TARGETS:"
+	@echo "  make newspaper-list-target       # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
+	@echo "  make show-delete-newspaper-s3    # Print a manual, dry-run S3 deletion command for the active newspaper; does not call AWS"
 
 
 # TARGET: all
@@ -250,7 +248,8 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	@printf '%s\n' 'INFO: Collection worker target: $(COLLECTION_TARGET). List: $(NEWSPAPERS_TO_PROCESS_FILE).'
 	# tail -f $(BUILD_DIR)/collection.joblog to monitor per newspaper progress summary
 	@mkdir -p $(COLLECTION_TMPDIR)
-	+tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
+	$(if $(COLLECTION_LOG),@mkdir -p $(dir $(COLLECTION_LOG)) && ln -sfn $(notdir $(COLLECTION_LOG)) $(dir $(COLLECTION_LOG))collection-latest.log && printf '%s\n' 'INFO: Logging collection output to $(COLLECTION_LOG)')
+	+{ tr -s '[:space:]' '\n'  < $(NEWSPAPERS_TO_PROCESS_FILE) | \
 	parallel  --tag -v \
 	   --tmpdir $(COLLECTION_TMPDIR) \
 	   --progress \
@@ -261,7 +260,8 @@ collection: check-parallel newspaper-list-target | $(BUILD_DIR)
 	   $(COLLECTION_MEMFREE_OPTION) \
 	   $(COLLECTION_LOAD_OPTION) \
 	   $(PARALLEL_HALT) \
-	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)'
+	   'item={}; year=""; newspaper="$$item"; candidate="$${item##*/}"; case "$$item" in */*/*) if expr "$$candidate" : "[0-9][0-9][0-9][0-9]$$" >/dev/null; then newspaper="$${item%/*}"; year="$$candidate"; fi ;; esac; $(MAKE) $(MAKE_DRY_RUN_OPTION) -f $(firstword $(MAKEFILE_LIST)) COLLECTION_JOBS=$(COLLECTION_JOBS) NEWSPAPER_JOBS=$(NEWSPAPER_JOBS) NEWSPAPER="$$newspaper" NEWSPAPER_YEARS="$$year" NEWSPAPER_LOAD='"'"'$(NEWSPAPER_LOAD)'"'"' -k -j $(NEWSPAPER_JOBS) $(NEWSPAPER_LOAD_OPTION) $(COLLECTION_TARGET)' \
+	   $(COLLECTION_LOG_REDIRECT)
 
 define collection_newspaper_scope_target
 	+tr -s '[:space:]' '\n' < $(NEWSPAPERS_TO_PROCESS_FILE) | \
@@ -329,14 +329,10 @@ resync-collection: resync-collection-input resync-collection-output
 .PHONY: resync-collection
 
 help-orchestration::
-	@echo "  collection-xargs  # Process collection via xargs (fallback when GNU parallel is unavailable)"
-	@echo "  collection        # Process full impresso collection with parallel processing"
-	@echo "                    # Runs COLLECTION_TARGET (default: $(COLLECTION_TARGET)) for each item"
-	@echo "                    # Set COLLECTION_TARGET=all to force input/output resync before processing"
-	@echo "  clean-collection-input  # Remove input sync state for listed newspapers at newspaper scope"
-	@echo "  clean-collection-output # Remove output sync state for listed newspapers at newspaper scope"
-	@echo "  resync-collection-output # Refresh output sync state for listed newspapers at newspaper scope"
-	@echo "                    # Requires GNU parallel and a valid NEWSPAPERS_TO_PROCESS_FILE"
+	@echo "  make clean-collection-input      # Remove local input sync state for listed newspapers (GNU parallel)"
+	@echo "  make clean-collection-output     # Remove local output sync state for listed newspapers (GNU parallel)"
+	@echo "  make resync-collection-output    # Refresh local output sync state for listed newspapers (GNU parallel)"
+	@echo "  make help-newspaper-list         # Show list generation modes, filters, and file settings"
 
 
 .PHONY: collection

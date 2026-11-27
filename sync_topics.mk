@@ -26,8 +26,8 @@ sync-topics : $(LOCAL_TOPICS_SYNC_STAMP_FILE)
 help-sync::
 	@echo ""
 	@echo "TOPICS SYNC:"
-	@echo "  sync-topics    # Synchronize topic processing data from/to S3"
-	@echo "  upload-topic-descriptions # Upload gzip-compressed topic descriptions to the topic run root"
+	@echo "  make sync-topics                      # Synchronize topic processing data from/to S3"
+	@echo "  make upload-topic-descriptions        # Upload gzip-compressed topic descriptions to the topic run root"
 
 
 # VARIABLE: S3_PATH_TOPICS_RUN_ROOT
@@ -45,7 +45,7 @@ TOPICS_DESCRIPTIONS_DRY_RUN_OPTION ?=
 # TARGET: upload-topic-descriptions
 #: Uploads topic model descriptions as jsonl.gz run metadata files
 upload-topic-descriptions:
-	python3 lib/upload_topic_descriptions.py \
+	$(PYTHON) lib/upload_topic_descriptions.py \
 	  --s3-prefix $(S3_PATH_TOPICS_RUN_ROOT) \
 	  $(TOPICS_DESCRIPTIONS_DRY_RUN_OPTION) \
 	  $(if $(TOPICS_DE_CONFIG),--language-config de=$(TOPICS_DE_CONFIG),) \
@@ -78,6 +78,6 @@ clean-sync-topics:
 .PHONY: clean-sync-topics
 
 help-clean::
-	@echo "  clean-sync-topics # Remove local topics sync state for the selected scope"
+	@echo "  make clean-sync-topics                # Remove local topics sync state for the selected scope"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_topics.mk)

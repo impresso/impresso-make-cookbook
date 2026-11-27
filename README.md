@@ -4,8 +4,10 @@ Welcome to the Impresso Make-Based Offline (NLP) Processing Cookbook! This repos
 
 ## Table of Contents
 
+- [Collection Completeness Audit](#collection-completeness-audit)
 - [Build System Structure](#build-system-structure)
 - [Uploading to impresso S3 bucket](#uploading-to-impresso-s3-bucket)
+- [Deleting Newspaper Output From S3](#deleting-newspaper-output-from-s3)
 - [Processing Workflow Overview](#processing-workflow-overview)
   - [Key Features](#key-features)
     - [Data Storage on S3](#data-storage-on-s3)
@@ -37,6 +39,88 @@ python3 -m pip install git+https://github.com/impresso/impresso-make-cookbook.gi
 impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.git", ref = "main", subdirectory = "lib"}
 
 ```
+
+## Collection Completeness Audit
+
+The read-only `check_collection_completeness` CLI supports the
+`consolidatedcanonical` and `topics` profiles. The consolidatedcanonical profile
+compares canonical yearly issues and exact
+relative page/audio JSONL keys with consolidated output, checking nonzero sizes.
+It also reports missing issue prerequisites and active/stale WIP locks. It does
+not read JSONL contents or certify record completeness, schema validity, or
+freshness. Objects can change during a scan; audit again after workers finish.
+
+In the consolidated-canonical processing repository, the Make targets use the
+resolved processing configuration:
+
+```bash
+make check-collection-completeness CFG=configs/config_consolidatedcanonical_v2025-11-23_initial.mk
+make check-newspaper-completeness CFG=configs/config_consolidatedcanonical_v2025-11-23_initial.mk PROVIDER=BL NEWSPAPER=WTCH
+make help-completeness
+```
+
+The collection target reads the existing `NEWSPAPERS_TO_PROCESS_FILE` without
+regenerating it. Lists may contain whitespace-separated entries. For a single
+newspaper, `NEWSPAPER_YEARS="1900 1901"` restricts the audit in provider mode.
+Both targets accept `COMPLETENESS_STREAMS`, `COMPLETENESS_CONCURRENCY`, and
+`COMPLETENESS_REPORT_DIR` overrides. They do not run sync or processing targets.
+GNU Make reports a failure for either audit exit code 1 or 2; inspect the JSON
+`exit_code` to distinguish incomplete coverage from an audit error.
+
+With the cookbook Python package installed, the equivalent direct CLI is:
+
+```bash
+python3 -m impresso_cookbook.check_collection_completeness \
+  --task consolidatedcanonical \
+  --canonical-bucket "$S3_BUCKET_CANONICAL" \
+  --consolidated-bucket "$S3_BUCKET_CONSOLIDATEDCANONICAL" \
+  --run-version "$RUN_VERSION_CONSOLIDATEDCANONICAL" \
+  --langident-root "s3://$S3_BUCKET_LANGIDENT/$PROCESS_LABEL_LANGIDENT/$RUN_ID_LANGIDENT" \
+  --has-provider 1 \
+  --newspaper-list "$NEWSPAPERS_TO_PROCESS_FILE" \
+  --canonical-input-kind auto \
+  --wip-max-age "$CONSOLIDATEDCANONICAL_WIP_MAX_AGE" \
+  --output-dir build.d/reports/completeness/consolidatedcanonical
+```
+
+Set these shell variables to the resolved values from your processing
+configuration; the CLI does not load Make configuration files. S3 connection
+settings use the existing cookbook client and `.env` loading. Parents can include `completeness.mk` after task settings and set
+`COMPLETENESS_TASK := consolidatedcanonical`. The consolidated-canonical parent
+repository already includes it.
+
+Use `--newspaper BL/WTCH` instead of `--newspaper-list` for one item. Provider
+mode accepts `PROVIDER/NEWSPAPER` and `PROVIDER/NEWSPAPER/YEAR`; providerless mode
+(`--has-provider 0`) accepts newspaper names only. Blank lines and full-line
+comments are ignored, and overlapping scopes are merged before scanning.
+
+The default checks issues plus available pages/audios in `auto` mode. Pass the
+pipeline's `pages` or `audios` input kind when explicitly configured. Override
+with `--check-streams pages`, for example, to check only page copies; an explicitly
+selected empty stream is a blocker. `--langident-root` is required whenever
+issues are checked and points to the collection root **before** the provider or
+newspaper segment. `--concurrency` defaults to 16; reduce it to limit simultaneous
+inventories and memory use.
+
+Reports include JSON with per-stream/per-year missing and invalid keys,
+prerequisites, lock observations, resolved configuration, audit ID, and primary
+status counts; a TSV coverage summary; and missing/incomplete scope lists.
+Unexpected outputs cannot compensate for missing expected objects. Exit codes
+are `0` for complete coverage without blockers or active locks, `1` for remaining
+work or unverified completeness, and `2` for configuration, inventory, or report
+errors.
+
+Automatic repair is disabled. JSON identifies `repair_candidate` scopes, but
+`rerun_eligible` is false and `newspapers_rerun.txt` is empty until a tested repair
+adapter can refresh inputs, invalidate precise local stamps, and overwrite
+invalid outputs. Passing a missing/incomplete list to collection alone does not
+guarantee rebuilding remote gaps.
+
+Use a distinct report directory for concurrent audits. Consumers must require
+`report_complete.json` and match its audit ID to `completeness_report.json`;
+publication removes the previous marker before replacing files and writes the
+new marker last. A marker means report publication succeeded, not that coverage
+is complete: also inspect `exit_code`.
 
 ## Build System Structure
 
@@ -103,7 +187,7 @@ When using this cookbook in your repository (typically as a git submodule at `co
 2. Load `cookbook/help.mk` - help system
 3. Define config and user variables with `$(call log.info, VARIABLE_NAME)`
 4. Load `cookbook/make_settings.mk` - shell options and make settings
-5. Load `cookbook/setup.mk` - general setup
+5. Load `cookbook/setup.mk` - general setup (optionally `cookbook/setup_python.mk` for pip/pipenv/uv environment and `requirements.txt` targets)
 6. Load domain-specific includes (`newspaper_list.mk`, `paths_*.mk`, `sync_*.mk`, `processing_*.mk`)
 7. Load utilities (`local_to_s3.mk`)
 8. Load repo-specific addons LAST
@@ -144,7 +228,7 @@ help::
 - Use `help::` (double colon) so addons can extend help
 - Never define manual `log.info` or `log.debug` - use the functions from `log.mk`
 
-See [AGENT.md](AGENT.md) for detailed integration patterns and common mistakes.
+See [AGENTS.md](AGENTS.md) for detailed integration patterns and common mistakes.
 
 ## Uploading to impresso S3 bucket
 
@@ -158,7 +242,7 @@ Use AWS CLI with project-local config files so commands do not depend on global 
 
 Important distinction in this cookbook:
 
-- Most data uploads in processing/sampling recipes are done with `python3 -m impresso_cookbook.local_to_s3`.
+- Most data uploads in processing/sampling recipes are done with `$(PYTHON) -m impresso_cookbook.local_to_s3`.
 - AWS CLI is used mainly for setup, connectivity checks, bucket/prefix inspection, and occasional manual operations.
 - Do not replace `local_to_s3` upload steps in recipes unless you explicitly want to change reliability/verification behavior.
 
@@ -204,7 +288,7 @@ Typical AWS CLI use in this repository:
 
 Typical upload path in this repository:
 
-- Make recipes call `python3 -m impresso_cookbook.local_to_s3 ...` for file uploads
+- Make recipes call `$(PYTHON) -m impresso_cookbook.local_to_s3 ...` for file uploads
 
 ### 3. Quick connectivity test via Make
 
@@ -233,6 +317,34 @@ make install-aws
 ```
 
 - Keep `.aws/credentials` local to this repository and do not commit secrets.
+
+## Deleting Newspaper Output From S3
+
+`make show-delete-newspaper-s3` prints a dry-run `aws s3 rm` command for the
+newspaper-level output prefix (or prefixes) of the active `processing_*.mk`
+pipeline. It never calls AWS itself; a human reviews and runs the command.
+
+```bash
+make -s show-delete-newspaper-s3 PROVIDER=BL NEWSPAPER=WTCH
+```
+
+To delete several newspapers, loop over them and collect the commands in a
+script:
+
+```bash
+for np in oeuvre jdpl legaulois lematin lepji lepetitparisien oecaen oerennes; do
+  make -s show-delete-newspaper-s3 PROVIDER=BNF NEWSPAPER=$np | grep '^AWS_'
+done > delete_cmds.sh
+```
+
+Then:
+
+1. Review the S3 prefixes in `delete_cmds.sh` (bucket and run version come from
+   your `.env`, `config.local.mk`, or `CFG=...`).
+2. Run `sh delete_cmds.sh` to list what would be deleted (still `--dryrun`).
+3. Delete for real: `sed 's/ --dryrun$//' delete_cmds.sh | sh`
+4. Remove the corresponding local stamp files under `build.d/` (or run
+   `make resync-output`) so later runs do not treat the deleted output as present.
 
 ## Processing Workflow Overview
 
@@ -316,8 +428,8 @@ This design ensures that:
 ```make
 # Correct: Convert local input prerequisite to S3 URL, write output locally
 $(OUTPUT_FILE): $(INPUT_FILE)
-    python3 -m some_processor --infile $(call LocalToS3,$<,'') --outfile $@
-    python3 -m impresso_cookbook.local_to_s3 --upload $(call LocalToS3,$@,'') --keep-timestamp-only
+    $(PYTHON) -m some_processor --infile $(call LocalToS3,$<,'') --outfile $@
+    $(PYTHON) -m impresso_cookbook.local_to_s3 --upload $(call LocalToS3,$@,'') --keep-timestamp-only
 ```
 
 **Never** pass input prerequisite `$<` or `$^` directly to Python scripts for reading data - these may be zero-byte stamp files. Always use `$(call LocalToS3,...)` to read from S3. Output files `$@` can be written directly to local paths, then uploaded.
@@ -334,7 +446,7 @@ $(OUTPUT_FILE): $(INPUT_FILE)
 - **Custom Configurations**: Each machine uses local configuration files or environment variables to tailor processing behavior.
 - **Online Output Guards**: Long-running recipes should check the target S3 object immediately before expensive processing. Local sync stamps are useful for Make dependency planning, but an online check catches work completed by another machine after the last local sync.
 - **WIP Locks for Overlap**: When machines may process overlapping newspapers or years, use WIP-enabled recipes so only one worker starts a missing target. An existence-only check skips already completed output, but a WIP lock also covers the race where two workers start at nearly the same time.
-- **Multi-Machine S3 Sync & Re-scanning (`COLLECTION_TARGET`)**: Rebuilt input synchronization refreshes its S3 inventory on every invocation, preserving unchanged per-file timestamps. Its `.last_synced` marker records completion without suppressing later checks. Other sync modules can still skip remote checks when their `.last_synced` markers exist. To force workers to refresh all their sync state:
+- **Multi-Machine S3 Sync & Re-scanning (`COLLECTION_TARGET`)**: The `sync-*` operations refresh their selected S3 inventories on every invocation, even when `.last_synced` markers exist. These markers record successful completion; unchanged per-file and per-directory stamp timestamps are preserved. Each refresh performs S3 listing and metadata requests. Existing module-specific file filters, year selection, and dangling-stamp removal policies still apply. Ordinary `make newspaper` and default collection workers synchronize before starting processing in a separate Make invocation. For an explicit cleanup of local sync state before rediscovery:
   - For a single newspaper: use `make all NEWSPAPER=...` (runs `resync-input resync-output`, then `processing-target`).
   - For collection runs: use `make collection COLLECTION_TARGET=all` to enforce an input and output resync before processing each collection item.
   - To only resync inputs without processing across the whole collection: use `make collection COLLECTION_TARGET=resync-input`.
@@ -417,7 +529,7 @@ In this pattern:
 #   2 - WIP exists, skip processing (used to signal concurrent work in progress)
 #
 # Makefile Pattern for WIP Handling:
-#   python3 -m impresso_cookbook.local_to_s3 \
+#   $(PYTHON) -m impresso_cookbook.local_to_s3 \
 #       --s3-file-exists $(call LocalToS3,$@) \
 #       --create-wip --wip-max-age $(LANGIDENT_WIP_MAX_AGE) \
 #       --log-level $(LANGIDENT_LOGGING_LEVEL) \
@@ -549,12 +661,35 @@ If `make --version` does not report GNU Make 4+, use `gmake` for the commands be
    # This installs Python 3.11, pip, and pipenv
    ```
 
+   With uv, skip this step: `make setup-uv` only checks that uv is installed,
+   and `uv venv` fetches Python 3.11 itself if it is missing.
+
 5. **Install Python dependencies:**
 
    ```bash
-   pipenv install
-   # or
+   PIPENV_VENV_IN_PROJECT=enabled pipenv install
+   # or, inside an activated venv of your choice
    python3 -m pip install -r requirements.txt
+   # or, with uv (faster; creates .venv if missing)
+   make setup-venv-uv
+   ```
+
+   The `Pipfile` stays the source of truth for dependencies. uv only installs
+   the pinned `requirements.txt`; after changing the `Pipfile`, run
+   `make update-pip-requirements-file` first. `make sync-venv-uv` also removes
+   packages that are not in `requirements.txt`. Because the `Pipfile` tracks
+   `impresso-cookbook` at `ref = "main"`, regenerating `requirements.txt` also
+   moves that git pin to the current `main` commit.
+
+   Make uses the interpreter in `PYTHON`, resolved once in `make_settings.mk`:
+   an explicit `PYTHON=...` wins, then an activated venv (`pipenv shell` or
+   `pipenv run make`), then the project-local `.venv`, then `python3`. With
+   `PIPENV_VENV_IN_PROJECT=enabled` (set in `dotenv.sample`), `pipenv install`
+   creates `.venv`, so plain `make` works without activating anything. Check the
+   choice with:
+   
+   ```bash
+   make check-python-env
    ```
 
 6. **Configure AWS CLI:**
@@ -741,6 +876,10 @@ There must be at least six runnable collection items left in
 - `make refresh-newspaper-list`: Explicitly replace `NEWSPAPERS_TO_PROCESS_FILE` using current S3 discovery and filters; run before collection in a separate invocation. Failed or empty discovery preserves the existing list. This command also replaces a custom selection file if specified, so ordinary collection runs never call it automatically.
 - `make help-newspaper-list`: Show newspaper list generation modes and variables
 - `make update-pip-requirements-file`: Update requirements.txt from Pipfile
+- `make setup-uv`: Check that uv is installed (prints install hints otherwise)
+- `make create-venv-uv`: Create `VENV_PATH` with uv for Python 3.`PYTHON_MINOR_VERSION` if missing
+- `make setup-venv-uv`: Create `VENV_PATH` with uv if missing and install `requirements.txt` into it
+- `make sync-venv-uv`: Make `VENV_PATH` match `requirements.txt` exactly with uv
 
 ### Aggregation Targets
 
@@ -774,6 +913,9 @@ make lingproc-target NEWSPAPER=actionfem
 ```bash
 # Generate the collection processing plan
 make newspaper-list-target
+
+# Replace an existing plan with current S3 discovery (run separately, before collection)
+make refresh-newspaper-list
 
 # Process multiple newspapers using collection target
 make collection
@@ -1083,3 +1225,19 @@ This program is provided as open source under the [GNU Affero General Public Lic
 <p align="center">
   <img src="https://github.com/impresso/impresso.github.io/blob/master/assets/images/3x1--Yellow-Impresso-Black-on-White--transparent.png?raw=true" width="350" alt="Impresso Project Logo"/>
 </p>
+
+### Topic Completeness Profile
+
+Topic processing parents set `COMPLETENESS_TASK := topics` and include
+`completeness.mk` after their lingproc/topic paths and processing settings.
+The same `check-collection-completeness` and `check-newspaper-completeness`
+commands then compare lingproc year files with topic year files, using the
+configured buckets, run identifiers, and `TOPICS_WIP_MAX_AGE`. The topics profile
+also reports missing requested years, zero-byte sources, and active/stale locks.
+`COMPLETENESS_STREAMS` applies only to consolidatedcanonical.
+
+The standalone topics CLI takes `--task topics`, `--lingproc-root` and
+`--topics-root` (collection roots without a newspaper), plus the common selection,
+provider-mode, concurrency, lock-age, and report-directory options. Canonical
+bucket and consolidated run arguments are not required for topics. Audits remain
+read-only and do not certify record-level completeness.

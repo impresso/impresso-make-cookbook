@@ -94,7 +94,7 @@ $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	{ acquired_wip=0 ; \
 	  status=0 ; \
 	  if [ -n "$(NEWSAGENCIES_WIP_ENABLED)" ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip acquire \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip acquire \
 	      --s3-target $(call LocalToS3,$@) \
 	      --wip-max-age $(NEWSAGENCIES_WIP_MAX_AGE) \
 	      --log-level $(LOGGING_LEVEL) \
@@ -107,7 +107,7 @@ $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	      *) exit "$$status" ;; \
 	    esac ; \
 	  elif [ -z "$(NEWSAGENCIES_FORCE_OVERWRITE_OPTION)" ] && [ -z "$(NEWSAGENCIES_UPLOAD_IF_NEWER_OPTION)" ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      --s3-file-exists $(call LocalToS3,$@) \
 	      --exit-2-if-exists \
 	      --log-level $(LOGGING_LEVEL) || status=$$? ; \
@@ -118,14 +118,14 @@ $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	    esac ; \
 	  fi ; \
 	  status=0 ; \
-	  python3 lib/cli_newsagencies.py \
+	  $(PYTHON) lib/cli_newsagencies.py \
 	    --input $(call LocalToS3,$<) \
 	    --output $@ \
 	    --log-file $@.log.gz \
 	    --log-level $(LOGGING_LEVEL) \
 	    --hf-model $(HF_MODEL_NEWSAGENCIES) || status=$$? ; \
 	  if [ "$$status" -eq 0 ] ; then \
-	    python3 -m impresso_cookbook.local_to_s3 \
+	    $(PYTHON) -m impresso_cookbook.local_to_s3 \
 	      $(NEWSAGENCIES_FORCE_OVERWRITE_OPTION) $(NEWSAGENCIES_UPLOAD_IF_NEWER_OPTION) \
 	      $@        $(call LocalToS3,$@) \
 	      $@.log.gz $(call LocalToS3,$@).log.gz || status=$$? ; \
@@ -135,7 +135,7 @@ $(LOCAL_PATH_NEWSAGENCIES)/%.jsonl.bz2: $(LOCAL_PATH_REBUILT)/%.jsonl.bz2
 	  fi ; \
 	  release_status=0 ; \
 	  if [ "$$acquired_wip" -eq 1 ] ; then \
-	    python3 -m impresso_cookbook.manage_s3_wip release \
+	    $(PYTHON) -m impresso_cookbook.manage_s3_wip release \
 	      --s3-target $(call LocalToS3,$@) \
 	      --log-level $(LOGGING_LEVEL) || release_status=$$? ; \
 	  fi ; \

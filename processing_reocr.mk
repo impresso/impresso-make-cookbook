@@ -43,13 +43,13 @@ reocr-target: sync-reocr-input sync-reocr
 help-processing::
 	@echo ""
 	@echo "RE-OCR PROCESSING TARGETS:"
-	@echo "  reocr-target       # Sync input/output state, validate stale done markers, then process missing issue archives"
-	@echo "  reocr-files-target # Process local re-OCR input stamps into page outputs and done markers"
-	@echo "                     # Set REOCR_YEARS=1814 to process only selected canonical page years"
-	@echo "  collect-reocr-year # Collect page-level re-OCR JSON into newspaper-year JSONL.bz2 files"
-	@echo "                     # Set REOCR_COLLECT_YEARS=1814, or reuse REOCR_YEARS; empty means all local synced years"
-	@echo "  collect-reocr-stats # Report page integration counts without writing collected page archives"
-	@echo "  collection-reocr-stats # Report re-OCR coverage stats for all listed newspapers"
+	@echo "  make reocr-target                       # Sync input/output state, validate stale done markers, then process missing issue archives"
+	@echo "  make reocr-files-target                 # Process local re-OCR input stamps into page outputs and done markers"
+	@echo "                                          # Set REOCR_YEARS=1814 to process only selected canonical page years"
+	@echo "  make collect-reocr-year                 # Collect page-level re-OCR JSON into newspaper-year JSONL.bz2 files"
+	@echo "                                          # Set REOCR_COLLECT_YEARS=1814, or reuse REOCR_YEARS; empty means all local synced years"
+	@echo "  make collect-reocr-stats                # Report page integration counts without writing collected page archives"
+	@echo "  make collection-reocr-stats             # Report re-OCR coverage stats for all listed newspapers"
 
 reocr-files-target: $(LOCAL_reocr_DONE_FILES)
 	@if [ -z "$(strip $(LOCAL_REOCR_INPUT_STAMP_FILES))" ]; then \
@@ -127,6 +127,10 @@ $(LOCAL_PATH_reocr_STAMPS)/%.done: $(LOCAL_PATH_REOCR_INPUT)/%.jsonl.bz2
 	  --output-prefix $(S3_PATH_reocr) \
 	  --work-root $(LOCAL_PATH_reocr_WORK) \
 	  --done-marker $@ \
+	  --engine $(REOCR_ENGINE) \
+	  --segmentation $(REOCR_SEGMENTATION) \
+	  $(if $(PARSENET_CONFIG_reocr),--parsenet-config $(PARSENET_CONFIG_reocr)) \
+	  $(if $(PERO_MODEL_CONFIG_reocr),--pero-model $(PERO_MODEL_CONFIG_reocr)) \
 	  --tesseract-repo $(HF_TESSERACT_REPO_reocr) \
 	  --tesseract-model $(HF_TESSERACT_MODEL_reocr) \
 	  $(if $(TESSERACT_MODEL_URL_reocr),--tesseract-model-url $(TESSERACT_MODEL_URL_reocr)) \
@@ -208,5 +212,42 @@ $(LOCAL_PATH_reocr_COLLECTED_STATS)/%.stats.json: $(LOCAL_PATH_REOCR_INPUT)/%.la
 	  $@ $(S3_PATH_reocr_COLLECTED_STATS)/$*.stats.json \
 	  $(LOCAL_PATH_reocr_COLLECTED_LOGS)/$*.stats.log.gz $(S3_PATH_reocr_COLLECTED_LOGS)/$*.stats.log.gz \
 	|| { rm -vf $@ ; exit 1; }
+
+INPUT ?=
+PAGE_IDX ?=
+IMAGE ?=
+OUTPUT ?=
+ENGINE ?=
+MAX_LINES ?=
+REOCR_NO_LM ?=
+
+visualize-layout:
+	@if [ -z "$(INPUT)" ]; then \
+	  echo "ERROR: Missing INPUT. Usage: make visualize-layout INPUT=<s3_or_local_path> [PAGE_IDX=0] [OUTPUT=out.html]"; \
+	  exit 1; \
+	fi
+	$(PYTHON) benchmarks/visualize_layout.py \
+	  --input $(INPUT) \
+	  $(if $(PAGE_IDX),--page-idx $(PAGE_IDX)) \
+	  $(if $(IMAGE),--image $(IMAGE)) \
+	  $(if $(OUTPUT),--output $(OUTPUT))
+
+.PHONY: visualize-layout
+
+compare-lines:
+	@if [ -z "$(INPUT)" ]; then \
+	  echo "ERROR: Missing INPUT. Usage: make compare-lines INPUT=<s3_or_local_path> [ENGINE=pero] [PAGE_IDX=0] [OUTPUT=out.html]"; \
+	  exit 1; \
+	fi
+	$(PYTHON) benchmarks/compare_lines.py \
+	  --input $(INPUT) \
+	  $(if $(ENGINE),--engine $(ENGINE)) \
+	  $(if $(PAGE_IDX),--page-idx $(PAGE_IDX)) \
+	  $(if $(IMAGE),--image $(IMAGE)) \
+	  $(if $(MAX_LINES),--max-lines $(MAX_LINES)) \
+	  $(if $(OUTPUT),--output $(OUTPUT)) \
+	  $(if $(filter 1 true TRUE yes YES,$(REOCR_NO_LM)),--no-lm)
+
+.PHONY: compare-lines
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_reocr.mk)

@@ -90,19 +90,12 @@ NEWSPAPER_PREFIX ?=
 NEWSPAPER_FNMATCH ?=
   $(call log.info, NEWSPAPER_FNMATCH)
 
-help-orchestration::
-	@echo ""
-	@echo "NEWSPAPER LIST TARGETS:"
-	@echo "  newspaper-list-target # Discover collection items into $(NEWSPAPERS_TO_PROCESS_FILE)"
-	@echo "  refresh-newspaper-list # Replace the selected list with fresh S3 discovery (run before collection)"
-	@echo "  help-newspaper-list   # Show newspaper list generation modes and variables"
-
 help-newspaper-list:
 	@echo ""
 	@echo "NEWSPAPER LIST GENERATION:"
-	@echo "  newspaper-list-target       # Discover collection items into NEWSPAPERS_TO_PROCESS_FILE"
-	@echo "  refresh-newspaper-list      # Explicitly replace NEWSPAPERS_TO_PROCESS_FILE from S3"
-	@echo "  clean-newspaper-list-target # Remove generated list and log files"
+	@echo "  make newspaper-list-target       # Discover collection items into NEWSPAPERS_TO_PROCESS_FILE"
+	@echo "  make refresh-newspaper-list      # Explicitly replace NEWSPAPERS_TO_PROCESS_FILE from S3"
+	@echo "  make clean-newspaper-list-target # Remove generated list and log files"
 	@echo ""
 	@echo "OUTPUT FILES:"
 	@echo "  NEWSPAPERS_TO_PROCESS_FILE=$(NEWSPAPERS_TO_PROCESS_FILE)"
@@ -129,7 +122,7 @@ help-newspaper-list:
 	@echo ""
 	@echo "EXAMPLES:"
 	@echo "  make newspaper-list-target"
-	@echo "  make clean-newspaper-list-target newspaper-list-target"
+	@echo "  make refresh-newspaper-list  # Replace an existing list; keeps it if discovery fails or is empty"
 	@echo "  make newspaper-list-target NEWSPAPER_LIST_INCLUDE_YEARS=1 NEWSPAPER_LIST_YEAR_STEP=25"
 
 .PHONY: help-newspaper-list
@@ -161,7 +154,7 @@ define discover_newspaper_list
 mkdir -p $(dir $(NEWSPAPERS_TO_PROCESS_FILE)) $(dir $(NEWSPAPERS_TO_PROCESS_LOG_FILE)) && \
 list_tmp=$$(mktemp "$(NEWSPAPERS_TO_PROCESS_FILE).tmp.XXXXXX") && \
 trap 'rm -f "$$list_tmp"' EXIT && \
-$(STAMP_SYNC_PYTHON) cookbook/lib/list_newspapers.py \
+$(PYTHON) cookbook/lib/list_newspapers.py \
   --bucket $(S3_PREFIX_NEWSPAPERS_TO_PROCESS_BUCKET) \
   --output-file "$$list_tmp" \
   --log-file $(NEWSPAPERS_TO_PROCESS_LOG_FILE) \
@@ -223,8 +216,11 @@ ALL_NEWSPAPERS_INFO_PREVIEW := $(if $(word 5,$(ALL_NEWSPAPERS)),$(wordlist 1,3,$
 # patterns for the current per-year stamp conventions.
 filter_newspaper_year_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(strip $(NEWSPAPER_YEARS)),$(filter %-$(year).jsonl.bz2 %-$(year).stamp,$(1))),$(1))
 
-STAMP_SYNC_PYTHON ?= $(or $(PYTHON),python3)
-  $(call log.debug, STAMP_SYNC_PYTHON)
+
+# STAMP_SYNC_PYTHON was replaced by PYTHON (defined in make_settings.mk).
+ifneq ($(origin STAMP_SYNC_PYTHON),undefined)
+  $(warning STAMP_SYNC_PYTHON is no longer used; set PYTHON instead)
+endif
 
 # FUNCTION: newspaper_sync_stamp_file
 # Args:
@@ -262,14 +258,14 @@ newspaper_sync_clean_files = $(if $(strip $(NEWSPAPER_YEARS)),$(foreach year,$(s
 define sync_year_aware_per_file_stamps
 mkdir -p $(dir $(2)) && \
 if [ -n "$(strip $(NEWSPAPER_YEAR))" ]; then \
-  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+  $(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
     $(1)/$(notdir $(NEWSPAPER))-$(strip $(NEWSPAPER_YEAR)) \
     --local-dir $(BUILD_DIR) \
     --stamp-mode per-file \
     --logfile $(2).log.gz \
     $(3); \
 else \
-  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+  $(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
     $(1) \
     --local-dir $(BUILD_DIR) \
     --stamp-mode per-file \
@@ -288,14 +284,14 @@ endef
 define sync_year_aware_per_directory_stamps
 mkdir -p $(dir $(2)) && \
 if [ -n "$(strip $(NEWSPAPER_YEAR))" ]; then \
-  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+  $(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
     $(1)/$(3)-$(strip $(NEWSPAPER_YEAR)) \
     --local-dir $(BUILD_DIR) \
     --stamp-mode per-directory \
     --logfile $(2).log.gz \
     $(4); \
 else \
-  $(STAMP_SYNC_PYTHON) -m impresso_cookbook.s3_to_local_stamps \
+  $(PYTHON) -m impresso_cookbook.s3_to_local_stamps \
     $(1) \
     --local-dir $(BUILD_DIR) \
     --stamp-mode per-directory \

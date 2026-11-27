@@ -40,4 +40,7 @@ clean-sync-newsagencies:
 
 .PHONY: clean-sync-newsagencies
 
+help-clean::
+	@echo "  make clean-sync-newsagencies          # Remove local news-agencies sync stamp files"
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/sync_newsagencies.mk)

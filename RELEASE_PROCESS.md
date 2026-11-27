@@ -1,387 +1,94 @@
-# Release Process Guide
+# Release Process
 
-This document describes the process for creating and publishing releases for the Impresso Make Cookbook project.
+Releases are cut directly on `main` and follow [Semantic Versioning](https://semver.org/):
 
-## Table of Contents
+- **MAJOR**: breaking change for parent repositories (removed/renamed targets or
+  variables, changed S3 path or stamp conventions, changed defaults that alter outputs)
+- **MINOR**: new targets, variables, pipelines or helpers; backwards-compatible
+- **PATCH**: bug fixes only
 
-- [Release Workflow](#release-workflow)
-- [Version Numbering](#version-numbering)
-- [Preparing a Release](#preparing-a-release)
-- [Creating Release Notes](#creating-release-notes)
-- [Publishing a Release](#publishing-a-release)
-- [Post-Release Tasks](#post-release-tasks)
+Rule: the release notes are written and committed **before** tagging, so the tag,
+the repository and the GitHub release describe the same snapshot.
 
-## Release Workflow
+Use GNU Make 4+ (`gmake` on macOS). Below, `X.Y.Z` is the new version and `PREV`
+the last tag (`git describe --tags --abbrev=0`).
 
-### Overview
-
-Releases follow these general steps:
-
-1. **Prepare**: Review changes, update documentation, and test
-2. **Document**: Write comprehensive release notes in the repository
-3. **Commit**: Commit the release notes and any final version/documentation updates
-4. **Tag**: Create a git tag for that exact release commit
-5. **Publish**: Create a GitHub release from the committed release notes file
-6. **Announce**: Notify users and update installation instructions
-
-The key rule is to avoid writing or revising release notes after the release tag has
-already been created. The release notes file should be part of the tagged commit so
-that the repository state, the tag, and the published GitHub release all refer to the
-same snapshot.
-
-## Version Numbering
-
-This project follows [Semantic Versioning](https://semver.org/) (SemVer):
-
-```
-MAJOR.MINOR.PATCH
-```
-
-- **MAJOR**: Incompatible API changes or breaking changes
-- **MINOR**: New features, backwards-compatible
-- **PATCH**: Bug fixes, backwards-compatible
-
-### Examples
-
-- `1.0.0` → `2.0.0`: Breaking change (e.g., removed support for Python 3.10)
-- `1.0.0` → `1.1.0`: New feature (e.g., added topic modeling pipeline)
-- `1.0.0` → `1.0.1`: Bug fix (e.g., fixed S3 synchronization issue)
-
-### Pre-release Versions
-
-Pre-release versions can be tagged with additional labels:
-
-- `1.1.0-alpha.1`: Early testing version
-- `1.1.0-beta.1`: Feature-complete, testing phase
-- `1.1.0-rc.1`: Release candidate, final testing
-
-## Preparing a Release
-
-### 1. Review Changes
+## 1. Prepare
 
 ```bash
-# Compare with the last release tag
-git log v1.0.0..HEAD --oneline
-
-# Review file changes
-git diff v1.0.0..HEAD --stat
-
-# Check what's changed in specific areas
-git log v1.0.0..HEAD --oneline -- lib/
-git log v1.0.0..HEAD --oneline -- "*.mk"
+git switch main && git pull
+git log PREV..HEAD --oneline              # what goes into the release
 ```
 
-### 2. Update Documentation
+- Decide the version. Check the `[Unreleased]` section of `CHANGELOG.md` for
+  anything that breaks parent repositories; if so, it is a MAJOR release.
+- Move `[Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and leave an
+  empty `[Unreleased]` section above it.
+- Set `version = "X.Y.Z"` in `lib/pyproject.toml`.
+- Write `RELEASE_NOTES_vX.Y.Z.md`: a short overview, then the changelog content
+  regrouped for readers, plus a **Breaking changes / Migration** section that
+  tells parent repositories exactly what to change (omit it if there is nothing).
 
-- [ ] Update `CHANGELOG.md` with all changes since the last release
-- [ ] Update `README.md` if there are new features or changes to usage
-- [ ] Review and update any outdated documentation
-- [ ] Ensure all new features have documentation
-
-### 3. Update Version References
-
-Check and update version references in:
-
-- [ ] `README.md` (installation instructions)
-- [ ] `lib/pyproject.toml` (Python package version)
-- [ ] Any hardcoded version strings in scripts
-
-### 4. Test the Release
-
-Run comprehensive tests:
+## 2. Test
 
 ```bash
-# Test setup
-make setup
-
-# Test key pipelines
-make test-aws
-make check-spacy-pipelines
-make check-python-installation
-
-# Test a small newspaper if possible
-make newspaper NEWSPAPER=test_newspaper LOGGING_LEVEL=DEBUG
+gmake update-pip-requirements-file        # refresh requirements.txt from Pipfile
+.venv/bin/python -m pytest -q tests       # needs pytest in the venv (uv pip install pytest)
 ```
 
-## Creating Release Notes
-
-Release notes should be prepared before the tag is created and committed together with
-the final release-ready changes. The GitHub release description should then be created
-from that committed file instead of being written separately in the web interface.
-
-### Structure
-
-Release notes should include:
-
-1. **Overview**: Brief summary of the release
-2. **Major Features**: Significant new functionality
-3. **Technical Improvements**: Behind-the-scenes improvements
-4. **Bug Fixes**: Issues resolved
-5. **Breaking Changes**: Anything that breaks compatibility
-6. **Migration Guide**: How to upgrade from previous version
-7. **Known Issues**: Any known problems or limitations
-8. **Dependencies**: New or updated dependencies
-9. **Contributors**: People who contributed to this release
-
-### Template
-
-Use this template structure (see `RELEASE_NOTES_v1.1.0.md` as an example):
-
-```markdown
-# Release Notes - v1.X.0
-
-**Release Date:** YYYY-MM-DD
-**Tag:** v1.X.0
-**Status:** Stable / Pre-release
-
-## Overview
-
-Brief description of the release...
-
-## 🎯 Major Features
-
-### Feature Category 1
-
-- Description of feature
-- Key capabilities
-- Usage example
-
-## 🔧 Technical Improvements
-
-- List of technical improvements
-- Performance enhancements
-- Code quality improvements
-
-## 🐛 Bug Fixes
-
-- Issue #123: Description of fix
-- Fixed: Description of problem
-
-## ⚠️ Breaking Changes
-
-- Description of breaking change
-- Migration path
-
-## 📦 Dependencies
-
-- New dependencies
-- Updated dependencies
-
-## 🔄 Migration Guide
-
-Step-by-step guide for upgrading...
-
-## 🐛 Known Issues
-
-- Known issue 1
-- Known issue 2
-
-## 🔗 Links
-
-- Full Changelog: link
-- Documentation: link
-
-## 👥 Contributors
-
-- Contributor names and GitHub handles
-```
-
-### Generating Change Lists
-
-Use git to generate lists of changes:
+Then check a fresh install in a throwaway clone of the branch:
 
 ```bash
-# List all commits
-git log v1.0.0..HEAD --oneline
-
-# Group by component
-git log v1.0.0..HEAD --oneline -- lib/
-git log v1.0.0..HEAD --oneline -- "*_lingproc.mk"
-
-# Get commit authors
-git shortlog v1.0.0..HEAD -sn
-
-# Get file statistics
-git diff v1.0.0..HEAD --stat
-
-# List new files
-git diff v1.0.0..HEAD --name-status | grep "^A"
-
-# List modified files
-git diff v1.0.0..HEAD --name-status | grep "^M"
+D=$(mktemp -d) && git clone -q . "$D" && cd "$D"
+gmake setup-venv-uv && gmake check-python-env && gmake help
 ```
 
-## Publishing a Release
+If credentials are available, also run `gmake test-aws` and a small
+`gmake newspaper NEWSPAPER=<small-title>` in a parent repository.
 
-### 1. Commit Release Notes and Final Metadata
+Note: `requirements.txt` pins `impresso-cookbook` to the `main` commit that existed
+when it was regenerated, i.e. the commit *before* the release commit. That is
+expected; parent repositories should pin the cookbook by tag (see step 4).
 
-Before tagging, ensure the release notes file and any final documentation or version
-updates are committed:
+## 3. Commit, tag, publish
 
 ```bash
-git add CHANGELOG.md README.md RELEASE_NOTES_v1.1.0.md
-git commit -m "Prepare release v1.1.0"
+git add CHANGELOG.md lib/pyproject.toml requirements.txt RELEASE_NOTES_vX.Y.Z.md
+git commit -m "chore(release): vX.Y.Z"
+git push
+
+git tag -a vX.Y.Z -m "Release vX.Y.Z: <one-line summary>"
+git push origin vX.Y.Z
+
+gh release create vX.Y.Z --title "vX.Y.Z: <one-line summary>" \
+  --notes-file RELEASE_NOTES_vX.Y.Z.md
 ```
 
-This ensures the release notes are part of the exact commit that will be tagged.
+Use the same descriptive title for the tag and the GitHub release (not
+"April release"). To fix notes afterwards, commit the corrected file to `main` and
+run `gh release edit vX.Y.Z --notes-file RELEASE_NOTES_vX.Y.Z.md`; never move a tag.
 
-### 2. Create Git Tag
+## 4. Update parent repositories
+
+Most users consume the cookbook as a git submodule, so a release is only done once
+they can pick it up:
 
 ```bash
-# Create an annotated tag
-git tag -a v1.1.0 -m "Release v1.1.0: Description"
-
-# Push the tag
-git push origin v1.1.0
+# in each parent repository
+git -C cookbook fetch --tags && git -C cookbook checkout vX.Y.Z
+git add cookbook && git commit -m "chore: bump cookbook to vX.Y.Z"
 ```
 
-### 3. Create GitHub Release
+Parent repositories that install the Python package pin it by tag:
+`impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.git", ref = "vX.Y.Z", subdirectory = "lib"}`.
 
-#### Via GitHub Web Interface
+Tell the maintainers of the parent repositories about the release, and point
+them to the migration section if there is one.
 
-1. Go to https://github.com/impresso/impresso-make-cookbook/releases
-2. Click "Draft a new release"
-3. Select the tag you just created
-4. Fill in the release title: `v1.1.0` or descriptive name
-5. Paste the content of the committed `RELEASE_NOTES_v1.1.0.md` file into the description
-6. Check "Set as a pre-release" if applicable
-7. Click "Publish release"
+## Hotfix (PATCH) releases
 
-#### Via GitHub CLI
-
-```bash
-# Install gh CLI if needed
-# brew install gh  # macOS
-# apt install gh   # Ubuntu
-
-# Authenticate
-gh auth login
-
-# Create release from release notes file
-gh release create v1.1.0 \
-  --title "v1.1.0: Major expansion with new pipelines" \
-  --notes-file RELEASE_NOTES_v1.1.0.md \
-  --prerelease  # omit for stable release
-```
-
-Using `--notes-file` is preferred because it makes the GitHub release text come from
-the same file that is stored in git and included in the tagged release commit.
-
-### 4. Update Existing Release (if needed)
-
-If you need to improve release notes for an existing release:
-
-```bash
-# Update release notes
-gh release edit v1.1.0 \
-  --notes-file RELEASE_NOTES_v1.1.0.md
-
-# Or via web interface:
-# Go to the release page and click "Edit release"
-```
-
-This should be treated as a correction path, not the normal workflow. The normal path
-is to finalize and commit the release notes before creating the tag.
-
-## Post-Release Tasks
-
-### 1. Update Main Branch
-
-Ensure `CHANGELOG.md` and any documentation updates are on the main branch:
-
-```bash
-git checkout main
-git merge --no-ff release-branch
-git push origin main
-```
-
-### 2. Update Installation Instructions
-
-Verify that installation instructions work:
-
-```bash
-# Test pip installation
-python3 -m pip install "git+https://github.com/impresso/impresso-make-cookbook.git@v1.1.0#subdirectory=lib"
-
-# Test in Pipfile
-# impresso-cookbook = {git = "https://github.com/impresso/impresso-make-cookbook.git", ref = "v1.1.0", subdirectory = "lib"}
-```
-
-### 3. Announce Release
-
-- [ ] Update project documentation website (if applicable)
-- [ ] Notify team members
-- [ ] Post in relevant communication channels
-- [ ] Update any deployment automation
-
-### 4. Monitor for Issues
-
-After release:
-
-- Monitor GitHub issues for bug reports
-- Check discussion forums or communication channels
-- Be prepared to create patch releases if critical bugs are found
-
-## Hotfix Releases
-
-For critical bug fixes:
-
-1. Create a hotfix branch from the release tag:
-
-   ```bash
-   git checkout -b hotfix/1.1.1 v1.1.0
-   ```
-
-2. Make the fix and test thoroughly
-
-3. Create a patch release:
-
-   ```bash
-   git tag -a v1.1.1 -m "Hotfix: Description of critical fix"
-   git push origin v1.1.1
-   ```
-
-4. Create release with focused release notes on the fix
-
-5. Merge hotfix back to main:
-   ```bash
-   git checkout main
-   git merge --no-ff hotfix/1.1.1
-   git push origin main
-   ```
-
-## Checklist
-
-Use this checklist when preparing a release:
-
-- [ ] All tests pass
-- [ ] Documentation is updated
-- [ ] `CHANGELOG.md` is updated
-- [ ] Version numbers are updated where needed
-- [ ] `RELEASE_NOTES_vX.Y.Z.md` is written before tagging
-- [ ] Release notes are committed on the release commit
-- [ ] Git tag is created
-- [ ] GitHub release is created from the committed release notes file
-- [ ] Release notes follow the template
-- [ ] Installation instructions are verified
-- [ ] Team is notified
-- [ ] Known issues are documented
-
-## Tools and Resources
-
-- **GitHub CLI**: https://cli.github.com/
-- **Semantic Versioning**: https://semver.org/
-- **Keep a Changelog**: https://keepachangelog.com/
-- **Git Tagging**: https://git-scm.com/book/en/v2/Git-Basics-Tagging
-
-## Questions?
-
-If you have questions about the release process, please:
-
-- Review previous releases for examples
-- Check this guide
-- Ask the maintainers
-
----
-
-**Last Updated:** November 4, 2025
+Fix on `main` as usual, then follow steps 1–4 with a PATCH version and short
+release notes. If `main` already contains unreleased features that must not ship,
+branch from the tag instead (`git switch -c hotfix/X.Y.Z vPREV`), release from that
+branch the same way (release notes committed before tagging), then merge it back
+into `main`.

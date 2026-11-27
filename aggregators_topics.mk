@@ -27,7 +27,7 @@ TOPICS_AGGREGATION_LANGUAGES ?= $(TOPICS_LANGUAGES)
 # TARGET: aggregate-topics
 #: Builds topic aggregate products for each configured language
 aggregate-topics:
-	python3 lib/aggregate_topic_assignments.py \
+	$(PYTHON) lib/aggregate_topic_assignments.py \
 	  --s3-prefix $(S3_PATH_TOPICS_RUN_ROOT) \
 	  --output-prefix $(S3_PATH_TOPICS_AGGREGATED_PREFIX) \
 	  --languages $(TOPICS_AGGREGATION_LANGUAGES) \
@@ -41,7 +41,7 @@ aggregate: aggregate-topics
 
 help-aggregation::
 	@echo "TOPIC AGGREGATION:"
-	@echo "  aggregate-topics  # Build YTDF and DTCI topic aggregates per language"
+	@echo "  make aggregate-topics  # Build YTDF and DTCI topic aggregates per language"
 	@echo "                    # YTDF: yearly topic distribution fingerprint"
 	@echo "                    # DTCI: dominant topic content index"
 

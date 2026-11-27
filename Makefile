@@ -15,9 +15,17 @@ include log.mk
 # Main help index and debug inspection targets
 include help.mk
 
+# INCLUDE-FILES: make_settings.mk
+# Shell options, MAKEFLAGS, VENV_PATH and PYTHON resolution
+include make_settings.mk
+
 # INCLUDE-FILES: setup.mk
 # General setup targets
 include setup.mk
+
+# INCLUDE-FILES: setup_python.mk
+# Python environment setup and requirements.txt regeneration targets
+include setup_python.mk
 
 # INCLUDE-FILES: setup_lingproc.mk
 # Setup targets for linguistic processing environment

@@ -168,17 +168,17 @@ aggregate: aggregate-reocr-stats
 
 help-aggregation::
 	@echo "RE-OCR AGGREGATION:"
-	@echo "  aggregate-reocr-stats # Fast listing-only page JSON coverage aggregate"
+	@echo "  make aggregate-reocr-stats # Fast listing-only page JSON coverage aggregate"
 	@echo "                        # Set REOCR_AGGREGATE_NEWSPAPER=PROVIDER/NEWSPAPER or REOCR_AGGREGATE_YEARS='1865 1866' to filter"
 	@echo "                        # Writes scoped filenames such as __AGGREGATED_stats-pages_np-SNL-FZG.*"
 	@echo "                        # By default also compares against consolidated issue files under $(REOCR_AGGREGATE_CONSOLIDATED_ISSUES_PREFIX)"
 	@echo "                        # Set REOCR_AGGREGATE_COMPARE_CONSOLIDATED_ISSUES=0 to skip expected-page comparison"
 	@echo "                        # Set REOCR_AGGREGATE_INCLUDE_DONE_MARKERS=1 to also scan stamps"
 	@echo "                        # Set REOCR_AGGREGATE_UPLOAD_ENABLED=0 to keep outputs local only"
-	@echo "  aggregate-reocr-stats-fontclass # Slower aggregate that downloads page JSON files for fontclass stats"
+	@echo "  make aggregate-reocr-stats-fontclass # Slower aggregate that downloads page JSON files for fontclass stats"
 	@echo "                                  # Writes scoped stats-fontclass filenames and accepts the same filters"
-	@echo "  aggregate-reocr-stats-newspaper # Convenience wrapper; pass PROVIDER=<provider> NEWSPAPER=<paper>"
-	@echo "  sample-reocr-lines # Randomly sample line-level high/low confidence re-OCR examples"
+	@echo "  make aggregate-reocr-stats-newspaper # Convenience wrapper; pass PROVIDER=<provider> NEWSPAPER=<paper>"
+	@echo "  make sample-reocr-lines # Randomly sample line-level high/low confidence re-OCR examples"
 	@echo "                     # Defaults: REOCR_SAMPLE_PAGES=500 REOCR_SAMPLE_LINES_PER_PAGE=4"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/aggregators_reocr.mk)

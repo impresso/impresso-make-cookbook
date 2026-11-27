@@ -16,13 +16,13 @@ setup::
 # TARGET: check-spacy-pipelines
 # Validates spacy pipeline installations
 check-spacy-pipelines:
-	$(MAKE_SILENCE_RECIPE)python3 -m spacy validate || \
+	$(MAKE_SILENCE_RECIPE)$(PYTHON) -m spacy validate || \
 	{ echo "Spacy pipelines are not properly installed! Please install the required pipelines." ; exit 1; }
 
 .PHONY: check-spacy-pipelines
 
 help-setup::
-	@echo "  check-spacy-pipelines # Validate installed spaCy pipelines"
+	@echo "  make check-spacy-pipelines        # Validate installed spaCy pipelines"
 
 
 .PHONY: setup
@@ -32,13 +32,13 @@ help-setup::
 check-python-installation:
 	#
 	# TEST PYTHON INSTALLATION FOR mallet topic inference ...
-	python3 lib/test_jpype_installation.py || \
+	$(PYTHON) lib/test_jpype_installation.py || \
 	{ echo "Double check whether the required python packages are installed! or you running in the correct python environment!" ; exit 1; }
 	# OK: PYTHON ENVIRONMENT IS FINE!
 
 .PHONY:  check-python-installation
 
 help-setup::
-	@echo "  check-python-installation # Validate Python packages needed by topic inference"
+	@echo "  make check-python-installation    # Validate Python packages needed by topic inference"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_lingproc.mk)

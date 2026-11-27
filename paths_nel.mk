@@ -57,7 +57,11 @@ RUN_VERSION_NEL ?= v4-0-1
 # Unique identifier for the processing run
 #
 # Constructs a unique identifier based on the process label, task, model, and version.
-RUN_ID_NEL := $(TASK_NEL)-$(MODEL_ID_NEL)_$(RUN_VERSION_NEL)
+ifneq ($(strip $(MODEL_ID_NEL)$(RUN_VERSION_NEL)),)
+RUN_ID_NEL ?= $(TASK_NEL)-$(MODEL_ID_NEL)_$(RUN_VERSION_NEL)
+else
+RUN_ID_NEL ?= $(TASK_NEL)
+endif
   $(call log.debug, RUN_ID_NEL)
 
 

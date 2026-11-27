@@ -289,4 +289,20 @@ $(LOCAL_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/%.stamp: \
 		$(S3_PATH_CONSOLIDATEDCANONICAL_AUDIOS)/$*/ \
 	&& touch $@
 
+help-processing::
+	@echo ""
+	@echo "CONSOLIDATED CANONICAL PROCESSING:"
+	@echo "  make consolidatedcanonical-target       # Sync inputs, then consolidate issues and copy pages for one newspaper"
+	@echo "  make consolidatedcanonical-files-target # Build consolidated issue files and page stamps from already synced inputs"
+	@echo "  make show-delete-newspaper-s3           # Print a dry-run S3 deletion command for this newspaper's output"
+	@echo ""
+	@echo "CONSOLIDATED CANONICAL VARIABLES:"
+	@echo "  CONSOLIDATEDCANONICAL_VALIDATE_OPTION=$(CONSOLIDATEDCANONICAL_VALIDATE_OPTION)"
+	@echo "  CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION=$(CONSOLIDATEDCANONICAL_UPLOAD_IF_NEWER_OPTION)"
+	@echo "  CONSOLIDATEDCANONICAL_WIP_ENABLED=$(CONSOLIDATEDCANONICAL_WIP_ENABLED)"
+	@echo "  CONSOLIDATEDCANONICAL_WIP_MAX_AGE=$(CONSOLIDATEDCANONICAL_WIP_MAX_AGE)"
+	@echo "  CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION=$(CONSOLIDATEDCANONICAL_FORCE_OVERWRITE_OPTION)"
+	@echo "  S3_DELETE_NEWSPAPER_PREFIX=$(S3_DELETE_NEWSPAPER_PREFIX)"
+
+
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/processing_consolidatedcanonical.mk)

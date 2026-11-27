@@ -2,7 +2,8 @@ $(call log.debug, COOKBOOK BEGIN INCLUDE: cookbook/setup_python.mk)
 
 ###############################################################################
 # PYTHON SETUP TARGETS
-# Targets for setting up the Python environment including pip and pipenv
+# Targets for setting up the Python environment with pip and pipenv, or
+# optionally uv (see UV SUPPORT), and for regenerating requirements.txt
 ###############################################################################
 
 # DOUBLE COLON TARGET specifications
@@ -12,7 +13,7 @@ setup:: setup-python-env
 setup-python-env: setup-python setup-pip setup-pipenv check-venv-filesystem
 
 help-setup::
-	@echo "  setup-python-env # Set up the Python environment including pip and pipenv"
+	@echo "  make setup-python-env             # Set up the Python environment including pip and pipenv"
 
 # USER-VARIABLE: SYSTEM_PYTHON
 # System interpreter used to bootstrap the environment. Only a plain python3 is
@@ -20,11 +21,12 @@ help-setup::
 SYSTEM_PYTHON ?= python3
   $(call log.debug, SYSTEM_PYTHON)
 
-PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,$(SYSTEM_PYTHON))
-  $(call log.info, PYTHON)
+# USER-VARIABLE: PYTHON_MINOR_VERSION
+# Python 3 minor version for the uv venv targets below.
+PYTHON_MINOR_VERSION ?= 11
+  $(call log.debug, PYTHON_MINOR_VERSION)
 
-# Export PYTHON so it's available in recursive make calls and subshells
-export PYTHON
+# PYTHON and VENV_PATH are defined in make_settings.mk.
 
 
 # TARGET: setup-python
@@ -57,8 +59,8 @@ setup-pip:
 .PHONY: setup-pip
 
 help-setup::
-	@echo "  setup-python     # Check that $(SYSTEM_PYTHON) is available"
-	@echo "  setup-pip        # Check that pip works for $(PYTHON)"
+	@echo "  make setup-python                 # Check that $(SYSTEM_PYTHON) is available"
+	@echo "  make setup-pip                    # Check that pip works for $(PYTHON)"
 
 
 # TARGET: setup-pipenv
@@ -74,7 +76,7 @@ setup-pipenv:
 .PHONY: setup-pipenv
 
 help-setup::
-	@echo "  setup-pipenv     # Report pipenv availability (needed only to regenerate requirements.txt)"
+	@echo "  make setup-pipenv                 # Report pipenv availability (needed only to regenerate requirements.txt)"
 
 
 # TARGET: check-venv-filesystem
@@ -115,7 +117,7 @@ endif
 .PHONY: check-venv-filesystem
 
 help-setup::
-	@echo "  check-venv-filesystem # Check if venv is on network filesystem (Linux only)"
+	@echo "  make check-venv-filesystem        # Check if venv is on network filesystem (Linux only)"
 
 
 # TARGET: setup-pip-requirements
@@ -130,7 +132,7 @@ setup-pip-requirements:
 .PHONY: setup-pip-requirements
 
 help-setup::
-	@echo "  setup-pip-requirements # Update requirements.txt from pipenv lock data"
+	@echo "  make setup-pip-requirements       # Update requirements.txt from pipenv lock data"
 
 # TARGET: update-pip-requirements-file
 #: Lock dependencies and regenerate requirements.txt using the project root Pipfile
@@ -144,7 +146,74 @@ update-pip-requirements-file:
 .PHONY: update-pip-requirements-file
 
 help-setup::
-	@echo "  update-pip-requirements-file # Lock deps and regenerate requirements.txt"
+	@echo "  make update-pip-requirements-file # Lock deps and regenerate requirements.txt"
+
+
+###
+# UV SUPPORT
+# Optional fast alternative to pip for creating and filling the venv.
+# Pipfile stays the source of truth; uv installs from requirements.txt.
+#------------------------------------------------------------------------------
+
+# USER-VARIABLE: UV
+# uv executable used by the uv targets
+UV ?= uv
+  $(call log.debug, UV)
+
+# USER-VARIABLE: UV_REQUIREMENTS_FILE
+# Requirements file that the uv targets install into VENV_PATH
+UV_REQUIREMENTS_FILE ?= requirements.txt
+  $(call log.debug, UV_REQUIREMENTS_FILE)
+
+
+# TARGET: setup-uv
+#: Checks that uv is available and prints install hints otherwise
+#
+# uv is not installed automatically: pip --user installs are refused by
+# externally managed Pythons (PEP 668, e.g. Homebrew or Debian 12+).
+setup-uv:
+	@if ! command -v $(UV) > /dev/null; then \
+		echo "ERROR: uv not found (UV=$(UV)). Install it with one of:" >&2; \
+		echo "  brew install uv" >&2; \
+		echo "  pipx install uv" >&2; \
+		echo "  curl -LsSf https://astral.sh/uv/install.sh | sh" >&2; \
+		exit 1; \
+	fi
+	@echo "uv found: $$(command -v $(UV)) ($$($(UV) --version))"
+
+.PHONY: setup-uv
+
+
+# TARGET: create-venv-uv
+#: Creates VENV_PATH with uv for Python 3.$(PYTHON_MINOR_VERSION) if it does not exist
+create-venv-uv: setup-uv
+	if [ ! -x "$(VENV_PATH)/bin/python" ]; then \
+		$(UV) venv --python 3.$(PYTHON_MINOR_VERSION) "$(VENV_PATH)" ; \
+	fi
+
+.PHONY: create-venv-uv
+
+
+# TARGET: setup-venv-uv
+#: Creates VENV_PATH with uv (if missing) and installs UV_REQUIREMENTS_FILE into it
+setup-venv-uv: create-venv-uv
+	$(UV) pip install --python "$(VENV_PATH)/bin/python" -r "$(UV_REQUIREMENTS_FILE)"
+
+.PHONY: setup-venv-uv
+
+
+# TARGET: sync-venv-uv
+#: Makes VENV_PATH match UV_REQUIREMENTS_FILE exactly (removes extra packages)
+sync-venv-uv: create-venv-uv
+	$(UV) pip sync --python "$(VENV_PATH)/bin/python" "$(UV_REQUIREMENTS_FILE)"
+
+.PHONY: sync-venv-uv
+
+help-setup::
+	@echo "  make setup-uv                     # Check that uv is available (prints install hints otherwise)"
+	@echo "  make create-venv-uv               # Create $(VENV_PATH) with uv for Python 3.$(PYTHON_MINOR_VERSION) if missing"
+	@echo "  make setup-venv-uv                # Create $(VENV_PATH) with uv and install $(UV_REQUIREMENTS_FILE)"
+	@echo "  make sync-venv-uv                 # Make $(VENV_PATH) match $(UV_REQUIREMENTS_FILE) exactly"
 
 
 # TARGET: clean-setup
@@ -156,6 +225,6 @@ clean-setup::
 .PHONY: clean-setup
 
 help-setup::
-	@echo "  clean-setup     # Remove local Python setup/cache artifacts"
+	@echo "  make clean-setup                  # Remove local Python setup/cache artifacts"
 
 $(call log.debug, COOKBOOK END INCLUDE: cookbook/setup_python.mk)
